@@ -25,7 +25,13 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const initials = userEmail?.slice(0, 2).toUpperCase() ?? "EV";
-  const navItems = getMainNav(activeEventId);
+  
+  // Extract event ID from pathname if we are inside an event (e.g. /dashboard/events/[id]/...)
+  const eventIdMatch = pathname.match(/^\/dashboard\/events\/([^/]+)/);
+  const isNewEvent = pathname === "/dashboard/events/new";
+  const contextualEventId = (eventIdMatch && !isNewEvent) ? eventIdMatch[1] : activeEventId;
+
+  const navItems = getMainNav(contextualEventId);
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">

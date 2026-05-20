@@ -66,8 +66,8 @@ export function SeatingPlanner({
     return a.sort_order - b.sort_order;
   });
 
-  const sweetheartTables = sortedTables.filter((t) => t.shape === "sweetheart");
-  const regularTables = sortedTables.filter((t) => t.shape !== "sweetheart");
+  const _sweetheartTables = sortedTables.filter((t) => t.shape === "sweetheart");
+  const _regularTables = sortedTables.filter((t) => t.shape !== "sweetheart");
 
   // Handle assigning a guest to a table (click guest then click table)
   const handleTableClick = useCallback(

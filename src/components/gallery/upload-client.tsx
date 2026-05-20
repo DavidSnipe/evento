@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, type FileRejection } from "react-dropzone";
 import { UploadCloud, CheckCircle2, Loader2, X, ImagePlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ export function UploadClient({ eventId }: { eventId: string }) {
 
   const supabase = createClient();
 
-  const onDrop = useCallback((acceptedFiles: File[], fileRejections: any[]) => {
+  const onDrop = useCallback((acceptedFiles: File[], fileRejections: FileRejection[]) => {
     setError(null);
     if (fileRejections.length > 0) {
       setError("Unele fișiere sunt prea mari sau au format nepermis.");

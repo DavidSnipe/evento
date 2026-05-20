@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarHeart, CircleDollarSign, Plus, Users } from "lucide-react";
+import { CalendarHeart, Plus, Users } from "lucide-react";
 
 import { EventCard } from "@/components/events/event-card";
 import { DashboardHeader } from "@/components/layout/dashboard-header";

@@ -86,7 +86,6 @@ export function EventForm({ mode, event, action }: EventFormProps) {
                   mode="single"
                   selected={date}
                   onSelect={setDate}
-                  initialFocus
                   locale={roLocale}
                 />
               </PopoverContent>

@@ -16,9 +16,10 @@ export function TagBadge({ tag, size = "sm", onRemove }: TagBadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border font-medium transition-all duration-200",
+        "inline-flex items-center gap-1 rounded-full border font-medium transition-all duration-200 ease-out",
         config.color,
-        size === "sm" ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-xs"
+        size === "sm" ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-xs",
+        onRemove && "hover:scale-[1.03] active:scale-95 cursor-default"
       )}
     >
       <span className="leading-none">{config.icon}</span>

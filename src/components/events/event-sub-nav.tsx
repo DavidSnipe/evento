@@ -32,9 +32,9 @@ export function EventSubNav({ eventId }: EventSubNavProps) {
             key={tab.href}
             href={tab.href}
             className={cn(
-              "rounded-xl px-4 py-2 text-sm font-medium transition-all",
+              "rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ease-out hover:scale-[1.01] active:scale-[0.98]",
               isActive
-                ? "bg-primary/20 text-foreground shadow-sm"
+                ? "bg-primary/20 text-foreground shadow-sm scale-[1.02]"
                 : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
             )}
           >

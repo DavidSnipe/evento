@@ -1,4 +1,5 @@
 import { GuestDatabase } from "@/components/guests/guest-database";
+import { AnimatedPage } from "@/components/layout/animated-page";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { requireEvent } from "@/lib/events/verify-event";
 import { getGuestStats, getGuestsByEvent } from "@/lib/guests/queries";
@@ -20,7 +21,7 @@ export default async function GuestsPage({ params }: GuestsPageProps) {
   ]);
 
   return (
-    <>
+    <AnimatedPage className="space-y-6">
       <DashboardHeader
         title={ro.guests.title}
         description={`${event.title} · ${ro.guests.subtitle}`}
@@ -32,6 +33,6 @@ export default async function GuestsPage({ params }: GuestsPageProps) {
         tables={tables}
         stats={stats}
       />
-    </>
+    </AnimatedPage>
   );
 }

@@ -39,6 +39,11 @@
   --animate-shimmer: shimmer 2s infinite linear;
   --animate-slide-in: slideIn 0.2s ease-out;
   --animate-soft-pulse: soft-pulse 2.5s ease-in-out infinite;
+  --animate-fade-in: fadeIn 0.3s ease-out both;
+  --animate-fade-in-up: fadeInUp 0.35s ease-out both;
+  --animate-fade-in-down: fadeInDown 0.25s ease-out both;
+  --animate-scale-in: scaleIn 0.2s ease-out both;
+  --animate-gentle-float: gentleFloat 5s ease-in-out infinite;
 
   @keyframes shimmer {
     0% {
@@ -66,6 +71,53 @@
     }
     50% {
       opacity: 0.75;
+    }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes gentleFloat {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
     }
   }
 }
@@ -139,5 +191,17 @@
 
   .text-gradient-gold {
     @apply bg-gradient-to-r from-[hsl(38,48%,58%)] to-[hsl(350,42%,72%)] bg-clip-text text-transparent;
+  }
+
+  .hover-lift {
+    @apply transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/8;
+  }
+
+  .press-scale {
+    @apply transition-transform duration-150 ease-out active:scale-[0.97];
+  }
+
+  .focus-glow {
+    @apply transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-primary/15 focus-visible:shadow-[0_0_0_3px_hsl(350_42%_72%/0.06)];
   }
 }

@@ -119,7 +119,7 @@ export function GuestDetailPanel({
       {/* Backdrop */}
       <div
         className={cn(
-          "fixed inset-0 bg-black/30 transition-opacity duration-200",
+          "fixed inset-0 bg-black/30 transition-opacity duration-300 ease-out",
           isVisible ? "opacity-100" : "opacity-0"
         )}
         style={{ zIndex: 9998 }}
@@ -130,7 +130,7 @@ export function GuestDetailPanel({
       <div
         className={cn(
           // Desktop
-          "fixed top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl transition-transform duration-300 ease-out flex flex-col",
+          "fixed top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] flex flex-col",
           "hidden md:flex",
           isVisible ? "translate-x-0" : "translate-x-full"
         )}
@@ -158,7 +158,7 @@ export function GuestDetailPanel({
       {/* Mobile bottom sheet */}
       <div
         className={cn(
-          "fixed inset-x-0 bottom-0 max-h-[90vh] rounded-t-3xl bg-white shadow-2xl transition-transform duration-300 ease-out flex flex-col",
+          "fixed inset-x-0 bottom-0 max-h-[90vh] rounded-t-3xl bg-white shadow-2xl transition-transform duration-400 ease-[cubic-bezier(0.32,0.72,0,1)] flex flex-col",
           "flex md:hidden",
           isVisible ? "translate-y-0" : "translate-y-full"
         )}
@@ -310,7 +310,7 @@ function PanelContent({
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
         {/* RSVP */}
-        <div>
+        <div className="animate-fade-in-up" style={{ animationDelay: "30ms" }}>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Status RSVP
           </p>
@@ -323,7 +323,7 @@ function PanelContent({
         </div>
 
         {/* Tags */}
-        <div>
+        <div className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Tag-uri
           </p>
@@ -352,7 +352,7 @@ function PanelContent({
         </div>
 
         {/* Contact (Inline Editable) */}
-        <div>
+        <div className="animate-fade-in-up" style={{ animationDelay: "90ms" }}>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Contact
           </p>
@@ -393,7 +393,7 @@ function PanelContent({
         </div>
 
         {/* Table */}
-        <div>
+        <div className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Masă
           </p>
@@ -414,7 +414,7 @@ function PanelContent({
         </div>
 
         {/* Group */}
-        <div>
+        <div className="animate-fade-in-up" style={{ animationDelay: "150ms" }}>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Grup
           </p>
@@ -434,7 +434,7 @@ function PanelContent({
         </div>
 
         {/* Associated Guests (Sub-Guests Relationship Management) */}
-        <div className="border-t border-border/20 pt-5">
+        <div className="border-t border-border/20 pt-5 animate-fade-in-up" style={{ animationDelay: "180ms" }}>
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Membri asociați (Cuplu / Familie)
@@ -529,7 +529,7 @@ function PanelContent({
         </div>
 
         {/* Dietary */}
-        <div>
+        <div className="animate-fade-in-up" style={{ animationDelay: "210ms" }}>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center">
             <UtensilsCrossed className="mr-1.5 h-3.5 w-3.5" />
             Preferințe alimentare
@@ -550,7 +550,7 @@ function PanelContent({
         </div>
 
         {/* Notes */}
-        <div>
+        <div className="animate-fade-in-up" style={{ animationDelay: "240ms" }}>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center">
             <StickyNote className="mr-1.5 h-3.5 w-3.5" />
             Note
@@ -571,7 +571,7 @@ function PanelContent({
         </div>
 
         {/* Added date */}
-        <p className="text-xs text-muted-foreground/60">
+        <p className="text-xs text-muted-foreground/60 animate-fade-in-up" style={{ animationDelay: "270ms" }}>
           Adăugat pe {new Date(guest.created_at).toLocaleDateString("ro-RO", {
             day: "numeric",
             month: "long",
@@ -583,7 +583,8 @@ function PanelContent({
         <button
           type="button"
           onClick={onDelete}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-destructive/30 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/5"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-destructive/30 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/5 animate-fade-in-up"
+          style={{ animationDelay: "300ms" }}
         >
           <Trash2 className="h-4 w-4" />
           Șterge invitatul

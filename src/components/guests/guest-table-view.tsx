@@ -178,7 +178,7 @@ export function TablePicker({ selectedTableId, tables, onChange, readonly }: Tab
             left: `${coords.left}px`,
             zIndex: 99999,
           }}
-          className="w-44 rounded-xl border border-border/50 bg-white p-1 shadow-lg animate-in fade-in-0 zoom-in-95 duration-150"
+          className="w-44 rounded-xl border border-border/40 bg-white/95 p-1 shadow-xl shadow-black/5 backdrop-blur-sm animate-in fade-in-0 zoom-in-95 duration-100 ease-out"
         >
           <div className="p-1">
             <input
@@ -312,11 +312,12 @@ export function GuestTableView({
             </tr>
           </thead>
           <tbody className="divide-y divide-border/20">
-            {guests.map((guest) => (
+            {guests.map((guest, index) => (
               <GuestRow
                 key={guest.id}
                 guest={guest}
                 tables={tables}
+                index={index}
                 isSelected={selectedIds.has(guest.id)}
                 isSyncing={syncingIds.has(guest.id)}
                 onToggleSelect={onToggleSelect}
@@ -332,10 +333,11 @@ export function GuestTableView({
 
       {/* Mobile Card List */}
       <div className="md:hidden divide-y divide-border/20">
-        {guests.map((guest) => (
+        {guests.map((guest, index) => (
           <MobileGuestRow
             key={guest.id}
             guest={guest}
+            index={index}
             isSelected={selectedIds.has(guest.id)}
             isSyncing={syncingIds.has(guest.id)}
             onToggleSelect={onToggleSelect}
@@ -365,6 +367,7 @@ type GuestRowProps = {
   onTableChange: (id: string, tableId: string | null) => void;
   onDelete: (id: string) => void;
   onClick: (guest: GuestWithTable) => void;
+  index: number;
 };
 
 const GuestRow = React.memo(
@@ -378,6 +381,7 @@ const GuestRow = React.memo(
     onTableChange,
     onDelete,
     onClick,
+    index,
   }: GuestRowProps) {
     const [showMenu, setShowMenu] = useState(false);
     const triggerRef = useRef<HTMLButtonElement>(null);
@@ -459,12 +463,16 @@ const GuestRow = React.memo(
       console.log(`[GuestRow] Rendered guest: ${guest.first_name} ${guest.last_name || ""}`);
     }
 
+    const shouldAnimate = index < 10;
+
     return (
       <tr
         onClick={handleRowClick}
+        style={shouldAnimate ? { animationDelay: `${index * 30}ms` } : undefined}
         className={cn(
-          "group cursor-pointer transition-colors border-b border-border/10 last:border-0 animate-slide-in",
-          isSelected ? "bg-primary/5" : "even:bg-muted/5 odd:bg-transparent hover:bg-muted/20",
+          "group cursor-pointer transition-colors duration-200 border-b border-border/10 last:border-0",
+          shouldAnimate ? "animate-fade-in-up" : "opacity-100",
+          isSelected ? "bg-primary/5" : "even:bg-muted/5 odd:bg-transparent hover:bg-primary/[0.03]",
           isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85",
           isSyncing && "animate-soft-pulse"
         ) }
@@ -554,7 +562,7 @@ const GuestRow = React.memo(
                   left: `${coords.left}px`,
                   zIndex: 99999,
                 }}
-                className="w-36 rounded-xl border border-border/50 bg-white p-1 shadow-lg animate-in fade-in-0 zoom-in-95 duration-150"
+                className="w-36 rounded-xl border border-border/40 bg-white/95 p-1 shadow-xl shadow-black/5 backdrop-blur-sm animate-in fade-in-0 zoom-in-95 duration-100 ease-out"
               >
                 <button
                   type="button"
@@ -621,6 +629,7 @@ type MobileGuestRowProps = {
   onToggleSelect: (id: string) => void;
   onRsvpChange: (id: string, status: RsvpStatus) => void;
   onClick: (guest: GuestWithTable) => void;
+  index: number;
 };
 
 const MobileGuestRow = React.memo(
@@ -631,6 +640,7 @@ const MobileGuestRow = React.memo(
     onToggleSelect,
     onRsvpChange,
     onClick,
+    index,
   }: MobileGuestRowProps) {
     const { mainName, subtext } = formatGuestName(guest);
     const initials = getInitials(guest);
@@ -659,11 +669,15 @@ const MobileGuestRow = React.memo(
       console.log(`[MobileGuestRow] Rendered guest: ${guest.first_name} ${guest.last_name || ""}`);
     }
 
+    const shouldAnimate = index < 10;
+
     return (
       <div
         onClick={handleRowClick}
+        style={shouldAnimate ? { animationDelay: `${index * 30}ms` } : undefined}
         className={cn(
-          "flex items-center gap-3 px-4 py-3 transition-colors active:bg-muted/30 animate-slide-in",
+          "flex items-center gap-3 px-4 py-3 transition-colors duration-200 active:bg-muted/30",
+          shouldAnimate ? "animate-fade-in-up" : "opacity-100",
           isSelected && "bg-primary/5",
           isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85",
           isSyncing && "animate-soft-pulse"

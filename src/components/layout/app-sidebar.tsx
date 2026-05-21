@@ -69,7 +69,7 @@ export function AppSidebar({
             return (
               <span
                 key={item.href}
-                className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground/60"
+                className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground/40 transition-opacity duration-200"
                 title={ro.nav.comingSoon}
               >
                 <Icon className="h-4 w-4" />
@@ -86,10 +86,10 @@ export function AppSidebar({
               key={item.href + item.title}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out hover:scale-[1.01] active:scale-[0.98]",
                 isActive
-                  ? "bg-primary/20 text-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                  ? "bg-primary/20 text-foreground shadow-sm scale-[1.02]"
+                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground hover:translate-x-0.5"
               )}
             >
               <Icon className="h-4 w-4" />

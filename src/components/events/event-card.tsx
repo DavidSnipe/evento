@@ -10,17 +10,20 @@ import type { EventRow } from "@/types/events";
 type EventCardProps = {
   event: EventRow;
   isActive?: boolean;
+  index?: number;
 };
 
-export function EventCard({ event, isActive }: EventCardProps) {
+export function EventCard({ event, isActive, index = 0 }: EventCardProps) {
   const days = getDaysUntil(event.event_date);
   const formattedDate = formatEventDate(event.event_date);
+  const delay = `${index * 50}ms`;
 
   return (
     <Link
       href={`/dashboard/events/${event.id}`}
+      style={{ animationDelay: delay }}
       className={cn(
-        "glass-panel block p-6 transition-all duration-200 hover:shadow-xl hover:shadow-primary/10",
+        "glass-panel block p-6 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/8 active:scale-[0.99] animate-fade-in-up",
         isActive && "ring-2 ring-primary/40"
       )}
     >

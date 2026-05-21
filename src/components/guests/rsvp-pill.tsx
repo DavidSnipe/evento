@@ -76,7 +76,7 @@ export function RsvpPill({ status, onChange, readonly, isSyncing }: RsvpPillProp
         type="button"
         onClick={() => !readonly && setIsOpen(!isOpen)}
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all duration-200",
+          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all duration-300 ease-out",
           config.bg, config.text,
           !readonly && "cursor-pointer hover:shadow-sm active:scale-95",
           isSyncing && "animate-soft-pulse opacity-85"
@@ -95,7 +95,7 @@ export function RsvpPill({ status, onChange, readonly, isSyncing }: RsvpPillProp
             left: `${coords.left}px`,
             zIndex: 99999,
           }}
-          className="w-36 rounded-xl border border-border/50 bg-white p-1 shadow-lg animate-in fade-in-0 zoom-in-95 duration-150"
+          className="w-36 rounded-xl border border-border/40 bg-white/95 p-1 shadow-xl shadow-black/5 backdrop-blur-sm animate-in fade-in-0 zoom-in-95 duration-100 ease-out"
         >
           {(Object.keys(RSVP_CONFIG) as RsvpStatus[]).map((s) => {
             const c = RSVP_CONFIG[s];

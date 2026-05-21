@@ -425,7 +425,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
       {/* Modal */}
       <div
         className={cn(
-          "fixed inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl md:max-h-[85vh] flex flex-col rounded-3xl bg-white shadow-2xl transition-all duration-300",
+          "fixed inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl md:max-h-[85vh] flex flex-col rounded-3xl bg-white shadow-2xl transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
           isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"
         )}
         style={{ zIndex: 9999 }}
@@ -487,7 +487,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
             <div className="flex-1 overflow-y-auto px-6 py-4">
               {/* --- TAB 1: Paste Text --- */}
               {tab === "paste" && !showPreview && (
-                <div className="space-y-4">
+                <div className="space-y-4 animate-fade-in">
                   <textarea
                     value={text}
                     onChange={(e) => setText(e.target.value)}
@@ -509,7 +509,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
               )}
 
               {tab === "paste" && showPreview && (
-                <div className="space-y-4">
+                <div className="space-y-4 animate-fade-in">
                   {parsed.length === 0 ? (
                     <div className="py-8 text-center text-sm text-muted-foreground">
                       Nu am detectat invitați. Verifică textul și încearcă din nou.
@@ -581,7 +581,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
               {tab === "csv" && csvStep === "upload" && (
                 <div
                   onClick={() => csvInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/40 py-16 text-center cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5 group"
+                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/40 py-16 text-center cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5 group animate-fade-in"
                 >
                   <input
                     type="file"
@@ -601,7 +601,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
               )}
 
               {tab === "csv" && csvStep === "map" && (
-                <div className="space-y-4">
+                <div className="space-y-4 animate-fade-in">
                   <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4">
                     <h3 className="text-sm font-medium text-primary flex items-center gap-2">
                       <Sparkles className="h-4 w-4" />
@@ -659,7 +659,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
               )}
 
               {tab === "csv" && csvStep === "preview" && (
-                <div className="space-y-4">
+                <div className="space-y-4 animate-fade-in">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium">
                       Previzualizare: {csvParsed.length} invitați gata de import
@@ -754,7 +754,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
               {tab === "photo" && photoStep === "upload" && (
                 <div
                   onClick={() => photoInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/40 py-16 text-center cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5 group"
+                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/40 py-16 text-center cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5 group animate-fade-in"
                 >
                   <input
                     type="file"
@@ -774,7 +774,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
               )}
 
               {tab === "photo" && photoStep === "scanning" && photoImage && (
-                <div className="flex flex-col items-center py-6 space-y-4">
+                <div className="flex flex-col items-center py-6 space-y-4 animate-fade-in">
                   <div className="relative overflow-hidden rounded-2xl max-h-64 max-w-sm border border-border/40 shadow-inner">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={photoImage} className="w-full h-auto object-contain opacity-70" alt="Scanned view" />
@@ -793,7 +793,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
               )}
 
               {tab === "photo" && photoStep === "preview" && (
-                <div className="space-y-4">
+                <div className="space-y-4 animate-fade-in">
                   <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4">
                     <h3 className="text-sm font-medium text-primary flex items-center gap-2">
                       <Sparkles className="h-4 w-4" />

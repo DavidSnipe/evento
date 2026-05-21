@@ -658,21 +658,21 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
       {/* ── Content ── */}
       {localGuests.length === 0 ? (
         /* Empty State */
-        <div className="flex flex-col items-center justify-center rounded-3xl bg-white/60 py-20 text-center shadow-sm ring-1 ring-border/20">
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10">
+        <div className="flex flex-col items-center justify-center rounded-3xl bg-white/60 py-20 text-center shadow-sm ring-1 ring-border/20 animate-fade-in">
+          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 animate-gentle-float">
             <Users className="h-10 w-10 text-primary/60" />
           </div>
-          <h3 className="font-serif text-xl font-semibold text-foreground">
+          <h3 className="font-serif text-xl font-semibold text-foreground animate-fade-in-up" style={{ animationDelay: "50ms" }}>
             Începe să construiești lista de invitați
           </h3>
-          <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+          <p className="mt-2 max-w-sm text-sm text-muted-foreground animate-fade-in-up" style={{ animationDelay: "100ms" }}>
             Adaugă invitați manual sau importă-i dintr-o listă. Poți lipi text, importa CSV sau adăuga pe rând.
           </p>
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex gap-3 animate-fade-in-up" style={{ animationDelay: "150ms" }}>
             <button
               type="button"
               onClick={() => setShowImport(true)}
-              className="flex items-center gap-2 rounded-xl bg-muted/60 px-5 py-2.5 text-sm font-medium text-foreground transition-all hover:bg-muted hover:shadow-sm"
+              className="flex items-center gap-2 rounded-xl bg-muted/60 px-5 py-2.5 text-sm font-medium text-foreground transition-all hover:bg-muted hover:shadow-sm hover:scale-[1.01] active:scale-[0.98]"
             >
               <Upload className="h-4 w-4" />
               Importă invitați
@@ -680,7 +680,7 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             <button
               type="button"
               onClick={() => setShowQuickAdd(true)}
-              className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary/90"
+              className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary/90 hover:scale-[1.01] active:scale-[0.98]"
             >
               <Plus className="h-4 w-4" />
               Adaugă primul invitat

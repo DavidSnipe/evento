@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarHeart, Plus, Users } from "lucide-react";
 
 import { EventCard } from "@/components/events/event-card";
+import { AnimatedPage } from "@/components/layout/animated-page";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,14 +31,14 @@ export default async function DashboardPage() {
   const recentEvents = events.slice(0, 3);
 
   return (
-    <>
+    <AnimatedPage className="space-y-6">
       <DashboardHeader
         title={`${ro.dashboard.welcome}, ${firstName}`}
         description={ro.dashboard.description}
       />
 
       <div className="grid gap-6 md:grid-cols-3">
-        <Card className="glass-panel border-0">
+        <Card className="glass-panel border-0 animate-fade-in-up" style={{ animationDelay: "0ms" }}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-base font-medium">{ro.dashboard.eventsCount}</CardTitle>
             <CalendarHeart className="h-4 w-4 text-primary" />
@@ -48,7 +49,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="glass-panel border-0">
+        <Card className="glass-panel border-0 animate-fade-in-up" style={{ animationDelay: "50ms" }}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-base font-medium">{ro.dashboard.daysToGo}</CardTitle>
             <CalendarHeart className="h-4 w-4 text-accent" />
@@ -61,7 +62,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="glass-panel border-0">
+        <Card className="glass-panel border-0 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-base font-medium">{ro.dashboard.guests}</CardTitle>
             <Users className="h-4 w-4 text-primary" />
@@ -110,16 +111,17 @@ export default async function DashboardPage() {
           </Card>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {recentEvents.map((event) => (
+            {recentEvents.map((event, index) => (
               <EventCard
                 key={event.id}
                 event={event}
                 isActive={activeEventId === event.id}
+                index={index}
               />
             ))}
           </div>
         )}
       </section>
-    </>
+    </AnimatedPage>
   );
 }

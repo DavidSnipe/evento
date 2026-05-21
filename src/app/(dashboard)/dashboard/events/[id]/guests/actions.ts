@@ -184,3 +184,128 @@ export async function assignGuestToTable(
   revalidateGuestPages(eventId);
   return { success: true };
 }
+
+export async function bulkCreateGuests(
+  eventId: string,
+  guests: { firstName: string; lastName?: string; plusOneName?: string; groupName?: string; tags?: string[] }[]
+): Promise<{ error?: string; count?: number }> {
+  await requireEvent(eventId);
+  const supabase = await createClient();
+
+  const rows = guests.map((g) => ({
+    event_id: eventId,
+    first_name: g.firstName,
+    last_name: g.lastName || null,
+    plus_one: !!g.plusOneName,
+    plus_one_name: g.plusOneName || null,
+    group_name: g.groupName || null,
+    tags: g.tags || [],
+    rsvp_status: "pending" as const,
+  }));
+
+  const { error } = await supabase.from("guests").insert(rows);
+  if (error) return { error: ro.guests.errors.saveFailed };
+
+  revalidateGuestPages(eventId);
+  return { count: rows.length };
+}
+
+export async function bulkDeleteGuests(
+  eventId: string,
+  guestIds: string[]
+): Promise<{ error?: string }> {
+  await requireEvent(eventId);
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("guests")
+    .delete()
+    .eq("event_id", eventId)
+    .in("id", guestIds);
+
+  if (error) return { error: ro.guests.errors.deleteFailed };
+
+  revalidateGuestPages(eventId);
+  return {};
+}
+
+export async function bulkUpdateRsvp(
+  eventId: string,
+  guestIds: string[],
+  rsvpStatus: RsvpStatus
+): Promise<{ error?: string }> {
+  await requireEvent(eventId);
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("guests")
+    .update({ rsvp_status: rsvpStatus })
+    .eq("event_id", eventId)
+    .in("id", guestIds);
+
+  if (error) return { error: ro.guests.errors.saveFailed };
+
+  revalidateGuestPages(eventId);
+  return {};
+}
+
+export async function bulkAssignTable(
+  eventId: string,
+  guestIds: string[],
+  tableId: string | null
+): Promise<{ error?: string }> {
+  await requireEvent(eventId);
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("guests")
+    .update({ table_id: tableId })
+    .eq("event_id", eventId)
+    .in("id", guestIds);
+
+  if (error) return { error: ro.seating.errors.assignFailed };
+
+  revalidateGuestPages(eventId);
+  return {};
+}
+
+export async function updateGuestTags(
+  eventId: string,
+  guestId: string,
+  tags: string[]
+): Promise<{ error?: string }> {
+  await requireEvent(eventId);
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("guests")
+    .update({ tags })
+    .eq("id", guestId)
+    .eq("event_id", eventId);
+
+  if (error) return { error: ro.guests.errors.saveFailed };
+
+  revalidateGuestPages(eventId);
+  return {};
+}
+
+export async function updateGuestField(
+  eventId: string,
+  guestId: string,
+  field: string,
+  value: string | boolean | null
+): Promise<{ error?: string }> {
+  await requireEvent(eventId);
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("guests")
+    .update({ [field]: value })
+    .eq("id", guestId)
+    .eq("event_id", eventId);
+
+  if (error) return { error: ro.guests.errors.saveFailed };
+
+  revalidateGuestPages(eventId);
+  return {};
+}

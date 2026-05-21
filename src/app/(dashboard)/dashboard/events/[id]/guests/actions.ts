@@ -6,7 +6,7 @@ import { requireEvent } from "@/lib/events/verify-event";
 import { ro } from "@/lib/i18n/ro";
 import { createClient } from "@/lib/supabase/server";
 import { RSVP_STATUSES } from "@/types/guests";
-import type { RsvpStatus } from "@/types/guests";
+import type { RsvpStatus, GuestRow } from "@/types/guests";
 
 export type GuestFormState = { error?: string; success?: string };
 
@@ -260,8 +260,18 @@ export async function assignGuestToTable(
 
 export async function bulkCreateGuests(
   eventId: string,
-  guests: { firstName: string; lastName?: string; plusOneName?: string; groupName?: string; tags?: string[] }[]
-): Promise<{ error?: string; count?: number }> {
+  guests: {
+    firstName: string;
+    lastName?: string;
+    plusOneName?: string;
+    groupName?: string;
+    tags?: string[];
+    phone?: string;
+    email?: string;
+    rsvpStatus?: RsvpStatus;
+    tableId?: string;
+  }[]
+): Promise<{ error?: string; count?: number; insertedIds?: string[] }> {
   await requireEvent(eventId);
   const supabase = await createClient();
 
@@ -273,14 +283,17 @@ export async function bulkCreateGuests(
     plus_one_name: g.plusOneName || null,
     group_name: g.groupName || null,
     tags: g.tags || [],
-    rsvp_status: "pending" as const,
+    rsvp_status: g.rsvpStatus || "pending",
+    phone: g.phone || null,
+    email: g.email || null,
+    table_id: g.tableId || null,
   }));
 
-  const { error } = await supabase.from("guests").insert(rows);
+  const { data, error } = await supabase.from("guests").insert(rows).select("id");
   if (error) return { error: ro.guests.errors.saveFailed };
 
   revalidateGuestPages(eventId);
-  return { count: rows.length };
+  return { count: rows.length, insertedIds: data?.map((d) => d.id) || [] };
 }
 
 export async function bulkDeleteGuests(
@@ -387,7 +400,7 @@ export async function createSubGuest(
   eventId: string,
   parentId: string,
   relationshipType: "couple" | "family" | "child"
-): Promise<{ error?: string; subGuest?: any }> {
+): Promise<{ error?: string; subGuest?: GuestRow }> {
   await requireEvent(eventId);
   const supabase = await createClient();
   

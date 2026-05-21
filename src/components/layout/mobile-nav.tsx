@@ -20,7 +20,6 @@ type MobileNavProps = {
 export function MobileNav({
   userEmail,
   activeEventId,
-  activeEventTitle: _activeEventTitle,
 }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);

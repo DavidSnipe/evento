@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useCallback, useTransition } from "react";
-import { Search, Plus, Upload, X, LayoutList, LayoutGrid, ChevronDown, Trash2, Users, Tag } from "lucide-react";
+import { useState, useMemo, useCallback, useTransition, useRef, useEffect } from "react";
+import { Search, Plus, Upload, X, LayoutList, LayoutGrid, ChevronDown, Trash2, Users, Tag, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GuestWithTable, RsvpStatus, SeatingTableRow } from "@/types/guests";
 import { GUEST_TAGS } from "@/types/guests";
@@ -13,6 +13,7 @@ import { RsvpPill } from "@/components/guests/rsvp-pill";
 import {
   updateGuestRsvp,
   deleteGuest,
+  assignGuestToTable,
   bulkDeleteGuests,
   bulkUpdateRsvp,
   bulkAssignTable,
@@ -37,6 +38,13 @@ type GuestDatabaseProps = {
 
 export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseProps) {
   const [view, setView] = useState<ViewMode>("table");
+  const sortLabels = {
+    lastName: "Nume de familie",
+    firstName: "Prenume",
+    rsvp: "Status RSVP",
+    table: "Masă",
+    recent: "Adăugați recent",
+  };
   const [search, setSearch] = useState("");
   const [rsvpFilter, setRsvpFilter] = useState<RsvpStatus | "all">("all");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
@@ -48,6 +56,36 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
   const [quickAddText, setQuickAddText] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  // Sorting and Undo Import Rollback states
+  type SortKey = "lastName" | "firstName" | "rsvp" | "table" | "recent";
+  const [sortBy, setSortBy] = useState<SortKey>("recent");
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  const [rollbackData, setRollbackData] = useState<{ count: number; insertedIds: string[] } | null>(null);
+  const rollbackTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setShowSortDropdown(false);
+      }
+    }
+    if (showSortDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showSortDropdown]);
+
+  const handleUndoImport = useCallback(() => {
+    if (!rollbackData) return;
+    startTransition(async () => {
+      await bulkDeleteGuests(eventId, rollbackData.insertedIds);
+      setRollbackData(null);
+      if (rollbackTimeout.current) clearTimeout(rollbackTimeout.current);
+    });
+  }, [eventId, rollbackData]);
 
   // Fuzzy search + filters
   const filteredGuests = useMemo(() => {
@@ -89,8 +127,46 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
       result = result.filter((g) => g.table_id === tableFilter);
     }
 
-    return result;
-  }, [guests, search, rsvpFilter, tagFilter, tableFilter]);
+    // Sorting
+    const sortedResults = [...result];
+    if (sortBy === "lastName") {
+      sortedResults.sort((a, b) => {
+        const aName = a.last_name || "";
+        const bName = b.last_name || "";
+        if (!aName && bName) return 1;
+        if (aName && !bName) return -1;
+        if (!aName && !bName) return a.first_name.localeCompare(b.first_name, "ro");
+        return aName.localeCompare(bName, "ro");
+      });
+    } else if (sortBy === "firstName") {
+      sortedResults.sort((a, b) => a.first_name.localeCompare(b.first_name, "ro"));
+    } else if (sortBy === "rsvp") {
+      const rsvpOrder: Record<RsvpStatus, number> = {
+        accepted: 0,
+        maybe: 1,
+        pending: 2,
+        declined: 3,
+      };
+      sortedResults.sort((a, b) => rsvpOrder[a.rsvp_status] - rsvpOrder[b.rsvp_status]);
+    } else if (sortBy === "table") {
+      sortedResults.sort((a, b) => {
+        const aTable = a.seating_tables?.name || "";
+        const bTable = b.seating_tables?.name || "";
+        if (!aTable && bTable) return 1;
+        if (aTable && !bTable) return -1;
+        if (!aTable && !bTable) return 0;
+        return aTable.localeCompare(bTable, "ro");
+      });
+    } else if (sortBy === "recent") {
+      sortedResults.sort((a, b) => {
+        const aTime = new Date(a.created_at).getTime();
+        const bTime = new Date(b.created_at).getTime();
+        return bTime - aTime;
+      });
+    }
+
+    return sortedResults;
+  }, [guests, search, rsvpFilter, tagFilter, tableFilter, sortBy]);
 
   const activeFilters = [
     rsvpFilter !== "all" ? rsvpFilter : null,
@@ -121,6 +197,18 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
     (guestId: string, status: RsvpStatus) => {
       startTransition(() => {
         updateGuestRsvp(eventId, guestId, status);
+      });
+    },
+    [eventId]
+  );
+
+  const handleTableChange = useCallback(
+    (guestId: string, tableId: string | null) => {
+      startTransition(async () => {
+        const res = await assignGuestToTable(eventId, guestId, tableId);
+        if (res && "error" in res && res.error) {
+          alert(res.error);
+        }
       });
     },
     [eventId]
@@ -317,6 +405,39 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
               </span>
             )}
           </button>
+
+          {/* Sorting */}
+          <div className="relative" ref={sortRef}>
+            <button
+              type="button"
+              onClick={() => setShowSortDropdown(!showSortDropdown)}
+              className="flex items-center gap-1.5 rounded-xl bg-muted/40 px-3 py-1.5 text-sm font-medium text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
+            >
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              <span>Sortat: {sortLabels[sortBy]}</span>
+              <ChevronDown className={cn("h-3 w-3 transition-transform", showSortDropdown && "rotate-180")} />
+            </button>
+            {showSortDropdown && (
+              <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-xl border border-border/50 bg-white p-1 shadow-lg animate-in fade-in-0 zoom-in-95 duration-150">
+                {(Object.keys(sortLabels) as SortKey[]).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setSortBy(key);
+                      setShowSortDropdown(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left",
+                      sortBy === key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"
+                    )}
+                  >
+                    {sortLabels[key]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Actions */}
           <div className="flex items-center gap-1.5 ml-auto">
@@ -561,10 +682,12 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
       ) : view === "table" ? (
         <GuestTableView
           guests={filteredGuests}
+          tables={tables}
           selectedIds={selectedIds}
           onToggleSelect={toggleSelect}
           onToggleSelectAll={toggleSelectAll}
           onRsvpChange={handleRsvpChange}
+          onTableChange={handleTableChange}
           onDelete={handleDelete}
           onSelectGuest={setDetailGuest}
         />
@@ -577,35 +700,62 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
       )}
 
       {/* ── Detail Panel ── */}
-      {detailGuest && (
-        <GuestDetailPanel
-          guest={detailGuest}
-          tables={tables}
-          onClose={() => setDetailGuest(null)}
-          onRsvpChange={handleRsvpChange}
-          onUpdateTags={(tags) => {
-            startTransition(() => {
-              updateGuestTags(eventId, detailGuest.id, tags);
-            });
-          }}
-          onUpdateField={(field, value) => {
-            startTransition(() => {
-              updateGuestField(eventId, detailGuest.id, field, value);
-            });
-          }}
-          onDelete={() => {
-            handleDelete(detailGuest.id);
-            setDetailGuest(null);
-          }}
-        />
-      )}
+      {detailGuest && (() => {
+        const activeGuest = guests.find((g) => g.id === detailGuest.id) || detailGuest;
+        return (
+          <GuestDetailPanel
+            guest={activeGuest}
+            tables={tables}
+            onClose={() => setDetailGuest(null)}
+            onRsvpChange={handleRsvpChange}
+            onUpdateTags={(tags) => {
+              startTransition(() => {
+                updateGuestTags(eventId, activeGuest.id, tags);
+              });
+            }}
+            onUpdateField={(field, value) => {
+              startTransition(() => {
+                updateGuestField(eventId, activeGuest.id, field, value);
+              });
+            }}
+            onDelete={() => {
+              handleDelete(activeGuest.id);
+              setDetailGuest(null);
+            }}
+          />
+        );
+      })()}
 
       {/* ── Import Modal ── */}
       {showImport && (
         <ImportModal
           eventId={eventId}
+          guests={guests}
           onClose={() => setShowImport(false)}
+          onImportSuccess={(count, insertedIds) => {
+            setShowImport(false);
+            setRollbackData({ count, insertedIds });
+            if (rollbackTimeout.current) clearTimeout(rollbackTimeout.current);
+            rollbackTimeout.current = setTimeout(() => {
+              setRollbackData(null);
+            }, 10000);
+          }}
         />
+      )}
+
+      {/* ── Undo Import Rollback Toast ── */}
+      {rollbackData && (
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl bg-foreground/95 px-4 py-3 text-sm text-white shadow-xl backdrop-blur animate-in slide-in-from-bottom-4 fade-in duration-200">
+          <span className="font-medium">{rollbackData.count} invitați importați cu succes</span>
+          <button
+            type="button"
+            onClick={handleUndoImport}
+            disabled={isPending}
+            className="rounded-lg bg-white/10 hover:bg-white/20 px-2.5 py-1 text-xs font-semibold text-primary transition-all duration-150 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+          >
+            {isPending ? "Se anulează..." : "Anulează"}
+          </button>
+        </div>
       )}
 
       {/* ── Mobile FAB ── */}

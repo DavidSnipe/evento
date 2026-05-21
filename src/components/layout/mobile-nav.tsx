@@ -9,6 +9,7 @@ import { signOut } from "@/app/(auth)/actions";
 import { getMainNav } from "@/config/navigation";
 import { ro } from "@/lib/i18n/ro";
 import { cn } from "@/lib/utils";
+import { createPortal } from "react-dom";
 
 type MobileNavProps = {
   userEmail?: string | null;
@@ -22,7 +23,13 @@ export function MobileNav({
   activeEventTitle,
 }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+
+  // Ensure portal only renders on client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Close menu when route changes
   useEffect(() => {
@@ -33,11 +40,14 @@ export function MobileNav({
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
+      document.body.style.touchAction = "none";
     } else {
       document.body.style.overflow = "";
+      document.body.style.touchAction = "";
     }
     return () => {
       document.body.style.overflow = "";
+      document.body.style.touchAction = "";
     };
   }, [isOpen]);
 
@@ -53,6 +63,141 @@ export function MobileNav({
 
   const navItems = getMainNav(contextualEventId);
 
+  const menuContent = (
+    <>
+      {/* Backdrop */}
+      <div
+        className={cn(
+          "fixed inset-0 bg-black/50 transition-opacity duration-300",
+          isOpen
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0"
+        )}
+        style={{ zIndex: 9998 }}
+        onClick={close}
+        aria-hidden="true"
+      />
+
+      {/* Full-screen Menu Panel */}
+      <div
+        className={cn(
+          "fixed inset-0 flex flex-col bg-sidebar transition-transform duration-300 ease-out",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+        style={{ zIndex: 9999 }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Meniu navigare"
+      >
+        {/* ── Header ── */}
+        <div className="flex items-center justify-between px-6 py-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/20 text-primary">
+              <Heart className="h-5 w-5 fill-primary/30" />
+            </div>
+            <div>
+              <p className="font-serif text-xl font-semibold leading-tight tracking-tight">
+                Evento
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {ro.brand.tagline}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={close}
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground transition-colors active:bg-muted"
+            aria-label="Închide meniul"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        {/* ── Navigation Links ── */}
+        <nav className="flex-1 overflow-y-auto px-5 pb-4">
+          <div className="space-y-0.5">
+            {navItems.map((item) => {
+              const isActive =
+                item.href === "/dashboard/events"
+                  ? pathname === "/dashboard/events" ||
+                    pathname === "/dashboard/events/new"
+                  : item.href === "/dashboard"
+                    ? pathname === "/dashboard"
+                    : pathname === item.href ||
+                      pathname.startsWith(`${item.href}/`);
+
+              const Icon = item.icon;
+
+              if (item.disabled) {
+                return (
+                  <span
+                    key={item.href}
+                    className="flex cursor-not-allowed items-center gap-4 rounded-2xl px-4 py-3.5 text-base text-muted-foreground/40"
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className="flex-1">{item.title}</span>
+                    <span className="text-[10px] uppercase tracking-wider">
+                      {ro.nav.soon}
+                    </span>
+                  </span>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.href + item.title}
+                  href={item.href}
+                  onClick={close}
+                  className={cn(
+                    "flex items-center gap-4 rounded-2xl px-4 py-3.5 text-base font-medium transition-all duration-150",
+                    isActive
+                      ? "bg-primary/15 text-foreground"
+                      : "text-muted-foreground active:bg-muted/60"
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      "h-5 w-5 shrink-0",
+                      isActive ? "text-primary" : "text-muted-foreground"
+                    )}
+                  />
+                  {item.title}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+
+        {/* ── User Section ── */}
+        <div className="mt-auto border-t border-border/30 px-5 py-5 pb-8">
+          <div className="flex items-center gap-3 rounded-2xl bg-background/60 p-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {ro.nav.planner}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {userEmail ?? ro.nav.guest}
+              </p>
+            </div>
+          </div>
+          <form action={signOut} className="mt-3">
+            <button
+              type="submit"
+              className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-muted-foreground transition-colors active:bg-destructive/10 active:text-destructive"
+            >
+              <LogOut className="h-5 w-5" />
+              {ro.nav.signOut}
+            </button>
+          </form>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <>
       {/* Hamburger Button */}
@@ -65,151 +210,8 @@ export function MobileNav({
         <Menu className="h-5 w-5" />
       </button>
 
-      {/* Backdrop */}
-      <div
-        className={cn(
-          "fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm transition-opacity duration-300 md:hidden",
-          isOpen
-            ? "pointer-events-auto opacity-100"
-            : "pointer-events-none opacity-0"
-        )}
-        onClick={close}
-        aria-hidden="true"
-      />
-
-      {/* Slide-in Panel */}
-      <div
-        className={cn(
-          "fixed inset-y-0 right-0 z-[101] w-[85vw] max-w-[320px] transform bg-sidebar shadow-2xl transition-transform duration-300 ease-out md:hidden",
-          isOpen ? "translate-x-0" : "translate-x-full"
-        )}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Meniu navigare"
-      >
-        <div className="flex h-full flex-col">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-border/40 px-5 py-4">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/25 text-primary">
-                <Heart className="h-4 w-4 fill-primary/40" />
-              </div>
-              <div>
-                <p className="font-serif text-lg font-semibold leading-tight tracking-tight">
-                  Evento
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  {ro.brand.tagline}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={close}
-              className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground active:bg-muted"
-              aria-label="Închide meniul"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          {/* Active Event Badge */}
-          {activeEventTitle ? (
-            <div className="mx-4 mt-4 rounded-xl bg-primary/10 px-4 py-2.5">
-              <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
-                Eveniment activ
-              </p>
-              <p className="mt-0.5 truncate text-sm font-semibold text-foreground">
-                {activeEventTitle}
-              </p>
-            </div>
-          ) : null}
-
-          {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto px-3 py-4">
-            <div className="space-y-1">
-              {navItems.map((item) => {
-                const isActive =
-                  item.href === "/dashboard/events"
-                    ? pathname === "/dashboard/events" ||
-                      pathname === "/dashboard/events/new"
-                    : item.href === "/dashboard"
-                      ? pathname === "/dashboard"
-                      : pathname === item.href ||
-                        pathname.startsWith(`${item.href}/`);
-
-                const Icon = item.icon;
-
-                if (item.disabled) {
-                  return (
-                    <span
-                      key={item.href}
-                      className="flex cursor-not-allowed items-center gap-3 rounded-xl px-4 py-3 text-sm text-muted-foreground/50"
-                    >
-                      <Icon className="h-[18px] w-[18px]" />
-                      <span className="flex-1">{item.title}</span>
-                      <span className="rounded-md bg-muted/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                        {ro.nav.soon}
-                      </span>
-                    </span>
-                  );
-                }
-
-                return (
-                  <Link
-                    key={item.href + item.title}
-                    href={item.href}
-                    onClick={close}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-150",
-                      isActive
-                        ? "bg-primary/15 text-foreground shadow-sm ring-1 ring-primary/10"
-                        : "text-muted-foreground active:bg-muted/60"
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        "h-[18px] w-[18px] shrink-0",
-                        isActive ? "text-primary" : ""
-                      )}
-                    />
-                    <span className="flex-1">{item.title}</span>
-                    {isActive && (
-                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          </nav>
-
-          {/* User & Sign Out */}
-          <div className="border-t border-border/40 bg-muted/10 px-4 py-5 pb-safe">
-            <div className="flex items-center gap-3 rounded-xl bg-background/80 p-3 shadow-sm ring-1 ring-border/30">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
-                {initials}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">
-                  {userEmail ?? ro.nav.guest}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {ro.nav.planner}
-                </p>
-              </div>
-            </div>
-            <form action={signOut} className="mt-3">
-              <button
-                type="submit"
-                className="flex w-full items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium text-muted-foreground transition-colors active:bg-destructive/10 active:text-destructive"
-              >
-                <LogOut className="h-[18px] w-[18px]" />
-                {ro.nav.signOut}
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
+      {/* Portal: render menu at document.body root level so nothing clips it */}
+      {mounted && createPortal(menuContent, document.body)}
     </>
   );
 }

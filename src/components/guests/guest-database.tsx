@@ -11,15 +11,12 @@ import { GuestDetailPanel } from "@/components/guests/guest-detail-panel";
 import { ImportModal } from "@/components/guests/import-modal";
 import { RsvpPill } from "@/components/guests/rsvp-pill";
 import {
-  updateGuestRsvp,
-  deleteGuest,
-  assignGuestToTable,
   bulkDeleteGuests,
-  bulkUpdateRsvp,
-  bulkAssignTable,
-  updateGuestTags,
-  updateGuestField,
 } from "@/app/(dashboard)/dashboard/events/[id]/guests/actions";
+
+import { useGuestStats } from "@/hooks/guests/use-guest-stats";
+import { useGuestFiltering, type SortKey } from "@/hooks/guests/use-guest-filtering";
+import { useGuestOptimistic } from "@/hooks/guests/use-guest-optimistic";
 
 type ViewMode = "table" | "cards";
 
@@ -36,7 +33,7 @@ type GuestDatabaseProps = {
   };
 };
 
-export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseProps) {
+export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
   const [view, setView] = useState<ViewMode>("table");
   const sortLabels = {
     lastName: "Nume de familie",
@@ -57,14 +54,47 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
   const [showFilters, setShowFilters] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  // Sorting and Undo Import Rollback states
-  type SortKey = "lastName" | "firstName" | "rsvp" | "table" | "recent";
+  // Sorting state
   const [sortBy, setSortBy] = useState<SortKey>("recent");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
 
+  // Undo Import Rollback states
   const [rollbackData, setRollbackData] = useState<{ count: number; insertedIds: string[] } | null>(null);
   const rollbackTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // 1. Optimistic updates hook
+  const {
+    localGuests,
+    setLocalGuests,
+    isPending: optimisticPending,
+    handleRsvpChange,
+    handleTableChange,
+    handleUpdateTags,
+    handleUpdateField,
+    handleDeleteGuest,
+    handleBulkDelete,
+    handleBulkRsvp,
+    handleBulkAssignTable,
+    handleAddSubGuest,
+    handleDeleteSubGuest,
+    handleUpdateSubField,
+  } = useGuestOptimistic(eventId, guests, tables);
+
+  // 2. Derive stats client-side instantly
+  const computedStats = useGuestStats(localGuests);
+
+  // 3. Debounced and memoized filtering
+  const filteredGuests = useGuestFiltering({
+    localGuests,
+    search,
+    rsvpFilter,
+    tagFilter,
+    tableFilter,
+    sortBy,
+  });
+
+  const combinedPending = isPending || optimisticPending;
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -80,93 +110,23 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
 
   const handleUndoImport = useCallback(() => {
     if (!rollbackData) return;
+    const originalGuests = [...localGuests];
+    const idsToDelete = new Set(rollbackData.insertedIds);
+    
+    // Optimistic delete rollbacked rows
+    setLocalGuests((prev) => prev.filter((g) => !idsToDelete.has(g.id)));
+    setRollbackData(null);
+    if (rollbackTimeout.current) clearTimeout(rollbackTimeout.current);
+
     startTransition(async () => {
-      await bulkDeleteGuests(eventId, rollbackData.insertedIds);
-      setRollbackData(null);
-      if (rollbackTimeout.current) clearTimeout(rollbackTimeout.current);
+      try {
+        await bulkDeleteGuests(eventId, rollbackData.insertedIds);
+      } catch {
+        setLocalGuests(originalGuests);
+        alert("Eroare la anularea importului.");
+      }
     });
-  }, [eventId, rollbackData]);
-
-  // Fuzzy search + filters
-  const filteredGuests = useMemo(() => {
-    let result = guests;
-
-    // Search
-    if (search.trim()) {
-      const q = search.toLowerCase().trim();
-      result = result.filter((g) => {
-        const fullName = `${g.first_name} ${g.last_name ?? ""}`.toLowerCase();
-        const group = (g.group_name ?? "").toLowerCase();
-        const table = (g.seating_tables?.name ?? "").toLowerCase();
-        const tags = (g.tags ?? []).join(" ").toLowerCase();
-        const plusOne = (g.plus_one_name ?? "").toLowerCase();
-        return (
-          fullName.includes(q) ||
-          group.includes(q) ||
-          table.includes(q) ||
-          tags.includes(q) ||
-          plusOne.includes(q)
-        );
-      });
-    }
-
-    // RSVP filter
-    if (rsvpFilter !== "all") {
-      result = result.filter((g) => g.rsvp_status === rsvpFilter);
-    }
-
-    // Tag filter
-    if (tagFilter) {
-      result = result.filter((g) => (g.tags ?? []).includes(tagFilter));
-    }
-
-    // Table filter
-    if (tableFilter === "no-table") {
-      result = result.filter((g) => !g.table_id);
-    } else if (tableFilter) {
-      result = result.filter((g) => g.table_id === tableFilter);
-    }
-
-    // Sorting
-    const sortedResults = [...result];
-    if (sortBy === "lastName") {
-      sortedResults.sort((a, b) => {
-        const aName = a.last_name || "";
-        const bName = b.last_name || "";
-        if (!aName && bName) return 1;
-        if (aName && !bName) return -1;
-        if (!aName && !bName) return a.first_name.localeCompare(b.first_name, "ro");
-        return aName.localeCompare(bName, "ro");
-      });
-    } else if (sortBy === "firstName") {
-      sortedResults.sort((a, b) => a.first_name.localeCompare(b.first_name, "ro"));
-    } else if (sortBy === "rsvp") {
-      const rsvpOrder: Record<RsvpStatus, number> = {
-        accepted: 0,
-        maybe: 1,
-        pending: 2,
-        declined: 3,
-      };
-      sortedResults.sort((a, b) => rsvpOrder[a.rsvp_status] - rsvpOrder[b.rsvp_status]);
-    } else if (sortBy === "table") {
-      sortedResults.sort((a, b) => {
-        const aTable = a.seating_tables?.name || "";
-        const bTable = b.seating_tables?.name || "";
-        if (!aTable && bTable) return 1;
-        if (aTable && !bTable) return -1;
-        if (!aTable && !bTable) return 0;
-        return aTable.localeCompare(bTable, "ro");
-      });
-    } else if (sortBy === "recent") {
-      sortedResults.sort((a, b) => {
-        const aTime = new Date(a.created_at).getTime();
-        const bTime = new Date(b.created_at).getTime();
-        return bTime - aTime;
-      });
-    }
-
-    return sortedResults;
-  }, [guests, search, rsvpFilter, tagFilter, tableFilter, sortBy]);
+  }, [eventId, rollbackData, localGuests, setLocalGuests]);
 
   const activeFilters = [
     rsvpFilter !== "all" ? rsvpFilter : null,
@@ -192,77 +152,41 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
     }
   }, [selectedIds.size, filteredGuests]);
 
-  // Actions
-  const handleRsvpChange = useCallback(
-    (guestId: string, status: RsvpStatus) => {
-      startTransition(() => {
-        updateGuestRsvp(eventId, guestId, status);
-      });
-    },
-    [eventId]
-  );
-
-  const handleTableChange = useCallback(
-    (guestId: string, tableId: string | null) => {
-      startTransition(async () => {
-        const res = await assignGuestToTable(eventId, guestId, tableId);
-        if (res && "error" in res && res.error) {
-          alert(res.error);
-        }
-      });
-    },
-    [eventId]
-  );
-
-  const handleDelete = useCallback(
-    (guestId: string) => {
-      if (!confirm("Ștergi acest invitat?")) return;
-      startTransition(() => {
-        deleteGuest(eventId, guestId);
-      });
-    },
-    [eventId]
-  );
-
-  const handleBulkDelete = useCallback(() => {
-    if (!confirm(`Ștergi ${selectedIds.size} invitați selectați?`)) return;
-    startTransition(async () => {
-      await bulkDeleteGuests(eventId, Array.from(selectedIds));
+  // Bulk Handlers (Optimistic & Batched)
+  const handleBulkDeleteClick = useCallback(() => {
+    const success = handleBulkDelete(selectedIds);
+    if (success) {
       setSelectedIds(new Set());
-    });
-  }, [eventId, selectedIds]);
+    }
+  }, [handleBulkDelete, selectedIds]);
 
-  const handleBulkRsvp = useCallback(
+  const handleBulkRsvpClick = useCallback(
     (status: RsvpStatus) => {
-      startTransition(async () => {
-        await bulkUpdateRsvp(eventId, Array.from(selectedIds), status);
-        setSelectedIds(new Set());
-      });
+      handleBulkRsvp(selectedIds, status);
+      setSelectedIds(new Set());
     },
-    [eventId, selectedIds]
+    [handleBulkRsvp, selectedIds]
   );
 
-  const handleBulkAssignTable = useCallback(
+  const handleBulkAssignTableClick = useCallback(
     (tableId: string | null) => {
-      startTransition(async () => {
-        await bulkAssignTable(eventId, Array.from(selectedIds), tableId);
-        setSelectedIds(new Set());
-      });
+      handleBulkAssignTable(selectedIds, tableId);
+      setSelectedIds(new Set());
     },
-    [eventId, selectedIds]
+    [handleBulkAssignTable, selectedIds]
   );
 
-  // Smart insights
+  // Smart insights derived instantly
   const insights = useMemo(() => {
-    const noTable = guests.filter((g) => !g.table_id).length;
-    const noRsvp = guests.filter((g) => g.rsvp_status === "pending").length;
+    const noTable = localGuests.filter((g) => !g.table_id).length;
+    const noRsvp = localGuests.filter((g) => g.rsvp_status === "pending").length;
     const items: { text: string; type: "info" | "warn" }[] = [];
     if (noTable > 0) items.push({ text: `${noTable} invitați fără masă`, type: "warn" });
     if (noRsvp > 0) items.push({ text: `${noRsvp} invitați fără răspuns`, type: "info" });
     return items;
-  }, [guests]);
+  }, [localGuests]);
 
-  // Quick add handler
+  // Quick add handler (Optimistic & Shimmered)
   const handleQuickAdd = useCallback(async () => {
     if (!quickAddText.trim()) return;
     const { parseGuestText } = await import("@/lib/guests/smart-parser");
@@ -272,31 +196,111 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
     const { bulkCreateGuests } = await import(
       "@/app/(dashboard)/dashboard/events/[id]/guests/actions"
     );
-    startTransition(async () => {
-      await bulkCreateGuests(
-        eventId,
-        parsed.map((p) => ({
-          firstName: p.firstName,
-          lastName: p.lastName || undefined,
-          plusOneName: p.plusOneName || undefined,
-          groupName: p.groupName || undefined,
-          tags: p.tags,
-        }))
-      );
-      setQuickAddText("");
-      setShowQuickAdd(false);
+
+    // Create optimistic temp guests with temp- IDs
+    const tempGuests = parsed.map((p) => {
+      const tempId = `temp-guest-${Date.now()}-${Math.random()}`;
+      return {
+        id: tempId,
+        event_id: eventId,
+        first_name: p.firstName,
+        last_name: p.lastName || null,
+        rsvp_status: "pending",
+        plus_one: !!p.plusOneName,
+        plus_one_name: p.plusOneName || null,
+        group_name: p.groupName || null,
+        tags: p.tags || [],
+        phone: null,
+        email: null,
+        table_id: null,
+        seating_tables: null,
+        parent_id: null,
+        family_id: null,
+        group_id: null,
+        relationship_type: null,
+        subGuests: p.plusOneName ? [{
+          id: `temp-sub-${Date.now()}-${Math.random()}`,
+          event_id: eventId,
+          parent_id: tempId,
+          first_name: p.plusOneName.split(/\s+/)[0] || "Partener",
+          last_name: p.plusOneName.split(/\s+/).slice(1).join(" ") || p.lastName || null,
+          rsvp_status: "pending",
+          relationship_type: "couple",
+          table_id: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          family_id: null,
+          group_id: null,
+          email: null,
+          phone: null,
+          plus_one: false,
+          plus_one_name: null,
+          group_name: null,
+          dietary_notes: null,
+          notes: null,
+          seat_label: null,
+          tags: [],
+        }] : [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        dietary_notes: null,
+        notes: null,
+        seat_label: null,
+      } as GuestWithTable;
     });
-  }, [eventId, quickAddText]);
+
+    const originalGuests = [...localGuests];
+    setLocalGuests((prev) => [...tempGuests, ...prev]);
+    setQuickAddText("");
+    setShowQuickAdd(false);
+
+    startTransition(async () => {
+      try {
+        const res = await bulkCreateGuests(
+          eventId,
+          parsed.map((p) => ({
+            firstName: p.firstName,
+            lastName: p.lastName || undefined,
+            plusOneName: p.plusOneName || undefined,
+            groupName: p.groupName || undefined,
+            tags: p.tags,
+          }))
+        );
+
+        if (res.error) throw new Error(res.error);
+        if (res.insertedIds && res.insertedIds.length > 0) {
+          const insertedIds = res.insertedIds;
+          setLocalGuests((prev) =>
+            prev.map((g) => {
+              const tempIndex = tempGuests.findIndex((tg) => tg.id === g.id);
+              if (tempIndex !== -1 && insertedIds[tempIndex]) {
+                const newId = insertedIds[tempIndex];
+                return {
+                  ...g,
+                  id: newId,
+                  subGuests: (g.subGuests ?? []).map((sub) => ({ ...sub, parent_id: newId })),
+                };
+              }
+              return g;
+            })
+          );
+        }
+      } catch {
+        setLocalGuests(originalGuests);
+        alert("Eroare la adăugarea rapidă.");
+      }
+    });
+  }, [eventId, quickAddText, localGuests, setLocalGuests]);
 
   return (
     <div className="space-y-4">
       {/* ── Stats Row ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Total", value: stats.total, accent: "text-foreground" },
-          { label: "Confirmați", value: stats.accepted, accent: "text-emerald-600" },
-          { label: "În așteptare", value: stats.pending, accent: "text-amber-600" },
-          { label: "La masă", value: stats.seated, accent: "text-indigo-600" },
+          { label: "Total", value: computedStats.total, accent: "text-foreground" },
+          { label: "Confirmați", value: computedStats.accepted, accent: "text-emerald-600" },
+          { label: "În așteptare", value: computedStats.pending, accent: "text-amber-600" },
+          { label: "La masă", value: computedStats.seated, accent: "text-indigo-600" },
         ].map((s) => (
           <div
             key={s.label}
@@ -560,10 +564,10 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
               <button
                 type="button"
                 onClick={handleQuickAdd}
-                disabled={!quickAddText.trim() || isPending}
+                disabled={!quickAddText.trim() || combinedPending}
                 className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary/90 disabled:opacity-50"
               >
-                {isPending ? "..." : "Adaugă"}
+                {combinedPending ? "..." : "Adaugă"}
               </button>
             </div>
             <p className="mt-1.5 text-[11px] text-muted-foreground">
@@ -591,7 +595,7 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
                   <button
                     key={s}
                     type="button"
-                    onClick={() => handleBulkRsvp(s)}
+                    onClick={() => handleBulkRsvpClick(s)}
                     className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-foreground hover:bg-muted/50"
                   >
                     <RsvpPill status={s} readonly />
@@ -609,7 +613,7 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
               <div className="absolute bottom-full left-0 mb-1 hidden max-h-48 w-40 overflow-y-auto rounded-xl border bg-white p-1 shadow-lg group-hover:block">
                 <button
                   type="button"
-                  onClick={() => handleBulkAssignTable(null)}
+                  onClick={() => handleBulkAssignTableClick(null)}
                   className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-foreground hover:bg-muted/50"
                 >
                   Fără masă
@@ -618,7 +622,7 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
                   <button
                     key={t.id}
                     type="button"
-                    onClick={() => handleBulkAssignTable(t.id)}
+                    onClick={() => handleBulkAssignTableClick(t.id)}
                     className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-foreground hover:bg-muted/50"
                   >
                     {t.name}
@@ -629,7 +633,7 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
 
             <button
               type="button"
-              onClick={handleBulkDelete}
+              onClick={handleBulkDeleteClick}
               className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-rose-300 hover:bg-white/10 transition-colors"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -648,7 +652,7 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
       )}
 
       {/* ── Content ── */}
-      {guests.length === 0 ? (
+      {localGuests.length === 0 ? (
         /* Empty State */
         <div className="flex flex-col items-center justify-center rounded-3xl bg-white/60 py-20 text-center shadow-sm ring-1 ring-border/20">
           <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10">
@@ -688,7 +692,7 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
           onToggleSelectAll={toggleSelectAll}
           onRsvpChange={handleRsvpChange}
           onTableChange={handleTableChange}
-          onDelete={handleDelete}
+          onDelete={handleDeleteGuest}
           onSelectGuest={setDetailGuest}
         />
       ) : (
@@ -701,27 +705,22 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
 
       {/* ── Detail Panel ── */}
       {detailGuest && (() => {
-        const activeGuest = guests.find((g) => g.id === detailGuest.id) || detailGuest;
+        const activeGuest = localGuests.find((g) => g.id === detailGuest.id) || detailGuest;
         return (
           <GuestDetailPanel
             guest={activeGuest}
             tables={tables}
             onClose={() => setDetailGuest(null)}
             onRsvpChange={handleRsvpChange}
-            onUpdateTags={(tags) => {
-              startTransition(() => {
-                updateGuestTags(eventId, activeGuest.id, tags);
-              });
-            }}
-            onUpdateField={(field, value) => {
-              startTransition(() => {
-                updateGuestField(eventId, activeGuest.id, field, value);
-              });
-            }}
+            onUpdateTags={(tags) => handleUpdateTags(activeGuest.id, tags)}
+            onUpdateField={(field, value) => handleUpdateField(activeGuest.id, field, value)}
             onDelete={() => {
-              handleDelete(activeGuest.id);
+              handleDeleteGuest(activeGuest.id);
               setDetailGuest(null);
             }}
+            onAddSubGuest={(type) => handleAddSubGuest(activeGuest.id, type)}
+            onDeleteSubGuest={(subId) => handleDeleteSubGuest(activeGuest.id, subId)}
+            onUpdateSubField={(subId, field, value) => handleUpdateSubField(activeGuest.id, subId, field, value)}
           />
         );
       })()}
@@ -730,7 +729,7 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
       {showImport && (
         <ImportModal
           eventId={eventId}
-          guests={guests}
+          guests={localGuests}
           onClose={() => setShowImport(false)}
           onImportSuccess={(count, insertedIds) => {
             setShowImport(false);
@@ -750,10 +749,10 @@ export function GuestDatabase({ eventId, guests, tables, stats }: GuestDatabaseP
           <button
             type="button"
             onClick={handleUndoImport}
-            disabled={isPending}
+            disabled={combinedPending}
             className="rounded-lg bg-white/10 hover:bg-white/20 px-2.5 py-1 text-xs font-semibold text-primary transition-all duration-150 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
           >
-            {isPending ? "Se anulează..." : "Anulează"}
+            {combinedPending ? "Se anulează..." : "Anulează"}
           </button>
         </div>
       )}

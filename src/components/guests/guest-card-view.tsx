@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { RsvpPill } from "@/components/guests/rsvp-pill";
 import { TagBadge } from "@/components/guests/tag-badge";
@@ -11,6 +12,7 @@ type GuestCardViewProps = {
   onSelectGuest: (guest: GuestWithTable) => void;
 };
 
+// Generate gradient avatar colors from name
 function getAvatarGradient(name: string): string {
   const gradients = [
     "from-rose-300 to-pink-400",
@@ -50,69 +52,120 @@ export function GuestCardView({
 
   return (
     <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {guests.map((guest) => {
-        const fullName = `${guest.first_name} ${guest.last_name ?? ""}`.trim();
-        const gradient = getAvatarGradient(fullName);
-        const initials = getInitials(guest.first_name, guest.last_name);
-
-        return (
-          <div
-            key={guest.id}
-            onClick={() => onSelectGuest(guest)}
-            className="group cursor-pointer rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-border/30 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99]"
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div
-                  className={cn(
-                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-sm font-bold text-white shadow-sm",
-                    gradient
-                  )}
-                >
-                  {initials}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">
-                    {fullName}
-                  </p>
-                  {guest.plus_one && (
-                    <p className="truncate text-[11px] text-muted-foreground">
-                      +1 {guest.plus_one_name ?? ""}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div onClick={(e) => e.stopPropagation()}>
-                <RsvpPill
-                  status={guest.rsvp_status}
-                  onChange={(s) => onRsvpChange(guest.id, s)}
-                />
-              </div>
-            </div>
-
-            {/* Tags */}
-            {(guest.tags ?? []).length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1">
-                {(guest.tags ?? []).map((tag) => (
-                  <TagBadge key={tag} tag={tag} />
-                ))}
-              </div>
-            )}
-
-            {/* Bottom info */}
-            <div className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
-              {guest.seating_tables && (
-                <span className="inline-flex items-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-indigo-600">
-                  {guest.seating_tables.name}
-                </span>
-              )}
-              {guest.group_name && (
-                <span className="truncate">{guest.group_name}</span>
-              )}
-            </div>
-          </div>
-        );
-      })}
+      {guests.map((guest) => (
+        <GuestCard
+          key={guest.id}
+          guest={guest}
+          onRsvpChange={onRsvpChange}
+          onSelectGuest={onSelectGuest}
+        />
+      ))}
     </div>
   );
 }
+
+// ── Memoized Guest Card ──
+type GuestCardProps = {
+  guest: GuestWithTable;
+  onRsvpChange: (guestId: string, status: RsvpStatus) => void;
+  onSelectGuest: (guest: GuestWithTable) => void;
+};
+
+const GuestCard = React.memo(
+  function GuestCard({ guest, onRsvpChange, onSelectGuest }: GuestCardProps) {
+    const fullName = `${guest.first_name} ${guest.last_name ?? ""}`.trim();
+    const gradient = getAvatarGradient(fullName);
+    const initials = getInitials(guest.first_name, guest.last_name);
+
+    const isTemp = guest.id.startsWith("temp-");
+
+    const handleRsvpChangeCallback = useCallback(
+      (s: RsvpStatus) => {
+        onRsvpChange(guest.id, s);
+      },
+      [guest.id, onRsvpChange]
+    );
+
+    const handleCardClick = useCallback(() => {
+      if (!isTemp) {
+        onSelectGuest(guest);
+      }
+    }, [isTemp, guest, onSelectGuest]);
+
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[GuestCard] Rendered guest: ${guest.first_name} ${guest.last_name || ""}`);
+    }
+
+    return (
+      <div
+        onClick={handleCardClick}
+        className={cn(
+          "group cursor-pointer rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-border/30 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] animate-slide-in",
+          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85"
+        )}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div
+              className={cn(
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-sm font-bold text-white shadow-sm",
+                gradient
+              )}
+            >
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {fullName}
+              </p>
+              {guest.plus_one && (
+                <p className="truncate text-[11px] text-muted-foreground">
+                  +1 {guest.plus_one_name ?? ""}
+                </p>
+              )}
+            </div>
+          </div>
+          <div onClick={(e) => e.stopPropagation()}>
+            <RsvpPill
+              status={guest.rsvp_status}
+              onChange={handleRsvpChangeCallback}
+              readonly={isTemp}
+            />
+          </div>
+        </div>
+
+        {/* Tags */}
+        {(guest.tags ?? []).length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1">
+            {(guest.tags ?? []).map((tag) => (
+              <TagBadge key={tag} tag={tag} />
+            ))}
+          </div>
+        )}
+
+        {/* Bottom info */}
+        <div className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
+          {guest.seating_tables && (
+            <span className="inline-flex items-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-indigo-600">
+              {guest.seating_tables.name}
+            </span>
+          )}
+          {guest.group_name && (
+            <span className="truncate">{guest.group_name}</span>
+          )}
+        </div>
+      </div>
+    );
+  },
+  (prev, next) => {
+    return (
+      prev.guest.id === next.guest.id &&
+      prev.guest.first_name === next.guest.first_name &&
+      prev.guest.last_name === next.guest.last_name &&
+      prev.guest.rsvp_status === next.guest.rsvp_status &&
+      prev.guest.table_id === next.guest.table_id &&
+      prev.guest.tags?.join(",") === next.guest.tags?.join(",") &&
+      prev.guest.subGuests?.length === next.guest.subGuests?.length
+    );
+  }
+);

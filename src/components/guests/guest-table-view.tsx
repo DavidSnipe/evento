@@ -1,8 +1,8 @@
 "use client";
 
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { MoreHorizontal, Trash2, Edit3 } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { RsvpPill } from "@/components/guests/rsvp-pill";
 import { TagBadge } from "@/components/guests/tag-badge";
@@ -59,18 +59,15 @@ function formatGuestName(guest: GuestWithTable): { mainName: string; subtext?: s
     return { mainName: fullName };
   }
 
-  // Check if there is a couple partner
   const partner = subGuests.find((s) => s.relationship_type === "couple");
   if (partner) {
     const partnerName = `${partner.first_name} ${partner.last_name ?? ""}`.trim();
-    // Merge names: if last names match, show "First1 & First2 Last"
     if (guest.last_name && partner.last_name && guest.last_name.toLowerCase() === partner.last_name.toLowerCase()) {
       return { mainName: `${guest.first_name} & ${partner.first_name} ${guest.last_name}` };
     }
     return { mainName: `${fullName} & ${partnerName}` };
   }
 
-  // Check if it is a family group
   const familyMembers = subGuests.filter((s) => s.relationship_type === "family" || s.relationship_type === "child");
   if (familyMembers.length > 0) {
     const totalCount = 1 + familyMembers.length;
@@ -80,7 +77,6 @@ function formatGuestName(guest: GuestWithTable): { mainName: string; subtext?: s
         subtext: `${fullName} + ${familyMembers.map((f) => f.first_name).join(", ")} (${totalCount} membri)`
       };
     }
-    // E.g., "Familia Popescu"
     const familyName = guest.last_name ? `Familia ${guest.last_name}` : fullName;
     return {
       mainName: familyName,
@@ -149,7 +145,6 @@ export function TablePicker({ selectedTableId, tables, onChange, readonly }: Tab
   }, [isOpen]);
 
   const selectedTable = tables.find((t) => t.id === selectedTableId);
-
   const filteredTables = tables.filter((t) =>
     t.name.toLowerCase().includes(search.toLowerCase())
   );
@@ -252,13 +247,42 @@ export function GuestTableView({
 }: GuestTableViewProps) {
   const allSelected = guests.length > 0 && selectedIds.size === guests.length;
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const theadRef = useRef<HTMLTableSectionElement>(null);
+
+  // Directly toggle class on sticky header scroll event without triggering state re-renders
+  useEffect(() => {
+    const container = containerRef.current;
+    const thead = theadRef.current;
+    if (!container || !thead) return;
+
+    const handleScroll = () => {
+      if (container.scrollTop > 10) {
+        thead.classList.add("backdrop-blur-md", "bg-white/90", "shadow-sm");
+        thead.classList.remove("bg-white/95");
+      } else {
+        thead.classList.add("bg-white/95");
+        thead.classList.remove("backdrop-blur-md", "bg-white/90", "shadow-sm");
+      }
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
-    <div className="overflow-hidden rounded-2xl bg-white/80 shadow-sm ring-1 ring-border/30 max-h-[700px] overflow-y-auto">
+    <div
+      ref={containerRef}
+      className="overflow-hidden rounded-2xl bg-white/80 shadow-sm ring-1 ring-border/30 max-h-[700px] overflow-y-auto"
+    >
       {/* Desktop Table */}
       <div className="hidden md:block">
         <table className="w-full border-collapse">
-          <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-md shadow-[0_1px_0_0_rgba(0,0,0,0.05)]">
-            <tr className="border-b border-border/30">
+          <thead
+            ref={theadRef}
+            className="sticky top-0 z-10 bg-white/95 border-b border-border/30 transition-all duration-200"
+          >
+            <tr>
               <th className="w-10 px-4 py-3.5">
                 <input
                   type="checkbox"
@@ -292,11 +316,11 @@ export function GuestTableView({
                 guest={guest}
                 tables={tables}
                 isSelected={selectedIds.has(guest.id)}
-                onToggleSelect={() => onToggleSelect(guest.id)}
-                onRsvpChange={(s) => onRsvpChange(guest.id, s)}
+                onToggleSelect={onToggleSelect}
+                onRsvpChange={onRsvpChange}
                 onTableChange={onTableChange}
-                onDelete={() => onDelete(guest.id)}
-                onClick={() => onSelectGuest(guest)}
+                onDelete={onDelete}
+                onClick={onSelectGuest}
               />
             ))}
           </tbody>
@@ -310,9 +334,9 @@ export function GuestTableView({
             key={guest.id}
             guest={guest}
             isSelected={selectedIds.has(guest.id)}
-            onToggleSelect={() => onToggleSelect(guest.id)}
-            onRsvpChange={(s) => onRsvpChange(guest.id, s)}
-            onClick={() => onSelectGuest(guest)}
+            onToggleSelect={onToggleSelect}
+            onRsvpChange={onRsvpChange}
+            onClick={onSelectGuest}
           />
         ))}
       </div>
@@ -326,262 +350,372 @@ export function GuestTableView({
   );
 }
 
-// ── Desktop Row ──
-function GuestRow({
-  guest,
-  tables,
-  isSelected,
-  onToggleSelect,
-  onRsvpChange,
-  onTableChange,
-  onDelete,
-  onClick,
-}: {
+// ── Desktop Row (Memoized for high-performance scale rendering) ──
+type GuestRowProps = {
   guest: GuestWithTable;
   tables: SeatingTableRow[];
   isSelected: boolean;
-  onToggleSelect: () => void;
-  onRsvpChange: (s: RsvpStatus) => void;
-  onTableChange: (guestId: string, tableId: string | null) => void;
-  onDelete: () => void;
-  onClick: () => void;
-}) {
-  const [showMenu, setShowMenu] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState({ top: 0, left: 0 });
-  const [mounted, setMounted] = useState(false);
+  onToggleSelect: (id: string) => void;
+  onRsvpChange: (id: string, status: RsvpStatus) => void;
+  onTableChange: (id: string, tableId: string | null) => void;
+  onDelete: (id: string) => void;
+  onClick: (guest: GuestWithTable) => void;
+};
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+const GuestRow = React.memo(
+  function GuestRow({
+    guest,
+    tables,
+    isSelected,
+    onToggleSelect,
+    onRsvpChange,
+    onTableChange,
+    onDelete,
+    onClick,
+  }: GuestRowProps) {
+    const [showMenu, setShowMenu] = useState(false);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
+    const [coords, setCoords] = useState({ top: 0, left: 0 });
+    const [mounted, setMounted] = useState(false);
 
-  const updateCoords = () => {
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setCoords({
-        top: rect.bottom + window.scrollY + 4,
-        left: Math.max(8, rect.right + window.scrollX - 144),
-      });
-    }
-  };
+    const isTemp = guest.id.startsWith("temp-");
 
-  useEffect(() => {
-    if (showMenu) {
-      updateCoords();
-      window.addEventListener("resize", updateCoords);
-      window.addEventListener("scroll", updateCoords, true);
-    }
-    return () => {
-      window.removeEventListener("resize", updateCoords);
-      window.removeEventListener("scroll", updateCoords, true);
-    };
-  }, [showMenu]);
+    useEffect(() => {
+      setMounted(true);
+    }, []);
 
-  const { mainName, subtext } = formatGuestName(guest);
-  const initials = getInitials(guest);
-  const gradient = getAvatarGradient(mainName);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (
-        triggerRef.current?.contains(e.target as Node) ||
-        menuRef.current?.contains(e.target as Node)
-      ) {
-        return;
+    const updateCoords = () => {
+      if (triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setCoords({
+          top: rect.bottom + window.scrollY + 4,
+          left: Math.max(8, rect.right + window.scrollX - 144),
+        });
       }
-      setShowMenu(false);
+    };
+
+    useEffect(() => {
+      if (showMenu) {
+        updateCoords();
+        window.addEventListener("resize", updateCoords);
+        window.addEventListener("scroll", updateCoords, true);
+      }
+      return () => {
+        window.removeEventListener("resize", updateCoords);
+        window.removeEventListener("scroll", updateCoords, true);
+      };
+    }, [showMenu]);
+
+    const { mainName, subtext } = formatGuestName(guest);
+    const initials = getInitials(guest);
+    const gradient = getAvatarGradient(mainName);
+
+    useEffect(() => {
+      function handleClick(e: MouseEvent) {
+        if (
+          triggerRef.current?.contains(e.target as Node) ||
+          menuRef.current?.contains(e.target as Node)
+        ) {
+          return;
+        }
+        setShowMenu(false);
+      }
+      if (showMenu) document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }, [showMenu]);
+
+    const handleCheckboxChange = useCallback(() => {
+      onToggleSelect(guest.id);
+    }, [guest.id, onToggleSelect]);
+
+    const handleRsvpPillChange = useCallback(
+      (s: RsvpStatus) => {
+        onRsvpChange(guest.id, s);
+      },
+      [guest.id, onRsvpChange]
+    );
+
+    const handleTablePickerChange = useCallback(
+      (tableId: string | null) => {
+        onTableChange(guest.id, tableId);
+      },
+      [guest.id, onTableChange]
+    );
+
+    const handleRowClick = useCallback(() => {
+      if (!isTemp) {
+        onClick(guest);
+      }
+    }, [isTemp, guest, onClick]);
+
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[GuestRow] Rendered guest: ${guest.first_name} ${guest.last_name || ""}`);
     }
-    if (showMenu) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showMenu]);
 
-  return (
-    <tr
-      className={cn(
-        "group cursor-pointer transition-colors border-b border-border/10 last:border-0",
-        isSelected ? "bg-primary/5" : "even:bg-muted/5 odd:bg-transparent hover:bg-muted/20"
-      )}
-    >
-      <td className="px-4 py-2.5">
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={onToggleSelect}
-          onClick={(e) => e.stopPropagation()}
-          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/30 cursor-pointer"
-        />
-      </td>
-      <td className="px-3 py-2.5" onClick={onClick}>
-        <div className="flex items-center gap-3">
-          <div
-            className={cn(
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-[11px] font-bold text-white shadow-sm",
-              gradient
-            )}
-          >
-            {initials}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">
-              {mainName}
-            </p>
-            {subtext && (
-              <p className="truncate text-[11px] text-muted-foreground">
-                {subtext}
-              </p>
-            )}
-            {!subtext && guest.plus_one && (
-              <p className="truncate text-[11px] text-muted-foreground">
-                +1 {guest.plus_one_name ?? ""}
-              </p>
-            )}
-          </div>
-        </div>
-      </td>
-      <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-        <RsvpPill status={guest.rsvp_status} onChange={onRsvpChange} />
-      </td>
-      <td className="hidden lg:table-cell px-3 py-2.5" onClick={onClick}>
-        <div className="flex flex-wrap gap-1">
-          {(guest.tags ?? []).slice(0, 3).map((tag) => (
-            <TagBadge key={tag} tag={tag} />
-          ))}
-          {(guest.tags ?? []).length > 3 && (
-            <span className="text-[10px] text-muted-foreground">
-              +{(guest.tags ?? []).length - 3}
-            </span>
-          )}
-        </div>
-      </td>
-      <td className="hidden lg:table-cell px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-        <TablePicker
-          selectedTableId={guest.table_id}
-          tables={tables}
-          onChange={(tableId) => onTableChange(guest.id, tableId)}
-        />
-      </td>
-      <td className="hidden xl:table-cell px-3 py-2.5 text-xs text-muted-foreground" onClick={onClick}>
-        {guest.group_name || "—"}
-      </td>
-      <td className="px-4 py-2.5">
-        <div className="relative">
-          <button
-            ref={triggerRef}
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenu(!showMenu);
-            }}
-            className="rounded-lg p-1.5 text-muted-foreground/60 opacity-0 transition-all group-hover:opacity-100 hover:bg-muted/50 hover:text-foreground"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </button>
-          {showMenu && mounted && createPortal(
+    return (
+      <tr
+        onClick={handleRowClick}
+        className={cn(
+          "group cursor-pointer transition-colors border-b border-border/10 last:border-0 animate-slide-in",
+          isSelected ? "bg-primary/5" : "even:bg-muted/5 odd:bg-transparent hover:bg-muted/20",
+          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85"
+        ) }
+      >
+        <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            disabled={isTemp}
+            onChange={handleCheckboxChange}
+            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/30 cursor-pointer disabled:opacity-50"
+          />
+        </td>
+        <td className="px-3 py-2.5">
+          <div className="flex items-center gap-3">
             <div
-              ref={menuRef}
-              style={{
-                position: "absolute",
-                top: `${coords.top}px`,
-                left: `${coords.left}px`,
-                zIndex: 99999,
-              }}
-              className="w-36 rounded-xl border border-border/50 bg-white p-1 shadow-lg animate-in fade-in-0 zoom-in-95 duration-150"
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-[11px] font-bold text-white shadow-sm",
+                gradient
+              )}
             >
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onClick();
-                  setShowMenu(false);
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {mainName}
+              </p>
+              {subtext && (
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {subtext}
+                </p>
+              )}
+              {!subtext && guest.plus_one && (
+                <p className="truncate text-[11px] text-muted-foreground">
+                  +1 {guest.plus_one_name ?? ""}
+                </p>
+              )}
+            </div>
+          </div>
+        </td>
+        <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+          <RsvpPill status={guest.rsvp_status} onChange={handleRsvpPillChange} readonly={isTemp} />
+        </td>
+        <td className="hidden lg:table-cell px-3 py-2.5">
+          <div className="flex flex-wrap gap-1">
+            {(guest.tags ?? []).slice(0, 3).map((tag) => (
+              <TagBadge key={tag} tag={tag} />
+            ))}
+            {(guest.tags ?? []).length > 3 && (
+              <span className="text-[10px] text-muted-foreground">
+                +{(guest.tags ?? []).length - 3}
+              </span>
+            )}
+          </div>
+        </td>
+        <td className="hidden lg:table-cell px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+          <TablePicker
+            selectedTableId={guest.table_id}
+            tables={tables}
+            onChange={handleTablePickerChange}
+            readonly={isTemp}
+          />
+        </td>
+        <td className="hidden xl:table-cell px-3 py-2.5 text-xs text-muted-foreground">
+          {guest.group_name || "—"}
+        </td>
+        <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+          <div className="relative">
+            <button
+              ref={triggerRef}
+              type="button"
+              disabled={isTemp}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }}
+              className="rounded-lg p-1.5 text-muted-foreground/60 opacity-0 transition-all group-hover:opacity-100 hover:bg-muted/50 hover:text-foreground disabled:opacity-0"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+            {showMenu && mounted && createPortal(
+              <div
+                ref={menuRef}
+                style={{
+                  position: "absolute",
+                  top: `${coords.top}px`,
+                  left: `${coords.left}px`,
+                  zIndex: 99999,
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-foreground hover:bg-muted/50"
+                className="w-36 rounded-xl border border-border/50 bg-white p-1 shadow-lg animate-in fade-in-0 zoom-in-95 duration-150"
               >
-                <Edit3 className="h-3.5 w-3.5" />
-                Editează
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                  setShowMenu(false);
-                }}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Șterge
-              </button>
-            </div>,
-            document.body
-          )}
-        </div>
-      </td>
-    </tr>
-  );
-}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClick(guest);
+                    setShowMenu(false);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-foreground hover:bg-muted/50"
+                >
+                  <Edit3 className="h-3.5 w-3.5" />
+                  Editează
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(guest.id);
+                    setShowMenu(false);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Șterge
+                </button>
+              </div>,
+              document.body
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  },
+  (prev, next) => {
+    // Only re-render if guest row specific fields change
+    const sameSubGuests =
+      (!prev.guest.subGuests && !next.guest.subGuests) ||
+      (!!prev.guest.subGuests && !!next.guest.subGuests &&
+        prev.guest.subGuests.length === next.guest.subGuests.length &&
+        prev.guest.subGuests.every((sg, i) => {
+          const psg = next.guest.subGuests?.[i];
+          return !!psg && sg.first_name === psg.first_name && sg.last_name === psg.last_name && sg.rsvp_status === psg.rsvp_status;
+        }));
 
-// ── Mobile Row ──
-function MobileGuestRow({
-  guest,
-  isSelected,
-  onToggleSelect,
-  onRsvpChange,
-  onClick,
-}: {
+    return (
+      prev.isSelected === next.isSelected &&
+      prev.guest.id === next.guest.id &&
+      prev.guest.first_name === next.guest.first_name &&
+      prev.guest.last_name === next.guest.last_name &&
+      prev.guest.rsvp_status === next.guest.rsvp_status &&
+      prev.guest.table_id === next.guest.table_id &&
+      (prev.guest.tags || []).join(",") === (next.guest.tags || []).join(",") &&
+      sameSubGuests
+    );
+  }
+);
+
+// ── Mobile Row (Memoized for high-performance mobile devices) ──
+type MobileGuestRowProps = {
   guest: GuestWithTable;
   isSelected: boolean;
-  onToggleSelect: () => void;
-  onRsvpChange: (s: RsvpStatus) => void;
-  onClick: () => void;
-}) {
-  const { mainName, subtext } = formatGuestName(guest);
-  const initials = getInitials(guest);
-  const gradient = getAvatarGradient(mainName);
+  onToggleSelect: (id: string) => void;
+  onRsvpChange: (id: string, status: RsvpStatus) => void;
+  onClick: (guest: GuestWithTable) => void;
+};
 
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-3 px-4 py-3 transition-colors active:bg-muted/30",
-        isSelected && "bg-primary/5"
-      )}
-      onClick={onClick}
-    >
-      <input
-        type="checkbox"
-        checked={isSelected}
-        onChange={onToggleSelect}
-        onClick={(e) => e.stopPropagation()}
-        className="h-4 w-4 shrink-0 rounded border-gray-300 text-primary focus:ring-primary/30"
-      />
+const MobileGuestRow = React.memo(
+  function MobileGuestRow({
+    guest,
+    isSelected,
+    onToggleSelect,
+    onRsvpChange,
+    onClick,
+  }: MobileGuestRowProps) {
+    const { mainName, subtext } = formatGuestName(guest);
+    const initials = getInitials(guest);
+    const gradient = getAvatarGradient(mainName);
+
+    const isTemp = guest.id.startsWith("temp-");
+
+    const handleCheckboxChange = useCallback(() => {
+      onToggleSelect(guest.id);
+    }, [guest.id, onToggleSelect]);
+
+    const handleRsvpChangeCallback = useCallback(
+      (s: RsvpStatus) => {
+        onRsvpChange(guest.id, s);
+      },
+      [guest.id, onRsvpChange]
+    );
+
+    const handleRowClick = useCallback(() => {
+      if (!isTemp) {
+        onClick(guest);
+      }
+    }, [isTemp, guest, onClick]);
+
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[MobileGuestRow] Rendered guest: ${guest.first_name} ${guest.last_name || ""}`);
+    }
+
+    return (
       <div
+        onClick={handleRowClick}
         className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-[10px] font-bold text-white shadow-sm",
-          gradient
+          "flex items-center gap-3 px-4 py-3 transition-colors active:bg-muted/30 animate-slide-in",
+          isSelected && "bg-primary/5",
+          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85"
         )}
       >
-        {initials}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-foreground">{mainName}</p>
-        <div className="mt-0.5 flex items-center gap-2">
-          {subtext ? (
-            <span className="truncate text-[11px] text-muted-foreground">{subtext}</span>
-          ) : guest.plus_one ? (
-            <span className="text-[11px] text-muted-foreground">
-              +1 {guest.plus_one_name ?? ""}
-            </span>
-          ) : null}
-          {guest.seating_tables && (
-            <span className="text-[11px] text-indigo-600 font-medium">
-              {guest.seating_tables.name}
-            </span>
+        <div onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            disabled={isTemp}
+            onChange={handleCheckboxChange}
+            className="h-4 w-4 shrink-0 rounded border-gray-300 text-primary focus:ring-primary/30 disabled:opacity-50"
+          />
+        </div>
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-[10px] font-bold text-white shadow-sm",
+            gradient
           )}
+        >
+          {initials}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-foreground">{mainName}</p>
+          <div className="mt-0.5 flex items-center gap-2">
+            {subtext ? (
+              <span className="truncate text-[11px] text-muted-foreground">{subtext}</span>
+            ) : guest.plus_one ? (
+              <span className="text-[11px] text-muted-foreground">
+                +1 {guest.plus_one_name ?? ""}
+              </span>
+            ) : null}
+            {guest.seating_tables && (
+              <span className="text-[11px] text-indigo-600 font-medium">
+                {guest.seating_tables.name}
+              </span>
+            )}
+          </div>
+        </div>
+        <div onClick={(e) => e.stopPropagation()}>
+          <RsvpPill status={guest.rsvp_status} onChange={handleRsvpChangeCallback} readonly={isTemp} />
         </div>
       </div>
-      <div onClick={(e) => e.stopPropagation()}>
-        <RsvpPill status={guest.rsvp_status} onChange={onRsvpChange} />
-      </div>
-    </div>
-  );
-}
+    );
+  },
+  (prev, next) => {
+    const sameSubGuests =
+      (!prev.guest.subGuests && !next.guest.subGuests) ||
+      (!!prev.guest.subGuests && !!next.guest.subGuests &&
+        prev.guest.subGuests.length === next.guest.subGuests.length &&
+        prev.guest.subGuests.every((sg, i) => {
+          const psg = next.guest.subGuests?.[i];
+          return !!psg && sg.first_name === psg.first_name && sg.last_name === psg.last_name && sg.rsvp_status === psg.rsvp_status;
+        }));
+
+    return (
+      prev.isSelected === next.isSelected &&
+      prev.guest.id === next.guest.id &&
+      prev.guest.first_name === next.guest.first_name &&
+      prev.guest.last_name === next.guest.last_name &&
+      prev.guest.rsvp_status === next.guest.rsvp_status &&
+      prev.guest.table_id === next.guest.table_id &&
+      sameSubGuests
+    );
+  }
+);

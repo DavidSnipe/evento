@@ -7,7 +7,6 @@ import { createPortal } from "react-dom";
 import { RsvpPill } from "@/components/guests/rsvp-pill";
 import { GUEST_TAGS } from "@/types/guests";
 import type { GuestWithTable, RsvpStatus, SeatingTableRow } from "@/types/guests";
-import { createSubGuest, deleteSubGuest, updateGuestField } from "@/app/(dashboard)/dashboard/events/[id]/guests/actions";
 
 type GuestDetailPanelProps = {
   guest: GuestWithTable;
@@ -17,6 +16,9 @@ type GuestDetailPanelProps = {
   onUpdateTags: (tags: string[]) => void;
   onUpdateField: (field: string, value: string | boolean | null) => void;
   onDelete: () => void;
+  onAddSubGuest: (type: "couple" | "family" | "child") => void;
+  onDeleteSubGuest: (subGuestId: string) => void;
+  onUpdateSubField: (subGuestId: string, field: string, value: string | null) => void;
 };
 
 function getAvatarGradient(name: string): string {
@@ -43,6 +45,9 @@ export function GuestDetailPanel({
   onUpdateTags,
   onUpdateField,
   onDelete,
+  onAddSubGuest,
+  onDeleteSubGuest,
+  onUpdateSubField,
 }: GuestDetailPanelProps) {
   const [mounted, setMounted] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -86,32 +91,19 @@ export function GuestDetailPanel({
     triggerAutoSave();
   };
 
-  const handleAddSubGuest = async (type: "couple" | "family" | "child") => {
-    const res = await createSubGuest(guest.event_id, guest.id, type);
-    if (res.error) {
-      alert(res.error);
-    } else {
-      triggerAutoSave();
-    }
+  const handleAddSubGuest = (type: "couple" | "family" | "child") => {
+    onAddSubGuest(type);
+    triggerAutoSave();
   };
 
-  const handleDeleteSubGuest = async (subId: string) => {
-    if (!confirm("Ștergi acest membru asociat?")) return;
-    const res = await deleteSubGuest(guest.event_id, subId);
-    if (res.error) {
-      alert(res.error);
-    } else {
-      triggerAutoSave();
-    }
+  const handleDeleteSubGuest = (subId: string) => {
+    onDeleteSubGuest(subId);
+    triggerAutoSave();
   };
 
-  const handleUpdateSubField = async (subId: string, field: string, value: string | null) => {
-    const res = await updateGuestField(guest.event_id, subId, field, value);
-    if (res.error) {
-      alert(res.error);
-    } else {
-      triggerAutoSave();
-    }
+  const handleUpdateSubField = (subId: string, field: string, value: string | null) => {
+    onUpdateSubField(subId, field, value);
+    triggerAutoSave();
   };
 
   const content = (
@@ -461,54 +453,67 @@ function PanelContent({
 
           <div className="space-y-2.5">
             {guest.subGuests && guest.subGuests.length > 0 ? (
-              guest.subGuests.map((sub) => (
-                <div key={sub.id} className="flex items-center gap-2 rounded-xl bg-muted/20 p-2 border border-border/30 shadow-sm animate-in fade-in-0 slide-in-from-bottom-2 duration-150">
-                  <div className="min-w-0 flex-1 grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      defaultValue={sub.first_name}
-                      key={`sub-fn-${sub.id}-${sub.first_name}`}
-                      onBlur={(e) => {
-                        const val = e.target.value.trim();
-                        if (val && val !== sub.first_name) {
-                          handleUpdateSubField(sub.id, "first_name", val);
-                        }
-                      }}
-                      className="h-8 bg-white border border-border/30 rounded-lg px-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
-                      placeholder="Prenume"
-                    />
-                    <input
-                      type="text"
-                      defaultValue={sub.last_name ?? ""}
-                      key={`sub-ln-${sub.id}-${sub.last_name}`}
-                      onBlur={(e) => {
-                        const val = e.target.value.trim() || null;
-                        if (val !== sub.last_name) {
-                          handleUpdateSubField(sub.id, "last_name", val);
-                        }
-                      }}
-                      className="h-8 bg-white border border-border/30 rounded-lg px-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
-                      placeholder="Nume"
-                    />
+              guest.subGuests.map((sub) => {
+                const isTemp = sub.id.startsWith("temp-");
+                return (
+                  <div
+                    key={sub.id}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl bg-muted/20 p-2 border border-border/30 shadow-sm transition-all duration-150 animate-slide-in",
+                      isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85"
+                    )}
+                  >
+                    <div className="min-w-0 flex-1 grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        defaultValue={sub.first_name}
+                        key={`sub-fn-${sub.id}-${sub.first_name}`}
+                        disabled={isTemp}
+                        onBlur={(e) => {
+                          const val = e.target.value.trim();
+                          if (val && val !== sub.first_name) {
+                            handleUpdateSubField(sub.id, "first_name", val);
+                          }
+                        }}
+                        className="h-8 bg-white border border-border/30 rounded-lg px-2 text-xs outline-none focus:ring-1 focus:ring-primary/30 disabled:bg-gray-50"
+                        placeholder="Prenume"
+                      />
+                      <input
+                        type="text"
+                        defaultValue={sub.last_name ?? ""}
+                        key={`sub-ln-${sub.id}-${sub.last_name}`}
+                        disabled={isTemp}
+                        onBlur={(e) => {
+                          const val = e.target.value.trim() || null;
+                          if (val !== sub.last_name) {
+                            handleUpdateSubField(sub.id, "last_name", val);
+                          }
+                        }}
+                        className="h-8 bg-white border border-border/30 rounded-lg px-2 text-xs outline-none focus:ring-1 focus:ring-primary/30 disabled:bg-gray-50"
+                        placeholder="Nume"
+                      />
+                    </div>
+                    <select
+                      value={sub.relationship_type ?? "family"}
+                      disabled={isTemp}
+                      onChange={(e) => handleUpdateSubField(sub.id, "relationship_type", e.target.value)}
+                      className="h-8 bg-white border border-border/30 rounded-lg px-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30 disabled:bg-gray-50"
+                    >
+                      <option value="couple">Partener</option>
+                      <option value="family">Familie</option>
+                      <option value="child">Copil</option>
+                    </select>
+                    <button
+                      type="button"
+                      disabled={isTemp}
+                      onClick={() => handleDeleteSubGuest(sub.id)}
+                      className="p-1 rounded-lg text-muted-foreground/60 hover:text-destructive hover:bg-destructive/5 transition-colors disabled:opacity-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                  <select
-                    value={sub.relationship_type ?? "family"}
-                    onChange={(e) => handleUpdateSubField(sub.id, "relationship_type", e.target.value)}
-                    className="h-8 bg-white border border-border/30 rounded-lg px-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30"
-                  >
-                    <option value="couple">Partener</option>
-                    <option value="family">Familie</option>
-                    <option value="child">Copil</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteSubGuest(sub.id)}
-                    className="p-1 rounded-lg text-muted-foreground/60 hover:text-destructive hover:bg-destructive/5 transition-colors"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))
+                );
+              })
             ) : (
               <p className="text-xs text-muted-foreground/60 italic">Niciun membru asociat.</p>
             )}

@@ -30,6 +30,13 @@ function revalidateGuestPages(eventId: string) {
   revalidatePath("/dashboard");
 }
 
+function splitName(name: string): [string, string] {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 0) return ["", ""];
+  if (parts.length === 1) return [parts[0], ""];
+  return [parts[0], parts.slice(1).join(" ")];
+}
+
 export async function createGuest(
   eventId: string,
   _prev: GuestFormState,
@@ -42,29 +49,51 @@ export async function createGuest(
 
   const rsvp_status = parseRsvp(String(formData.get("rsvp_status") ?? "pending")) ?? "pending";
   const table_id = String(formData.get("table_id") ?? "").trim() || null;
+  const last_name = String(formData.get("last_name") ?? "").trim() || null;
 
   const supabase = await createClient();
-  const { error } = await supabase.from("guests").insert({
-    event_id: eventId,
-    first_name,
-    last_name: String(formData.get("last_name") ?? "").trim() || null,
-    email: String(formData.get("email") ?? "").trim() || null,
-    phone: String(formData.get("phone") ?? "").trim() || null,
-    rsvp_status,
-    plus_one: formData.get("plus_one") === "on",
-    plus_one_name: String(formData.get("plus_one_name") ?? "").trim() || null,
-    group_name: String(formData.get("group_name") ?? "").trim() || null,
-    dietary_notes: String(formData.get("dietary_notes") ?? "").trim() || null,
-    notes: String(formData.get("notes") ?? "").trim() || null,
-    table_id,
-    seat_label: String(formData.get("seat_label") ?? "").trim() || null,
-  });
+  const { data: primaryGuest, error } = await supabase
+    .from("guests")
+    .insert({
+      event_id: eventId,
+      first_name,
+      last_name,
+      email: String(formData.get("email") ?? "").trim() || null,
+      phone: String(formData.get("phone") ?? "").trim() || null,
+      rsvp_status,
+      plus_one: formData.get("plus_one") === "on",
+      plus_one_name: String(formData.get("plus_one_name") ?? "").trim() || null,
+      group_name: String(formData.get("group_name") ?? "").trim() || null,
+      dietary_notes: String(formData.get("dietary_notes") ?? "").trim() || null,
+      notes: String(formData.get("notes") ?? "").trim() || null,
+      table_id,
+      seat_label: String(formData.get("seat_label") ?? "").trim() || null,
+    })
+    .select("id, last_name, rsvp_status")
+    .single();
 
   if (error) {
     if (error.message.includes("relation") || error.code === "42P01") {
       return { error: ro.guests.errors.tablesMissing };
     }
     return { error: ro.guests.errors.saveFailed };
+  }
+
+  // Relational sub-guest creation for couple partner
+  if (primaryGuest && formData.get("plus_one") === "on") {
+    const plusOneName = String(formData.get("plus_one_name") ?? "").trim();
+    if (plusOneName) {
+      const [pFirst, pLast] = splitName(plusOneName);
+      await supabase.from("guests").insert({
+        event_id: eventId,
+        parent_id: primaryGuest.id,
+        first_name: pFirst || "Partener",
+        last_name: pLast || primaryGuest.last_name || null,
+        rsvp_status: primaryGuest.rsvp_status,
+        relationship_type: "couple",
+        table_id,
+      });
+    }
   }
 
   revalidateGuestPages(eventId);
@@ -84,13 +113,14 @@ export async function updateGuest(
 
   const rsvp_status = parseRsvp(String(formData.get("rsvp_status") ?? "pending")) ?? "pending";
   const table_id = String(formData.get("table_id") ?? "").trim() || null;
+  const last_name = String(formData.get("last_name") ?? "").trim() || null;
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("guests")
     .update({
       first_name,
-      last_name: String(formData.get("last_name") ?? "").trim() || null,
+      last_name,
       email: String(formData.get("email") ?? "").trim() || null,
       phone: String(formData.get("phone") ?? "").trim() || null,
       rsvp_status,
@@ -106,6 +136,49 @@ export async function updateGuest(
     .eq("event_id", eventId);
 
   if (error) return { error: ro.guests.errors.saveFailed };
+
+  // Relational sub-guest sync for couple partner
+  if (formData.get("plus_one") === "on") {
+    const plusOneName = String(formData.get("plus_one_name") ?? "").trim();
+    if (plusOneName) {
+      const [pFirst, pLast] = splitName(plusOneName);
+      const { data: existingCouple } = await supabase
+        .from("guests")
+        .select("id")
+        .eq("parent_id", guestId)
+        .eq("relationship_type", "couple")
+        .maybeSingle();
+
+      if (existingCouple) {
+        await supabase
+          .from("guests")
+          .update({
+            first_name: pFirst || "Partener",
+            last_name: pLast || last_name,
+            table_id,
+            rsvp_status,
+          })
+          .eq("id", existingCouple.id);
+      } else {
+        await supabase.from("guests").insert({
+          event_id: eventId,
+          parent_id: guestId,
+          first_name: pFirst || "Partener",
+          last_name: pLast || last_name,
+          rsvp_status,
+          relationship_type: "couple",
+          table_id,
+        });
+      }
+    }
+  } else {
+    // Delete any sub-guests of type 'couple'
+    await supabase
+      .from("guests")
+      .delete()
+      .eq("parent_id", guestId)
+      .eq("relationship_type", "couple");
+  }
 
   revalidateGuestPages(eventId);
   return { success: "ok" };
@@ -305,6 +378,56 @@ export async function updateGuestField(
     .eq("event_id", eventId);
 
   if (error) return { error: ro.guests.errors.saveFailed };
+
+  revalidateGuestPages(eventId);
+  return {};
+}
+
+export async function createSubGuest(
+  eventId: string,
+  parentId: string,
+  relationshipType: "couple" | "family" | "child"
+): Promise<{ error?: string; subGuest?: any }> {
+  await requireEvent(eventId);
+  const supabase = await createClient();
+  
+  // Get parent guest to inherit last name, RSVP status, table, etc.
+  const { data: parent } = await supabase
+    .from("guests")
+    .select("last_name, rsvp_status, table_id")
+    .eq("id", parentId)
+    .single();
+
+  const { data: newSub, error } = await supabase
+    .from("guests")
+    .insert({
+      event_id: eventId,
+      parent_id: parentId,
+      first_name: relationshipType === "couple" ? "Partener" : "Membru",
+      last_name: parent?.last_name || null,
+      rsvp_status: parent?.rsvp_status || "pending",
+      relationship_type: relationshipType,
+      table_id: parent?.table_id || null,
+    })
+    .select("*")
+    .single();
+
+  if (error) return { error: ro.guests.errors.saveFailed };
+
+  revalidateGuestPages(eventId);
+  return { subGuest: newSub };
+}
+
+export async function deleteSubGuest(eventId: string, subGuestId: string): Promise<{ error?: string }> {
+  await requireEvent(eventId);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("guests")
+    .delete()
+    .eq("id", subGuestId)
+    .eq("event_id", eventId);
+
+  if (error) return { error: ro.guests.errors.deleteFailed };
 
   revalidateGuestPages(eventId);
   return {};

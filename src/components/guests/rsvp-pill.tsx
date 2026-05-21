@@ -19,22 +19,58 @@ type RsvpPillProps = {
 
 export function RsvpPill({ status, onChange, readonly }: RsvpPillProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
   const config = RSVP_CONFIG[status];
 
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
+    setMounted(true);
+  }, []);
+
+  const updateCoords = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY + 4,
+        left: Math.max(8, Math.min(window.innerWidth - 152, rect.left + window.scrollX)),
+      });
     }
-    if (isOpen) document.addEventListener("mousedown", handleClick);
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updateCoords();
+      window.addEventListener("resize", updateCoords);
+      window.addEventListener("scroll", updateCoords, true);
+    }
+    return () => {
+      window.removeEventListener("resize", updateCoords);
+      window.removeEventListener("scroll", updateCoords, true);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        dropdownRef.current?.contains(e.target as Node)
+      ) {
+        return;
+      }
+      setIsOpen(false);
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClick);
+    }
     return () => document.removeEventListener("mousedown", handleClick);
   }, [isOpen]);
 
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => !readonly && setIsOpen(!isOpen)}
         className={cn(
@@ -47,8 +83,17 @@ export function RsvpPill({ status, onChange, readonly }: RsvpPillProps) {
         {config.label}
       </button>
 
-      {isOpen && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-36 rounded-xl border border-border/50 bg-white p-1 shadow-lg animate-in fade-in-0 zoom-in-95 duration-150">
+      {isOpen && mounted && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{
+            position: "absolute",
+            top: `${coords.top}px`,
+            left: `${coords.left}px`,
+            zIndex: 99999,
+          }}
+          className="w-36 rounded-xl border border-border/50 bg-white p-1 shadow-lg animate-in fade-in-0 zoom-in-95 duration-150"
+        >
           {(Object.keys(RSVP_CONFIG) as RsvpStatus[]).map((s) => {
             const c = RSVP_CONFIG[s];
             return (
@@ -69,8 +114,9 @@ export function RsvpPill({ status, onChange, readonly }: RsvpPillProps) {
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }

@@ -31,6 +31,12 @@ export type GuestRow = {
   tags: string[];
   created_at: string;
   updated_at: string;
+
+  // Relationship system
+  parent_id: string | null;
+  family_id: string | null;
+  group_id: string | null;
+  relationship_type: "couple" | "family" | "child" | "guest" | null;
 };
 
 export type SeatingTableRow = {
@@ -49,6 +55,7 @@ export type SeatingTableRow = {
 
 export type GuestWithTable = GuestRow & {
   seating_tables: { id: string; name: string } | null;
+  subGuests?: GuestRow[];
 };
 
 export const RSVP_STATUSES: RsvpStatus[] = [

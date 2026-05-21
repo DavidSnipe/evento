@@ -15,16 +15,35 @@ export async function getGuestsByEvent(eventId: string): Promise<GuestWithTable[
     return [];
   }
 
-  return (data ?? []) as GuestWithTable[];
+  const flat = (data ?? []) as GuestWithTable[];
+  const primaryGuests = flat.filter((g) => !g.parent_id);
+  const subGuests = flat.filter((g) => g.parent_id);
+
+  primaryGuests.forEach((primary) => {
+    primary.subGuests = subGuests.filter((sub) => sub.parent_id === primary.id);
+  });
+
+  return primaryGuests;
 }
 
 export async function getGuestStats(eventId: string) {
-  const guests = await getGuestsByEvent(eventId);
-  const total = guests.length;
-  const accepted = guests.filter((g) => g.rsvp_status === "accepted").length;
-  const pending = guests.filter((g) => g.rsvp_status === "pending").length;
-  const declined = guests.filter((g) => g.rsvp_status === "declined").length;
-  const seated = guests.filter((g) => g.table_id).length;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("guests")
+    .select("id, rsvp_status, table_id")
+    .eq("event_id", eventId);
+
+  if (error) {
+    console.error("[getGuestStats]", error.message);
+    return { total: 0, accepted: 0, pending: 0, declined: 0, seated: 0 };
+  }
+
+  const flat = data ?? [];
+  const total = flat.length;
+  const accepted = flat.filter((g) => g.rsvp_status === "accepted").length;
+  const pending = flat.filter((g) => g.rsvp_status === "pending").length;
+  const declined = flat.filter((g) => g.rsvp_status === "declined").length;
+  const seated = flat.filter((g) => g.table_id).length;
 
   return { total, accepted, pending, declined, seated };
 }

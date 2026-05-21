@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { MoreHorizontal, Trash2, Edit3 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { RsvpPill } from "@/components/guests/rsvp-pill";
 import { TagBadge } from "@/components/guests/tag-badge";
 import type { GuestWithTable, RsvpStatus } from "@/types/guests";

@@ -10,6 +10,7 @@ type GuestCardViewProps = {
   guests: GuestWithTable[];
   onRsvpChange: (guestId: string, status: RsvpStatus) => void;
   onSelectGuest: (guest: GuestWithTable) => void;
+  syncingIds: Set<string>;
 };
 
 // Generate gradient avatar colors from name
@@ -41,6 +42,7 @@ export function GuestCardView({
   guests,
   onRsvpChange,
   onSelectGuest,
+  syncingIds,
 }: GuestCardViewProps) {
   if (guests.length === 0) {
     return (
@@ -56,6 +58,7 @@ export function GuestCardView({
         <GuestCard
           key={guest.id}
           guest={guest}
+          isSyncing={syncingIds.has(guest.id)}
           onRsvpChange={onRsvpChange}
           onSelectGuest={onSelectGuest}
         />
@@ -67,12 +70,13 @@ export function GuestCardView({
 // ── Memoized Guest Card ──
 type GuestCardProps = {
   guest: GuestWithTable;
+  isSyncing: boolean;
   onRsvpChange: (guestId: string, status: RsvpStatus) => void;
   onSelectGuest: (guest: GuestWithTable) => void;
 };
 
 const GuestCard = React.memo(
-  function GuestCard({ guest, onRsvpChange, onSelectGuest }: GuestCardProps) {
+  function GuestCard({ guest, isSyncing, onRsvpChange, onSelectGuest }: GuestCardProps) {
     const fullName = `${guest.first_name} ${guest.last_name ?? ""}`.trim();
     const gradient = getAvatarGradient(fullName);
     const initials = getInitials(guest.first_name, guest.last_name);
@@ -101,7 +105,8 @@ const GuestCard = React.memo(
         onClick={handleCardClick}
         className={cn(
           "group cursor-pointer rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-border/30 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] animate-slide-in",
-          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85"
+          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85",
+          isSyncing && "animate-soft-pulse"
         )}
       >
         <div className="flex items-start justify-between">
@@ -130,6 +135,7 @@ const GuestCard = React.memo(
               status={guest.rsvp_status}
               onChange={handleRsvpChangeCallback}
               readonly={isTemp}
+              isSyncing={isSyncing}
             />
           </div>
         </div>
@@ -159,6 +165,7 @@ const GuestCard = React.memo(
   },
   (prev, next) => {
     return (
+      prev.isSyncing === next.isSyncing &&
       prev.guest.id === next.guest.id &&
       prev.guest.first_name === next.guest.first_name &&
       prev.guest.last_name === next.guest.last_name &&

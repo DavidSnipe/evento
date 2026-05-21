@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useTransition } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { GuestWithTable, RsvpStatus, SeatingTableRow, GuestRow } from "@/types/guests";
 import {
   updateGuestRsvp,
@@ -23,10 +23,24 @@ export function useGuestOptimistic(
   tables: SeatingTableRow[]
 ) {
   const [localGuests, setLocalGuests] = useState<GuestWithTable[]>(initialGuests);
-  const [isPending, startTransition] = useTransition();
+  const [syncingCounts, setSyncingCounts] = useState<Record<string, number>>({});
+
+  const syncingIds = useMemo(() => {
+    const ids = new Set<string>();
+    Object.entries(syncingCounts).forEach(([id, count]) => {
+      if (count > 0) ids.add(id);
+    });
+    return ids;
+  }, [syncingCounts]);
 
   // Track pending updates in-flight to prevent race conditions during prop updates
   const pendingUpdates = useRef<Map<string, PendingUpdate>>(new Map());
+
+  // Keep a ref to localGuests to avoid re-creating mutation callbacks
+  const guestsRef = useRef(localGuests);
+  useEffect(() => {
+    guestsRef.current = localGuests;
+  }, [localGuests]);
 
   // Synchronize state when initialGuests prop changes, merging any in-flight optimistic states
   useEffect(() => {
@@ -78,14 +92,22 @@ export function useGuestOptimistic(
 
   // General optimistic helper
   const performMutation = useCallback(
-    async (
+    (
       guestId: string,
       fieldsToUpdate: Partial<GuestWithTable>,
       apiCall: () => Promise<unknown>
     ) => {
-      const originalGuests = [...localGuests];
+      const guestBefore = guestsRef.current.find((g) => g.id === guestId);
+      if (!guestBefore) return;
 
-      // 1. Update local state instantly
+      // Capture original values for modified keys for granular rollback
+      const originalFields: Partial<GuestWithTable> = {};
+      Object.keys(fieldsToUpdate).forEach((key) => {
+        const k = key as keyof GuestWithTable;
+        originalFields[k] = guestBefore[k] as never;
+      });
+
+      // 1. Update local state instantly and synchronously
       setLocalGuests((prev) =>
         prev.map((g) => {
           if (g.id === guestId) {
@@ -104,32 +126,53 @@ export function useGuestOptimistic(
         },
       });
 
-      // 3. Fire backend API call in background
-      try {
-        const res = (await apiCall()) as { error?: string } | null | undefined;
-        if (res && res.error) {
-          throw new Error(res.error);
-        }
-      } catch (err: unknown) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        console.error("[Mutation Failed] Rolling back:", error.message);
-        // Rollback on failure
-        setLocalGuests(originalGuests);
-        pendingUpdates.current.delete(guestId);
-        alert(error.message || "A apărut o eroare la salvarea datelor.");
-      }
+      // 3. Mark guest as syncing in local state
+      setSyncingCounts((prev) => ({
+        ...prev,
+        [guestId]: (prev[guestId] ?? 0) + 1,
+      }));
+
+      // 4. Fire backend API call asynchronously in the background
+      apiCall()
+        .then((res) => {
+          const typedRes = res as { error?: string } | null | undefined;
+          if (typedRes && typedRes.error) {
+            throw new Error(typedRes.error);
+          }
+        })
+        .catch((err: unknown) => {
+          const error = err instanceof Error ? err : new Error(String(err));
+          console.error("[Mutation Failed] Rolling back fields:", error.message);
+          
+          // Revert only the specific modified fields
+          setLocalGuests((prev) =>
+            prev.map((g) => {
+              if (g.id === guestId) {
+                return { ...g, ...originalFields };
+              }
+              return g;
+            })
+          );
+
+          pendingUpdates.current.delete(guestId);
+          alert(error.message || "A apărut o eroare la salvarea datelor.");
+        })
+        .finally(() => {
+          setSyncingCounts((prev) => ({
+            ...prev,
+            [guestId]: Math.max(0, (prev[guestId] ?? 1) - 1),
+          }));
+        });
     },
-    [localGuests]
+    []
   );
 
   // RSVP Change
   const handleRsvpChange = useCallback(
     (guestId: string, status: RsvpStatus) => {
-      startTransition(() => {
-        performMutation(guestId, { rsvp_status: status }, () =>
-          updateGuestRsvp(eventId, guestId, status)
-        );
-      });
+      performMutation(guestId, { rsvp_status: status }, () =>
+        updateGuestRsvp(eventId, guestId, status)
+      );
     },
     [eventId, performMutation]
   );
@@ -140,16 +183,14 @@ export function useGuestOptimistic(
       const selectedTable = tables.find((t) => t.id === tableId);
       const seatingTables = selectedTable ? { id: selectedTable.id, name: selectedTable.name } : null;
 
-      startTransition(() => {
-        performMutation(
-          guestId,
-          {
-            table_id: tableId,
-            seating_tables: seatingTables,
-          },
-          () => assignGuestToTable(eventId, guestId, tableId)
-        );
-      });
+      performMutation(
+        guestId,
+        {
+          table_id: tableId,
+          seating_tables: seatingTables,
+        },
+        () => assignGuestToTable(eventId, guestId, tableId)
+      );
     },
     [eventId, tables, performMutation]
   );
@@ -157,9 +198,7 @@ export function useGuestOptimistic(
   // Update Tags
   const handleUpdateTags = useCallback(
     (guestId: string, tags: string[]) => {
-      startTransition(() => {
-        performMutation(guestId, { tags }, () => updateGuestTags(eventId, guestId, tags));
-      });
+      performMutation(guestId, { tags }, () => updateGuestTags(eventId, guestId, tags));
     },
     [eventId, performMutation]
   );
@@ -167,11 +206,9 @@ export function useGuestOptimistic(
   // Update Specific Field
   const handleUpdateField = useCallback(
     (guestId: string, field: string, value: string | boolean | null) => {
-      startTransition(() => {
-        performMutation(guestId, { [field]: value }, () =>
-          updateGuestField(eventId, guestId, field, value)
-        );
-      });
+      performMutation(guestId, { [field]: value }, () =>
+        updateGuestField(eventId, guestId, field, value)
+      );
     },
     [eventId, performMutation]
   );
@@ -180,51 +217,50 @@ export function useGuestOptimistic(
   const handleDeleteGuest = useCallback(
     (guestId: string) => {
       if (!confirm("Ștergi acest invitat?")) return;
-      const originalGuests = [...localGuests];
+      const guestToDelete = guestsRef.current.find((g) => g.id === guestId);
+      if (!guestToDelete) return;
 
       // Optimistic delete
       setLocalGuests((prev) => prev.filter((g) => g.id !== guestId));
 
-      startTransition(async () => {
-        try {
-          await apiDeleteGuest(eventId, guestId);
-        } catch {
-          setLocalGuests(originalGuests);
-          alert("Eroare la ștergerea invitatului.");
-        }
+      apiDeleteGuest(eventId, guestId).catch((err) => {
+        console.error("Delete failed, rolling back:", err);
+        // Put the deleted guest back
+        setLocalGuests((prev) => [guestToDelete, ...prev]);
+        alert("Eroare la ștergerea invitatului.");
       });
     },
-    [eventId, localGuests]
+    [eventId]
   );
 
   // Bulk Actions
   const handleBulkDelete = useCallback(
     (selectedIds: Set<string>) => {
       if (!confirm(`Ștergi ${selectedIds.size} invitați selectați?`)) return false;
-      const originalGuests = [...localGuests];
+      const guestsToDelete = guestsRef.current.filter((g) => selectedIds.has(g.id));
 
       // Optimistic delete
       setLocalGuests((prev) => prev.filter((g) => !selectedIds.has(g.id)));
 
-      startTransition(async () => {
-        try {
-          const res = await bulkDeleteGuests(eventId, Array.from(selectedIds));
-          if (res && "error" in res && res.error) {
-            throw new Error(res.error);
-          }
-        } catch {
-          setLocalGuests(originalGuests);
-          alert("Eroare la ștergerea în masă.");
-        }
+      bulkDeleteGuests(eventId, Array.from(selectedIds)).catch((err) => {
+        console.error("Bulk delete failed, rolling back:", err);
+        // Put the deleted guests back
+        setLocalGuests((prev) => [...guestsToDelete, ...prev]);
+        alert("Eroare la ștergerea în masă.");
       });
       return true;
     },
-    [eventId, localGuests]
+    [eventId]
   );
 
   const handleBulkRsvp = useCallback(
     (selectedIds: Set<string>, status: RsvpStatus) => {
-      const originalGuests = [...localGuests];
+      const originalRsvps = new Map<string, RsvpStatus>();
+      guestsRef.current.forEach((g) => {
+        if (selectedIds.has(g.id)) {
+          originalRsvps.set(g.id, g.rsvp_status);
+        }
+      });
 
       // Optimistic update
       setLocalGuests((prev) =>
@@ -236,26 +272,54 @@ export function useGuestOptimistic(
         })
       );
 
-      startTransition(async () => {
-        try {
-          const res = await bulkUpdateRsvp(eventId, Array.from(selectedIds), status);
-          if (res && "error" in res && res.error) {
-            throw new Error(res.error);
-          }
-        } catch {
-          setLocalGuests(originalGuests);
-          alert("Eroare la actualizarea în masă.");
-        }
+      // Add to syncing counts
+      setSyncingCounts((prev) => {
+        const next = { ...prev };
+        selectedIds.forEach((id) => {
+          next[id] = (next[id] ?? 0) + 1;
+        });
+        return next;
       });
+
+      bulkUpdateRsvp(eventId, Array.from(selectedIds), status)
+        .catch((err) => {
+          console.error("Bulk RSVP update failed, rolling back:", err);
+          // Rollback only the affected guests
+          setLocalGuests((prev) =>
+            prev.map((g) => {
+              if (selectedIds.has(g.id)) {
+                const orig = originalRsvps.get(g.id);
+                return orig ? { ...g, rsvp_status: orig } : g;
+              }
+              return g;
+            })
+          );
+          alert("Eroare la actualizarea în masă.");
+        })
+        .finally(() => {
+          setSyncingCounts((prev) => {
+            const next = { ...prev };
+            selectedIds.forEach((id) => {
+              next[id] = Math.max(0, (next[id] ?? 1) - 1);
+            });
+            return next;
+          });
+        });
     },
-    [eventId, localGuests]
+    [eventId]
   );
 
   const handleBulkAssignTable = useCallback(
     (selectedIds: Set<string>, tableId: string | null) => {
-      const originalGuests = [...localGuests];
       const selectedTable = tables.find((t) => t.id === tableId);
       const seatingTables = selectedTable ? { id: selectedTable.id, name: selectedTable.name } : null;
+
+      const originalAssignments = new Map<string, { table_id: string | null, seating_tables: typeof seatingTables }>();
+      guestsRef.current.forEach((g) => {
+        if (selectedIds.has(g.id)) {
+          originalAssignments.set(g.id, { table_id: g.table_id, seating_tables: g.seating_tables });
+        }
+      });
 
       // Optimistic update
       setLocalGuests((prev) =>
@@ -267,37 +331,58 @@ export function useGuestOptimistic(
         })
       );
 
-      startTransition(async () => {
-        try {
-          const res = await bulkAssignTable(eventId, Array.from(selectedIds), tableId);
-          if (res && "error" in res && res.error) {
-            throw new Error(res.error);
-          }
-        } catch {
-          setLocalGuests(originalGuests);
-          alert("Eroare la repartizarea în masă.");
-        }
+      // Add to syncing counts
+      setSyncingCounts((prev) => {
+        const next = { ...prev };
+        selectedIds.forEach((id) => {
+          next[id] = (next[id] ?? 0) + 1;
+        });
+        return next;
       });
+
+      bulkAssignTable(eventId, Array.from(selectedIds), tableId)
+        .catch((err) => {
+          console.error("Bulk assign table failed, rolling back:", err);
+          setLocalGuests((prev) =>
+            prev.map((g) => {
+              if (selectedIds.has(g.id)) {
+                const orig = originalAssignments.get(g.id);
+                return orig ? { ...g, table_id: orig.table_id, seating_tables: orig.seating_tables } : g;
+              }
+              return g;
+            })
+          );
+          alert("Eroare la repartizarea în masă.");
+        })
+        .finally(() => {
+          setSyncingCounts((prev) => {
+            const next = { ...prev };
+            selectedIds.forEach((id) => {
+              next[id] = Math.max(0, (next[id] ?? 1) - 1);
+            });
+            return next;
+          });
+        });
     },
-    [eventId, tables, localGuests]
+    [eventId, tables]
   );
 
   // Sub-guest Management
   const handleAddSubGuest = useCallback(
     (parentId: string, type: "couple" | "family" | "child") => {
       const tempId = `temp-sub-${Date.now()}`;
-      const originalGuests = [...localGuests];
-      const parentGuest = localGuests.find((g) => g.id === parentId);
+      const parentGuest = guestsRef.current.find((g) => g.id === parentId);
+      if (!parentGuest) return;
 
       const newSubTemp: GuestRow = {
         id: tempId,
         event_id: eventId,
         parent_id: parentId,
         first_name: type === "couple" ? "Partener" : "Membru",
-        last_name: parentGuest?.last_name || null,
-        rsvp_status: parentGuest?.rsvp_status || "pending",
+        last_name: parentGuest.last_name || null,
+        rsvp_status: parentGuest.rsvp_status || "pending",
         relationship_type: type,
-        table_id: parentGuest?.table_id || null,
+        table_id: parentGuest.table_id || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         family_id: null,
@@ -324,9 +409,9 @@ export function useGuestOptimistic(
         })
       );
 
-      startTransition(async () => {
-        try {
-          const res = await apiCreateSubGuest(eventId, parentId, type);
+      // Background API call
+      apiCreateSubGuest(eventId, parentId, type)
+        .then((res) => {
           if (res.error) throw new Error(res.error);
           if (res.subGuest) {
             // Swap temporary ID with DB ID
@@ -344,20 +429,32 @@ export function useGuestOptimistic(
               })
             );
           }
-        } catch (err: unknown) {
-          setLocalGuests(originalGuests);
+        })
+        .catch((err: unknown) => {
+          console.error("Create sub-guest failed, rolling back:", err);
+          // Rollback by removing the temp sub-guest
+          setLocalGuests((prev) =>
+            prev.map((g) => {
+              if (g.id === parentId) {
+                const sub = g.subGuests ?? [];
+                return { ...g, subGuests: sub.filter((s) => s.id !== tempId) };
+              }
+              return g;
+            })
+          );
           const error = err instanceof Error ? err : new Error(String(err));
           alert(error.message || "Eroare la adăugarea membrului asociat.");
-        }
-      });
+        });
     },
-    [eventId, localGuests]
+    [eventId]
   );
 
   const handleDeleteSubGuest = useCallback(
     (parentId: string, subGuestId: string) => {
       if (!confirm("Ștergi acest membru asociat?")) return;
-      const originalGuests = [...localGuests];
+      const parentGuest = guestsRef.current.find((g) => g.id === parentId);
+      const subToDelete = parentGuest?.subGuests?.find((s) => s.id === subGuestId);
+      if (!subToDelete) return;
 
       // Optimistic delete
       setLocalGuests((prev) =>
@@ -370,23 +467,30 @@ export function useGuestOptimistic(
         })
       );
 
-      startTransition(async () => {
-        try {
-          const res = await apiDeleteSubGuest(eventId, subGuestId);
-          if (res.error) throw new Error(res.error);
-        } catch (err: unknown) {
-          setLocalGuests(originalGuests);
-          const error = err instanceof Error ? err : new Error(String(err));
-          alert(error.message || "Eroare la ștergerea membrului asociat.");
-        }
+      apiDeleteSubGuest(eventId, subGuestId).catch((err) => {
+        console.error("Delete sub-guest failed, rolling back:", err);
+        // Put it back
+        setLocalGuests((prev) =>
+          prev.map((g) => {
+            if (g.id === parentId) {
+              const sub = g.subGuests ?? [];
+              return { ...g, subGuests: [...sub, subToDelete] };
+            }
+            return g;
+          })
+        );
+        alert("Eroare la ștergerea membrului asociat.");
       });
     },
-    [eventId, localGuests]
+    [eventId]
   );
 
   const handleUpdateSubField = useCallback(
     (parentId: string, subGuestId: string, field: string, value: string | null) => {
-      const originalGuests = [...localGuests];
+      const parentGuest = guestsRef.current.find((g) => g.id === parentId);
+      const subGuest = parentGuest?.subGuests?.find((s) => s.id === subGuestId);
+      if (!subGuest) return;
+      const originalValue = subGuest[field as keyof GuestRow];
 
       // Optimistic update of sub-guest field
       setLocalGuests((prev) =>
@@ -402,24 +506,31 @@ export function useGuestOptimistic(
         })
       );
 
-      startTransition(async () => {
-        try {
-          const res = await updateGuestField(eventId, subGuestId, field, value);
-          if (res.error) throw new Error(res.error);
-        } catch (err: unknown) {
-          setLocalGuests(originalGuests);
-          const error = err instanceof Error ? err : new Error(String(err));
-          alert(error.message || "Eroare la salvarea membrului asociat.");
-        }
+      updateGuestField(eventId, subGuestId, field, value).catch((err) => {
+        console.error("Update sub-guest field failed, rolling back:", err);
+        // Rollback
+        setLocalGuests((prev) =>
+          prev.map((g) => {
+            if (g.id === parentId) {
+              const sub = g.subGuests ?? [];
+              return {
+                ...g,
+                subGuests: sub.map((s) => (s.id === subGuestId ? { ...s, [field]: originalValue } : s)),
+              };
+            }
+            return g;
+          })
+        );
+        alert("Eroare la salvarea membrului asociat.");
       });
     },
-    [eventId, localGuests]
+    [eventId]
   );
 
   return {
     localGuests,
     setLocalGuests,
-    isPending,
+    syncingIds,
     handleRsvpChange,
     handleTableChange,
     handleUpdateTags,

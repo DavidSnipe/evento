@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useTransition, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { Search, Plus, Upload, X, LayoutList, LayoutGrid, ChevronDown, Trash2, Users, Tag, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GuestWithTable, RsvpStatus, SeatingTableRow } from "@/types/guests";
@@ -52,7 +52,6 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickAddText, setQuickAddText] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [isPending, startTransition] = useTransition();
 
   // Sorting state
   const [sortBy, setSortBy] = useState<SortKey>("recent");
@@ -62,12 +61,16 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
   // Undo Import Rollback states
   const [rollbackData, setRollbackData] = useState<{ count: number; insertedIds: string[] } | null>(null);
   const rollbackTimeout = useRef<NodeJS.Timeout | null>(null);
+  
+  // Local async in-flight states to avoid transition blocking
+  const [isQuickAdding, setIsQuickAdding] = useState(false);
+  const [isUndoing, setIsUndoing] = useState(false);
 
   // 1. Optimistic updates hook
   const {
     localGuests,
     setLocalGuests,
-    isPending: optimisticPending,
+    syncingIds,
     handleRsvpChange,
     handleTableChange,
     handleUpdateTags,
@@ -94,8 +97,6 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
     sortBy,
   });
 
-  const combinedPending = isPending || optimisticPending;
-
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
@@ -118,14 +119,15 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
     setRollbackData(null);
     if (rollbackTimeout.current) clearTimeout(rollbackTimeout.current);
 
-    startTransition(async () => {
-      try {
-        await bulkDeleteGuests(eventId, rollbackData.insertedIds);
-      } catch {
+    setIsUndoing(true);
+    bulkDeleteGuests(eventId, rollbackData.insertedIds)
+      .catch(() => {
         setLocalGuests(originalGuests);
         alert("Eroare la anularea importului.");
-      }
-    });
+      })
+      .finally(() => {
+        setIsUndoing(false);
+      });
   }, [eventId, rollbackData, localGuests, setLocalGuests]);
 
   const activeFilters = [
@@ -254,19 +256,18 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
     setQuickAddText("");
     setShowQuickAdd(false);
 
-    startTransition(async () => {
-      try {
-        const res = await bulkCreateGuests(
-          eventId,
-          parsed.map((p) => ({
-            firstName: p.firstName,
-            lastName: p.lastName || undefined,
-            plusOneName: p.plusOneName || undefined,
-            groupName: p.groupName || undefined,
-            tags: p.tags,
-          }))
-        );
-
+    setIsQuickAdding(true);
+    bulkCreateGuests(
+      eventId,
+      parsed.map((p) => ({
+        firstName: p.firstName,
+        lastName: p.lastName || undefined,
+        plusOneName: p.plusOneName || undefined,
+        groupName: p.groupName || undefined,
+        tags: p.tags,
+      }))
+    )
+      .then((res) => {
         if (res.error) throw new Error(res.error);
         if (res.insertedIds && res.insertedIds.length > 0) {
           const insertedIds = res.insertedIds;
@@ -285,11 +286,14 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             })
           );
         }
-      } catch {
+      })
+      .catch(() => {
         setLocalGuests(originalGuests);
         alert("Eroare la adăugarea rapidă.");
-      }
-    });
+      })
+      .finally(() => {
+        setIsQuickAdding(false);
+      });
   }, [eventId, quickAddText, localGuests, setLocalGuests]);
 
   return (
@@ -564,10 +568,10 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
               <button
                 type="button"
                 onClick={handleQuickAdd}
-                disabled={!quickAddText.trim() || combinedPending}
+                disabled={!quickAddText.trim() || isQuickAdding}
                 className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary/90 disabled:opacity-50"
               >
-                {combinedPending ? "..." : "Adaugă"}
+                {isQuickAdding ? "..." : "Adaugă"}
               </button>
             </div>
             <p className="mt-1.5 text-[11px] text-muted-foreground">
@@ -694,18 +698,21 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
           onTableChange={handleTableChange}
           onDelete={handleDeleteGuest}
           onSelectGuest={setDetailGuest}
+          syncingIds={syncingIds}
         />
       ) : (
         <GuestCardView
           guests={filteredGuests}
           onRsvpChange={handleRsvpChange}
           onSelectGuest={setDetailGuest}
+          syncingIds={syncingIds}
         />
       )}
 
       {/* ── Detail Panel ── */}
       {detailGuest && (() => {
         const activeGuest = localGuests.find((g) => g.id === detailGuest.id) || detailGuest;
+        const isSyncing = syncingIds.has(activeGuest.id);
         return (
           <GuestDetailPanel
             guest={activeGuest}
@@ -721,6 +728,7 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             onAddSubGuest={(type) => handleAddSubGuest(activeGuest.id, type)}
             onDeleteSubGuest={(subId) => handleDeleteSubGuest(activeGuest.id, subId)}
             onUpdateSubField={(subId, field, value) => handleUpdateSubField(activeGuest.id, subId, field, value)}
+            isSyncing={isSyncing}
           />
         );
       })()}
@@ -749,10 +757,10 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
           <button
             type="button"
             onClick={handleUndoImport}
-            disabled={combinedPending}
+            disabled={isUndoing}
             className="rounded-lg bg-white/10 hover:bg-white/20 px-2.5 py-1 text-xs font-semibold text-primary transition-all duration-150 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
           >
-            {combinedPending ? "Se anulează..." : "Anulează"}
+            {isUndoing ? "Se anulează..." : "Anulează"}
           </button>
         </div>
       )}

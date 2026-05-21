@@ -16,9 +16,10 @@ type RsvpPillProps = {
   status: RsvpStatus;
   onChange?: (status: RsvpStatus) => void;
   readonly?: boolean;
+  isSyncing?: boolean;
 };
 
-export function RsvpPill({ status, onChange, readonly }: RsvpPillProps) {
+export function RsvpPill({ status, onChange, readonly, isSyncing }: RsvpPillProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -77,7 +78,8 @@ export function RsvpPill({ status, onChange, readonly }: RsvpPillProps) {
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all duration-200",
           config.bg, config.text,
-          !readonly && "cursor-pointer hover:shadow-sm active:scale-95"
+          !readonly && "cursor-pointer hover:shadow-sm active:scale-95",
+          isSyncing && "animate-soft-pulse opacity-85"
         )}
       >
         <span className={cn("h-1.5 w-1.5 rounded-full", config.dot)} />

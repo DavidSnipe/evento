@@ -18,6 +18,7 @@ type GuestTableViewProps = {
   onTableChange: (guestId: string, tableId: string | null) => void;
   onDelete: (guestId: string) => void;
   onSelectGuest: (guest: GuestWithTable) => void;
+  syncingIds: Set<string>;
 };
 
 // Generate gradient avatar colors from name
@@ -244,6 +245,7 @@ export function GuestTableView({
   onTableChange,
   onDelete,
   onSelectGuest,
+  syncingIds,
 }: GuestTableViewProps) {
   const allSelected = guests.length > 0 && selectedIds.size === guests.length;
 
@@ -316,6 +318,7 @@ export function GuestTableView({
                 guest={guest}
                 tables={tables}
                 isSelected={selectedIds.has(guest.id)}
+                isSyncing={syncingIds.has(guest.id)}
                 onToggleSelect={onToggleSelect}
                 onRsvpChange={onRsvpChange}
                 onTableChange={onTableChange}
@@ -334,6 +337,7 @@ export function GuestTableView({
             key={guest.id}
             guest={guest}
             isSelected={selectedIds.has(guest.id)}
+            isSyncing={syncingIds.has(guest.id)}
             onToggleSelect={onToggleSelect}
             onRsvpChange={onRsvpChange}
             onClick={onSelectGuest}
@@ -355,6 +359,7 @@ type GuestRowProps = {
   guest: GuestWithTable;
   tables: SeatingTableRow[];
   isSelected: boolean;
+  isSyncing: boolean;
   onToggleSelect: (id: string) => void;
   onRsvpChange: (id: string, status: RsvpStatus) => void;
   onTableChange: (id: string, tableId: string | null) => void;
@@ -367,6 +372,7 @@ const GuestRow = React.memo(
     guest,
     tables,
     isSelected,
+    isSyncing,
     onToggleSelect,
     onRsvpChange,
     onTableChange,
@@ -459,7 +465,8 @@ const GuestRow = React.memo(
         className={cn(
           "group cursor-pointer transition-colors border-b border-border/10 last:border-0 animate-slide-in",
           isSelected ? "bg-primary/5" : "even:bg-muted/5 odd:bg-transparent hover:bg-muted/20",
-          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85"
+          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85",
+          isSyncing && "animate-soft-pulse"
         ) }
       >
         <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
@@ -499,7 +506,7 @@ const GuestRow = React.memo(
           </div>
         </td>
         <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-          <RsvpPill status={guest.rsvp_status} onChange={handleRsvpPillChange} readonly={isTemp} />
+          <RsvpPill status={guest.rsvp_status} onChange={handleRsvpPillChange} readonly={isTemp} isSyncing={isSyncing} />
         </td>
         <td className="hidden lg:table-cell px-3 py-2.5">
           <div className="flex flex-wrap gap-1">
@@ -594,6 +601,7 @@ const GuestRow = React.memo(
 
     return (
       prev.isSelected === next.isSelected &&
+      prev.isSyncing === next.isSyncing &&
       prev.guest.id === next.guest.id &&
       prev.guest.first_name === next.guest.first_name &&
       prev.guest.last_name === next.guest.last_name &&
@@ -609,6 +617,7 @@ const GuestRow = React.memo(
 type MobileGuestRowProps = {
   guest: GuestWithTable;
   isSelected: boolean;
+  isSyncing: boolean;
   onToggleSelect: (id: string) => void;
   onRsvpChange: (id: string, status: RsvpStatus) => void;
   onClick: (guest: GuestWithTable) => void;
@@ -618,6 +627,7 @@ const MobileGuestRow = React.memo(
   function MobileGuestRow({
     guest,
     isSelected,
+    isSyncing,
     onToggleSelect,
     onRsvpChange,
     onClick,
@@ -655,7 +665,8 @@ const MobileGuestRow = React.memo(
         className={cn(
           "flex items-center gap-3 px-4 py-3 transition-colors active:bg-muted/30 animate-slide-in",
           isSelected && "bg-primary/5",
-          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85"
+          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85",
+          isSyncing && "animate-soft-pulse"
         )}
       >
         <div onClick={(e) => e.stopPropagation()}>
@@ -693,7 +704,7 @@ const MobileGuestRow = React.memo(
           </div>
         </div>
         <div onClick={(e) => e.stopPropagation()}>
-          <RsvpPill status={guest.rsvp_status} onChange={handleRsvpChangeCallback} readonly={isTemp} />
+          <RsvpPill status={guest.rsvp_status} onChange={handleRsvpChangeCallback} readonly={isTemp} isSyncing={isSyncing} />
         </div>
       </div>
     );
@@ -710,6 +721,7 @@ const MobileGuestRow = React.memo(
 
     return (
       prev.isSelected === next.isSelected &&
+      prev.isSyncing === next.isSyncing &&
       prev.guest.id === next.guest.id &&
       prev.guest.first_name === next.guest.first_name &&
       prev.guest.last_name === next.guest.last_name &&

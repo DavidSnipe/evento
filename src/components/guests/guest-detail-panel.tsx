@@ -19,6 +19,7 @@ type GuestDetailPanelProps = {
   onAddSubGuest: (type: "couple" | "family" | "child") => void;
   onDeleteSubGuest: (subGuestId: string) => void;
   onUpdateSubField: (subGuestId: string, field: string, value: string | null) => void;
+  isSyncing: boolean;
 };
 
 function getAvatarGradient(name: string): string {
@@ -48,10 +49,11 @@ export function GuestDetailPanel({
   onAddSubGuest,
   onDeleteSubGuest,
   onUpdateSubField,
+  isSyncing,
 }: GuestDetailPanelProps) {
   const [mounted, setMounted] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
+  const [visualState, setVisualState] = useState<"idle" | "saving" | "saved">("idle");
 
   useEffect(() => {
     setMounted(true);
@@ -62,16 +64,26 @@ export function GuestDetailPanel({
     };
   }, []);
 
-  const triggerAutoSave = () => {
-    setSaveStatus("saved");
-  };
-
   useEffect(() => {
-    if (saveStatus === "saved") {
-      const timer = setTimeout(() => setSaveStatus("idle"), 2000);
+    if (isSyncing) {
+      setVisualState("saving");
+      return;
+    }
+
+    if (visualState === "saving") {
+      const timer = setTimeout(() => {
+        setVisualState("saved");
+      }, 500); // 500ms settle delay
       return () => clearTimeout(timer);
     }
-  }, [saveStatus]);
+
+    if (visualState === "saved") {
+      const timer = setTimeout(() => {
+        setVisualState("idle");
+      }, 2000); // 2000ms display duration
+      return () => clearTimeout(timer);
+    }
+  }, [isSyncing, visualState]);
 
   const handleClose = () => {
     setIsVisible(false);
@@ -88,22 +100,18 @@ export function GuestDetailPanel({
       ? guestTags.filter((t) => t !== tag)
       : [...guestTags, tag];
     onUpdateTags(newTags);
-    triggerAutoSave();
   };
 
   const handleAddSubGuest = (type: "couple" | "family" | "child") => {
     onAddSubGuest(type);
-    triggerAutoSave();
   };
 
   const handleDeleteSubGuest = (subId: string) => {
     onDeleteSubGuest(subId);
-    triggerAutoSave();
   };
 
   const handleUpdateSubField = (subId: string, field: string, value: string | null) => {
     onUpdateSubField(subId, field, value);
-    triggerAutoSave();
   };
 
   const content = (
@@ -134,13 +142,13 @@ export function GuestDetailPanel({
           initials={initials}
           guestTags={guestTags}
           tables={tables}
-          saveStatus={saveStatus}
+          visualState={visualState}
+          isSyncing={isSyncing}
           onClose={handleClose}
           onRsvpChange={onRsvpChange}
           onUpdateField={onUpdateField}
           toggleTag={toggleTag}
           onDelete={onDelete}
-          triggerAutoSave={triggerAutoSave}
           handleAddSubGuest={handleAddSubGuest}
           handleDeleteSubGuest={handleDeleteSubGuest}
           handleUpdateSubField={handleUpdateSubField}
@@ -167,13 +175,13 @@ export function GuestDetailPanel({
             initials={initials}
             guestTags={guestTags}
             tables={tables}
-            saveStatus={saveStatus}
+            visualState={visualState}
+            isSyncing={isSyncing}
             onClose={handleClose}
             onRsvpChange={onRsvpChange}
             onUpdateField={onUpdateField}
             toggleTag={toggleTag}
             onDelete={onDelete}
-            triggerAutoSave={triggerAutoSave}
             handleAddSubGuest={handleAddSubGuest}
             handleDeleteSubGuest={handleDeleteSubGuest}
             handleUpdateSubField={handleUpdateSubField}
@@ -194,13 +202,13 @@ function PanelContent({
   initials,
   guestTags,
   tables,
-  saveStatus,
+  visualState,
+  isSyncing,
   onClose,
   onRsvpChange,
   onUpdateField,
   toggleTag,
   onDelete,
-  triggerAutoSave,
   handleAddSubGuest,
   handleDeleteSubGuest,
   handleUpdateSubField,
@@ -210,13 +218,13 @@ function PanelContent({
   initials: string;
   guestTags: string[];
   tables: SeatingTableRow[];
-  saveStatus: "idle" | "saved";
+  visualState: "idle" | "saving" | "saved";
+  isSyncing: boolean;
   onClose: () => void;
   onRsvpChange: (guestId: string, status: RsvpStatus) => void;
   onUpdateField: (field: string, value: string | boolean | null) => void;
   toggleTag: (tag: string) => void;
   onDelete: () => void;
-  triggerAutoSave: () => void;
   handleAddSubGuest: (type: "couple" | "family" | "child") => void;
   handleDeleteSubGuest: (subId: string) => void;
   handleUpdateSubField: (subId: string, field: string, value: string | null) => void;
@@ -245,7 +253,6 @@ function PanelContent({
                   const val = e.target.value.trim();
                   if (val && val !== guest.first_name) {
                     onUpdateField("first_name", val);
-                    triggerAutoSave();
                   }
                 }}
                 className="font-serif text-lg font-semibold text-foreground bg-transparent border-0 p-0 focus:outline-none focus:ring-0 focus:border-b-2 focus:border-primary/20 placeholder:text-muted-foreground/30 min-w-[100px]"
@@ -259,7 +266,6 @@ function PanelContent({
                   const val = e.target.value.trim() || null;
                   if (val !== guest.last_name) {
                     onUpdateField("last_name", val);
-                    triggerAutoSave();
                   }
                 }}
                 className="font-serif text-lg font-semibold text-foreground bg-transparent border-0 p-0 focus:outline-none focus:ring-0 focus:border-b-2 focus:border-primary/20 placeholder:text-muted-foreground/30 min-w-[100px]"
@@ -277,7 +283,13 @@ function PanelContent({
         
         {/* Top Actions */}
         <div className="flex items-center gap-3">
-          {saveStatus === "saved" && (
+          {visualState === "saving" && (
+            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground animate-in fade-in duration-200">
+              <span className="h-2 w-2 rounded-full bg-primary/60 animate-soft-pulse" />
+              Se salvează...
+            </span>
+          )}
+          {visualState === "saved" && (
             <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 animate-in fade-in slide-in-from-top-1 duration-200">
               <svg className="h-3.5 w-3.5 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -306,7 +318,6 @@ function PanelContent({
             status={guest.rsvp_status}
             onChange={(s) => {
               onRsvpChange(guest.id, s);
-              triggerAutoSave();
             }}
           />
         </div>
@@ -325,10 +336,11 @@ function PanelContent({
                   type="button"
                   onClick={() => toggleTag(tag.value)}
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all transform duration-150 active:scale-95 hover:scale-[1.02]",
+                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all duration-200 ease-out active:scale-90 hover:scale-[1.03]",
                     isActive
                       ? tag.color
-                      : "border-border/40 bg-muted/30 text-muted-foreground/60 hover:bg-muted/50"
+                      : "border-border/40 bg-muted/30 text-muted-foreground/60 hover:bg-muted/50",
+                    isSyncing && "animate-soft-pulse"
                   )}
                 >
                   <span>{tag.icon}</span>
@@ -355,7 +367,6 @@ function PanelContent({
                   const val = e.target.value.trim() || null;
                   if (val !== guest.phone) {
                     onUpdateField("phone", val);
-                    triggerAutoSave();
                   }
                 }}
                 className="flex-1 bg-transparent border-0 p-0 text-sm text-foreground focus:outline-none focus:ring-0 placeholder:text-muted-foreground/40"
@@ -372,7 +383,6 @@ function PanelContent({
                   const val = e.target.value.trim() || null;
                   if (val !== guest.email) {
                     onUpdateField("email", val);
-                    triggerAutoSave();
                   }
                 }}
                 className="flex-1 bg-transparent border-0 p-0 text-sm text-foreground focus:outline-none focus:ring-0 placeholder:text-muted-foreground/40"
@@ -391,7 +401,6 @@ function PanelContent({
             value={guest.table_id ?? ""}
             onChange={(e) => {
               onUpdateField("table_id", e.target.value || null);
-              triggerAutoSave();
             }}
             className="h-10 w-full rounded-xl border border-border/40 bg-muted/20 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
           >
@@ -417,7 +426,6 @@ function PanelContent({
               const val = e.target.value.trim() || null;
               if (val !== guest.group_name) {
                 onUpdateField("group_name", val);
-                triggerAutoSave();
               }
             }}
             placeholder="ex. Familie mireasă"
@@ -533,7 +541,6 @@ function PanelContent({
               const val = e.target.value.trim() || null;
               if (val !== guest.dietary_notes) {
                 onUpdateField("dietary_notes", val);
-                triggerAutoSave();
               }
             }}
             placeholder="Vegetarian, alergii, etc."
@@ -555,7 +562,6 @@ function PanelContent({
               const val = e.target.value.trim() || null;
               if (val !== guest.notes) {
                 onUpdateField("notes", val);
-                triggerAutoSave();
               }
             }}
             placeholder="Note suplimentare..."

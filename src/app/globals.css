@@ -38,6 +38,7 @@
 
   --animate-shimmer: shimmer 2s infinite linear;
   --animate-slide-in: slideIn 0.2s ease-out;
+  --animate-soft-pulse: soft-pulse 2.5s ease-in-out infinite;
 
   @keyframes shimmer {
     0% {
@@ -56,6 +57,15 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @keyframes soft-pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.75;
     }
   }
 }

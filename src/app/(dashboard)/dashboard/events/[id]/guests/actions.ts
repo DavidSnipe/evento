@@ -215,22 +215,28 @@ export async function assignGuestToTable(
   const supabase = await createClient();
 
   if (tableId) {
-    const { data: table } = await supabase
+    const { data: table, error: tableError } = await supabase
       .from("seating_tables")
       .select("capacity")
       .eq("id", tableId)
       .eq("event_id", eventId)
       .single();
 
+    if (tableError) {
+      console.error("[assignGuestToTable] tableError:", tableError);
+    }
     if (!table) return { error: ro.seating.errors.assignFailed };
 
     // Get moving guest
-    const { data: guest } = await supabase
+    const { data: guest, error: guestError } = await supabase
       .from("guests")
       .select("id, parent_id, plus_one, relationship_type, table_id")
       .eq("id", guestId)
       .single();
 
+    if (guestError) {
+      console.error("[assignGuestToTable] guestError:", guestError);
+    }
     if (!guest) return { error: ro.seating.errors.assignFailed };
 
     // If already at this table, allow it
@@ -279,20 +285,27 @@ export async function assignGuestToTable(
   }
 
   // Update primary guest
-  const { error } = await supabase
+  const { error: updateError } = await supabase
     .from("guests")
     .update({ table_id: tableId })
     .eq("id", guestId)
     .eq("event_id", eventId);
 
-  if (error) return { error: ro.seating.errors.assignFailed };
+  if (updateError) {
+    console.error("[assignGuestToTable] updateError:", updateError);
+    return { error: ro.seating.errors.assignFailed };
+  }
 
   // Sync all sub-guests of this guest
-  await supabase
+  const { error: subGuestsSyncError } = await supabase
     .from("guests")
     .update({ table_id: tableId })
     .eq("parent_id", guestId)
     .eq("event_id", eventId);
+
+  if (subGuestsSyncError) {
+    console.error("[assignGuestToTable] subGuestsSyncError:", subGuestsSyncError);
+  }
 
   revalidateGuestPages(eventId);
   return { success: true };

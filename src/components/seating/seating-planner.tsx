@@ -930,7 +930,7 @@ export function SeatingPlanner({
       <div className={cn(
         "transition-all duration-350 ease-in-out",
         workspaceMode
-          ? "fixed inset-0 z-[45] bg-slate-50 flex h-screen w-screen gap-0 overflow-hidden"
+          ? "fixed inset-0 z-[45] bg-slate-100 flex h-screen w-screen gap-0 overflow-hidden animate-in fade-in duration-300"
           : "flex h-[calc(100vh-14rem)] min-h-[550px] gap-4 print:h-auto print:block"
       )}>
         {/* LEFT: Guest Sidebar (desktop) */}
@@ -939,7 +939,7 @@ export function SeatingPlanner({
             style={{ width: `${guestSidebarWidth}px` }}
             className={cn(
               "hidden shrink-0 lg:block print:hidden relative h-full select-none transition-all duration-350 ease-in-out border-slate-200/60 bg-white/70",
-              workspaceMode ? "rounded-none border-none border-r" : ""
+              workspaceMode ? "rounded-none border-none border-r border-slate-200/80 bg-white z-20 shadow-xl" : ""
             )}
           >
             <GuestSidebar
@@ -975,10 +975,10 @@ export function SeatingPlanner({
         {/* CENTER: Toolbar + Canvas Viewport */}
         <div className={cn(
           "flex flex-1 flex-col overflow-hidden print:overflow-visible transition-all duration-350 ease-in-out",
-          workspaceMode ? "gap-0 h-full" : "gap-4"
+          workspaceMode ? "gap-0 h-full relative" : "gap-4"
         )}>
           {/* Toolbar */}
-          <div className={cn("print:hidden transition-all duration-350", workspaceMode && "border-b border-slate-200 bg-white shadow-sm z-20")}>
+          <div className={cn("print:hidden transition-all duration-350", workspaceMode && "absolute top-4 left-1/2 -translate-x-1/2 z-30 w-fit max-w-[95%] shrink-0 px-4")}>
             <SeatingToolbar
               eventId={eventId}
               totalSeated={totalSeated}
@@ -1368,7 +1368,7 @@ export function SeatingPlanner({
         {selectedTable && (
           <aside className={cn(
             "hidden w-76 shrink-0 lg:block print:hidden transition-all duration-350 ease-in-out border-slate-200/60 bg-white/70",
-            workspaceMode ? "h-full rounded-none border-none border-l" : ""
+            workspaceMode ? "h-full rounded-none border-none border-l border-slate-200/80 bg-white z-20 shadow-xl" : ""
           )}>
             <TableDetailPanel
               table={selectedTable}

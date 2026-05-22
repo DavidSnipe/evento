@@ -224,28 +224,65 @@ export async function assignGuestToTable(
 
     if (!table) return { error: ro.seating.errors.assignFailed };
 
-    const { data: tableGuests } = await supabase
-      .from("guests")
-      .select("id, plus_one")
-      .eq("table_id", tableId)
-      .neq("id", guestId);
-
+    // Get moving guest
     const { data: guest } = await supabase
       .from("guests")
-      .select("plus_one")
+      .select("id, parent_id, plus_one")
       .eq("id", guestId)
       .single();
 
-    const occupied =
-      (tableGuests ?? []).reduce((s, g) => s + 1 + (g.plus_one ? 1 : 0), 0) +
-      1 +
-      (guest?.plus_one ? 1 : 0);
+    if (!guest) return { error: ro.seating.errors.assignFailed };
+
+    // Find all sub-guests of this guest
+    const { data: subGuests } = await supabase
+      .from("guests")
+      .select("id, parent_id, plus_one")
+      .eq("parent_id", guestId);
+
+    const movingGuests = [guest, ...(subGuests ?? [])];
+    const movingGuestIds = movingGuests.map(g => g.id);
+
+    // Get other guests already at this table (excluding moving guests)
+    const { data: currentTableGuests } = await supabase
+      .from("guests")
+      .select("id, parent_id, plus_one, relationship_type")
+      .eq("table_id", tableId)
+      .not("id", "in", `(${movingGuestIds.map(id => `'${id}'`).join(",")})`);
+
+    // Count occupied seats by current table guests
+    let occupied = 0;
+    const tableGuestsList = currentTableGuests ?? [];
+    for (const g of tableGuestsList) {
+      occupied += 1;
+      if (!g.parent_id && g.plus_one) {
+        const hasCoupleRow = tableGuestsList.some(
+          (sub) => sub.parent_id === g.id && sub.relationship_type === "couple"
+        );
+        if (!hasCoupleRow) {
+          occupied += 1;
+        }
+      }
+    }
+
+    // Count seats needed by moving guests
+    for (const g of movingGuests) {
+      occupied += 1;
+      if (!g.parent_id && g.plus_one) {
+        const hasCoupleRow = movingGuests.some(
+          (sub) => sub.parent_id === g.id && sub.relationship_type === "couple"
+        );
+        if (!hasCoupleRow) {
+          occupied += 1;
+        }
+      }
+    }
 
     if (occupied > table.capacity) {
       return { error: ro.seating.errors.tableFull };
     }
   }
 
+  // Update primary guest
   const { error } = await supabase
     .from("guests")
     .update({ table_id: tableId })
@@ -253,6 +290,13 @@ export async function assignGuestToTable(
     .eq("event_id", eventId);
 
   if (error) return { error: ro.seating.errors.assignFailed };
+
+  // Sync all sub-guests of this guest
+  await supabase
+    .from("guests")
+    .update({ table_id: tableId })
+    .eq("parent_id", guestId)
+    .eq("event_id", eventId);
 
   revalidateGuestPages(eventId);
   return { success: true };
@@ -350,6 +394,13 @@ export async function bulkAssignTable(
     .in("id", guestIds);
 
   if (error) return { error: ro.seating.errors.assignFailed };
+
+  // Also assign all sub-guests of the assigned primary guests
+  await supabase
+    .from("guests")
+    .update({ table_id: tableId })
+    .eq("event_id", eventId)
+    .in("parent_id", guestIds);
 
   revalidateGuestPages(eventId);
   return {};

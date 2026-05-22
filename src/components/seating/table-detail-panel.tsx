@@ -1,8 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { AlertTriangle, Trash2, UserMinus, X, Edit3, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import {
+  AlertTriangle,
+  Trash2,
+  UserMinus,
+  X,
+  Edit3,
+  Save,
+  Lock,
+  Unlock,
+  RotateCw,
+  Maximize2
+} from "lucide-react";
 
 import {
   updateTable,
@@ -14,7 +25,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ro } from "@/lib/i18n/ro";
 import { cn } from "@/lib/utils";
-import { getTableOccupancy } from "@/lib/seating/utils";
+import {
+  getTableOccupancy,
+  parseMetadata,
+  getNotesText,
+  serializeNotes,
+  type TableMetadata
+} from "@/lib/seating/utils";
 import type { TableWithGuests } from "@/lib/seating/queries";
 import type { GuestWithTable } from "@/types/guests";
 
@@ -44,6 +61,8 @@ const SHAPE_LABELS: Record<string, string> = {
   round: ro.seating.shapes.round,
   rectangular: ro.seating.shapes.rectangular,
   sweetheart: ro.seating.shapes.sweetheart,
+  square: "Pătrată",
+  long_banquet: "Banquet Lung"
 };
 
 function detectWarnings(table: TableWithGuests, allGuests: GuestWithTable[]) {
@@ -78,13 +97,20 @@ export function TableDetailPanel({
 }: TableDetailPanelProps) {
   const router = useRouter();
 
+  const metadata = parseMetadata(table.notes);
+  const isRoomObject = !!metadata.objectType;
+  const isLocked = metadata.isLocked === true;
+  const rotation = metadata.rotation || 0;
+  const width = metadata.width || (metadata.objectType === "dance_floor" ? 280 : 160);
+  const height = metadata.height || (metadata.objectType === "dance_floor" ? 200 : 96);
+
   /* Editable name */
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(table.name);
   const [savingName, setSavingName] = useState(false);
 
-  /* Notes */
-  const [notesValue, setNotesValue] = useState(table.notes ?? "");
+  /* Notes text */
+  const [notesValue, setNotesValue] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
 
   /* Guest removal loading */
@@ -93,6 +119,14 @@ export function TableDetailPanel({
   /* Delete confirmation */
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Sync state variables when table changes
+  useEffect(() => {
+    setNameValue(table.name);
+    setIsEditingName(false);
+    setNotesValue(getNotesText(table.notes));
+    setShowDeleteConfirm(false);
+  }, [table.id, table.notes]);
 
   const { occupied, capacity } = getTableOccupancy(table);
   const isOverCapacity = occupied > capacity;
@@ -116,11 +150,21 @@ export function TableDetailPanel({
   }
 
   async function handleSaveNotes() {
-    if (notesValue === (table.notes ?? "")) return;
+    const currentNotes = table.notes;
+    const newNotes = serializeNotes(currentNotes, notesValue);
+    if (newNotes === currentNotes) return;
     setSavingNotes(true);
-    await updateTable(eventId, table.id, { notes: notesValue });
+    await updateTable(eventId, table.id, { notes: newNotes });
     router.refresh();
     setSavingNotes(false);
+  }
+
+  async function handleUpdateMetadata(updates: Partial<TableMetadata>) {
+    const currentNotes = table.notes;
+    const text = getNotesText(currentNotes);
+    const newNotes = serializeNotes(currentNotes, text, updates);
+    await updateTable(eventId, table.id, { notes: newNotes });
+    router.refresh();
   }
 
   async function handleRemoveGuest(guestId: string) {
@@ -140,7 +184,7 @@ export function TableDetailPanel({
   return (
     <aside
       className={cn(
-        "flex flex-col rounded-2xl border border-white/20 bg-white/70 shadow-xl backdrop-blur-lg",
+        "flex flex-col rounded-2xl border border-white/20 bg-white/80 shadow-xl backdrop-blur-lg w-full",
         "transition-all duration-300 ease-out",
         className
       )}
@@ -175,7 +219,7 @@ export function TableDetailPanel({
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <h3 className="truncate font-[family-name:var(--font-playfair)] text-lg font-semibold text-foreground">
+              <h3 className="truncate font-serif text-lg font-semibold text-foreground">
                 {table.name}
               </h3>
               <Button
@@ -192,7 +236,9 @@ export function TableDetailPanel({
             </div>
           )}
           <span className="mt-1 inline-block rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
-            {SHAPE_LABELS[table.shape] ?? table.shape}
+            {isRoomObject
+              ? "Obiect Sală"
+              : (SHAPE_LABELS[metadata.customShape || table.shape] ?? metadata.customShape || table.shape)}
           </span>
         </div>
 
@@ -208,102 +254,198 @@ export function TableDetailPanel({
 
       {/* ─── Scrollable body ─── */}
       <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
-        {/* Capacity bar */}
-        <div className="space-y-2">
-          <div className="flex items-baseline justify-between text-sm">
-            <span className="font-medium text-foreground">
-              {ro.seating.detail.capacity}
-            </span>
-            <span
-              className={cn(
-                "tabular-nums",
-                isOverCapacity
-                  ? "font-semibold text-destructive"
-                  : "text-muted-foreground"
-              )}
-            >
-              {occupied}/{capacity}
-            </span>
+        {/* Toggle Lock status */}
+        <div className="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-100 p-3">
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-slate-700">Blochează Poziția</span>
+            <span className="text-[11px] text-muted-foreground">Previne mutarea accidentală</span>
           </div>
-          <div className="h-2.5 overflow-hidden rounded-full bg-muted/60">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-500 ease-out",
-                isOverCapacity
-                  ? "bg-destructive"
-                  : occupancyPercent >= 90
-                    ? "bg-amber-400"
-                    : "bg-accent"
-              )}
-              style={{ width: `${occupancyPercent}%` }}
-            />
-          </div>
+          <Button
+            variant={isLocked ? "destructive" : "outline"}
+            size="sm"
+            className="rounded-xl h-8 gap-1.5"
+            onClick={() => handleUpdateMetadata({ isLocked: !isLocked })}
+          >
+            {isLocked ? (
+              <>
+                <Lock className="h-3.5 w-3.5" />
+                Blocat
+              </>
+            ) : (
+              <>
+                <Unlock className="h-3.5 w-3.5" />
+                Liber
+              </>
+            )}
+          </Button>
         </div>
 
-        {/* Warnings */}
-        {warnings.length > 0 && (
-          <div className="space-y-2 rounded-xl bg-destructive/5 p-3">
-            {warnings.map((w, i) => (
-              <div
-                key={i}
-                className="flex items-start gap-2 text-sm text-destructive"
-              >
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{w}</span>
+        {/* Custom dimensions for Room Objects */}
+        {isRoomObject && (
+          <div className="space-y-4 rounded-xl border border-border/40 p-3.5 bg-slate-50/50">
+            <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+              <Maximize2 className="h-4 w-4 text-slate-500" />
+              <span>Dimensiuni Obiect</span>
+            </div>
+            
+            {/* Width Slider */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Lățime</span>
+                <span className="font-mono text-slate-700 font-semibold">{width}px</span>
               </div>
-            ))}
+              <input
+                type="range"
+                min={80}
+                max={400}
+                step={10}
+                value={width}
+                onChange={(e) => handleUpdateMetadata({ width: parseInt(e.target.value, 10) })}
+                className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+            </div>
+
+            {/* Height Slider */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Înălțime</span>
+                <span className="font-mono text-slate-700 font-semibold">{height}px</span>
+              </div>
+              <input
+                type="range"
+                min={40}
+                max={400}
+                step={10}
+                value={height}
+                onChange={(e) => handleUpdateMetadata({ height: parseInt(e.target.value, 10) })}
+                className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+            </div>
           </div>
         )}
 
-        {/* Guests list */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">
-            {ro.seating.detail.guestsAtTable}
-          </Label>
-          {table.guests.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">
-              {ro.seating.detail.noGuests}
-            </p>
-          ) : (
-            <ul className="space-y-1.5">
-              {table.guests.map((guest) => (
-                <li
-                  key={guest.id}
-                  className="flex items-center gap-3 rounded-xl bg-white/80 px-3 py-2 shadow-sm transition-colors hover:bg-white"
-                >
-                  {/* Initials avatar */}
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent-foreground">
-                    {guestInitials(guest)}
-                  </span>
-
-                  {/* Name + plus one */}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {guestName(guest)}
-                    </p>
-                    {guest.plus_one && (
-                      <span className="text-xs text-muted-foreground">
-                        +1{guest.plus_one_name ? ` · ${guest.plus_one_name}` : ""}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Remove button */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                    disabled={removingGuestId === guest.id}
-                    onClick={() => handleRemoveGuest(guest.id)}
-                    title={ro.seating.tableCard.remove}
-                  >
-                    <UserMinus className="h-3.5 w-3.5" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
+        {/* Rotation adjuster */}
+        <div className="space-y-2 rounded-xl border border-border/40 p-3 bg-slate-50/50">
+          <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+            <RotateCw className="h-4 w-4 text-slate-500" />
+            <span>Rotire</span>
+          </div>
+          <div className="grid grid-cols-4 gap-1">
+            {[0, 90, 180, 270].map((deg) => (
+              <Button
+                key={deg}
+                variant={rotation === deg ? "default" : "outline"}
+                size="sm"
+                className="h-8 rounded-lg text-xs"
+                onClick={() => handleUpdateMetadata({ rotation: deg })}
+              >
+                {deg}°
+              </Button>
+            ))}
+          </div>
         </div>
+
+        {/* Regular seating components */}
+        {!isRoomObject && (
+          <>
+            {/* Capacity bar */}
+            <div className="space-y-2">
+              <div className="flex items-baseline justify-between text-sm">
+                <span className="font-medium text-foreground">
+                  {ro.seating.detail.capacity}
+                </span>
+                <span
+                  className={cn(
+                    "tabular-nums",
+                    isOverCapacity
+                      ? "font-semibold text-destructive"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  {occupied}/{capacity}
+                </span>
+              </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-muted/60">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-500 ease-out",
+                    isOverCapacity
+                      ? "bg-destructive"
+                      : occupancyPercent >= 90
+                        ? "bg-amber-400"
+                        : "bg-accent"
+                  )}
+                  style={{ width: `${occupancyPercent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Warnings */}
+            {warnings.length > 0 && (
+              <div className="space-y-2 rounded-xl bg-destructive/5 p-3">
+                {warnings.map((w, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-2 text-sm text-destructive"
+                  >
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{w}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Guests list */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                {ro.seating.detail.guestsAtTable}
+              </Label>
+              {table.guests.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  {ro.seating.detail.noGuests}
+                </p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {table.guests.map((guest) => (
+                    <li
+                      key={guest.id}
+                      className="flex items-center gap-3 rounded-xl bg-white/80 px-3 py-2 shadow-sm border border-slate-100 transition-colors hover:bg-white"
+                    >
+                      {/* Initials avatar */}
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent-foreground">
+                        {guestInitials(guest)}
+                      </span>
+
+                      {/* Name + plus one */}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {guestName(guest)}
+                        </p>
+                        {guest.plus_one && (
+                          <span className="text-xs text-muted-foreground">
+                            +1{guest.plus_one_name ? ` · ${guest.plus_one_name}` : ""}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Remove button */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                        disabled={removingGuestId === guest.id}
+                        onClick={() => handleRemoveGuest(guest.id)}
+                        title={ro.seating.tableCard.remove}
+                      >
+                        <UserMinus className="h-3.5 w-3.5" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Notes */}
         <div className="space-y-2">
@@ -332,14 +474,14 @@ export function TableDetailPanel({
       <div className="border-t border-border/40 px-5 py-4">
         {showDeleteConfirm ? (
           <div className="space-y-3 rounded-xl bg-destructive/5 p-3">
-            <p className="text-sm text-destructive">
+            <p className="text-sm text-destructive text-center">
               {ro.seating.tableCard.deleteConfirm}
             </p>
             <div className="flex gap-2">
               <Button
                 variant="destructive"
                 size="sm"
-                className="flex-1"
+                className="flex-1 rounded-xl"
                 disabled={deleting}
                 onClick={handleDelete}
               >
@@ -349,7 +491,7 @@ export function TableDetailPanel({
               <Button
                 variant="outline"
                 size="sm"
-                className="flex-1"
+                className="flex-1 rounded-xl"
                 onClick={() => setShowDeleteConfirm(false)}
                 disabled={deleting}
               >
@@ -360,11 +502,11 @@ export function TableDetailPanel({
         ) : (
           <Button
             variant="outline"
-            className="w-full border-destructive/30 text-destructive hover:bg-destructive/5 hover:text-destructive"
+            className="w-full rounded-xl border-destructive/30 text-destructive hover:bg-destructive/5 hover:text-destructive"
             onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="mr-2 h-4 w-4" />
-            {ro.seating.tableCard.deleteTable}
+            {isRoomObject ? "Șterge Obiectul" : ro.seating.tableCard.deleteTable}
           </Button>
         )}
       </div>

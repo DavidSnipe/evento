@@ -1,17 +1,31 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Users } from "lucide-react";
+import { useState, useMemo } from "react";
+import {
+  Search,
+  Users,
+  CheckCircle,
+  XCircle,
+  HelpCircle,
+  Tag,
+  ChevronDown,
+  ChevronUp,
+  ArrowUpDown,
+  CornerDownRight,
+  Filter
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ro } from "@/lib/i18n/ro";
 import { cn } from "@/lib/utils";
-import type { GuestWithTable } from "@/types/guests";
+import type { GuestWithTable, RsvpStatus } from "@/types/guests";
+import { GUEST_TAGS } from "@/types/guests";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
 type FilterMode = "all" | "unassigned" | "assigned";
+type SortOption = "last_name" | "first_name" | "rsvp" | "table" | "family";
 
 type GuestSidebarProps = {
   guests: GuestWithTable[];
@@ -25,6 +39,7 @@ type GuestSidebarProps = {
 /* ------------------------------------------------------------------ */
 
 function guestName(g: GuestWithTable) {
+  // Traditional Romanian display: Last Name first
   return g.last_name ? `${g.last_name} ${g.first_name}` : g.first_name;
 }
 
@@ -34,31 +49,27 @@ function getInitials(g: GuestWithTable): string {
   return g.last_name ? `${l}${f}`.toUpperCase() : f.toUpperCase() || "?";
 }
 
-function getColor(name: string | null): string {
-  if (!name) return "bg-muted";
-  const colors = [
-    "bg-pink-100 text-pink-700",
-    "bg-amber-100 text-amber-700",
-    "bg-emerald-100 text-emerald-700",
-    "bg-violet-100 text-violet-700",
-    "bg-sky-100 text-sky-700",
-    "bg-rose-100 text-rose-700",
-  ];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++)
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return colors[Math.abs(hash) % colors.length];
+function getRsvpIcon(status: RsvpStatus) {
+  switch (status) {
+    case "accepted":
+      return <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />;
+    case "declined":
+      return <XCircle className="h-3.5 w-3.5 text-rose-500" />;
+    default:
+      return <HelpCircle className="h-3.5 w-3.5 text-amber-500" />;
+  }
 }
 
-/* ------------------------------------------------------------------ */
-/*  Filter pills config                                                */
-/* ------------------------------------------------------------------ */
-
-const FILTERS: { key: FilterMode; label: string }[] = [
-  { key: "all", label: ro.seating.filters.all },
-  { key: "unassigned", label: ro.seating.filters.unassigned },
-  { key: "assigned", label: ro.seating.filters.assigned },
-];
+function getRsvpBadgeClass(status: RsvpStatus) {
+  switch (status) {
+    case "accepted":
+      return "bg-emerald-50 text-emerald-700 border-emerald-100";
+    case "declined":
+      return "bg-rose-50 text-rose-700 border-rose-100";
+    default:
+      return "bg-amber-50 text-amber-700 border-amber-100";
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
@@ -71,35 +82,111 @@ export function GuestSidebar({
   className,
 }: GuestSidebarProps) {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<FilterMode>("all");
+  const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [rsvpFilter, setRsvpFilter] = useState<string>("all");
+  const [selectedTag, setSelectedTag] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<SortOption>("family");
+  
+  // Collapse filter settings accordion
+  const [showFilters, setShowFilters] = useState(false);
 
-  /* ---------- derived ---------- */
+  /* ---------- derived & filtered guests ---------- */
+  const displayedGuestsList = useMemo(() => {
+    // 1. Filter
+    const filtered = guests.filter((g) => {
+      // Base assignment filter
+      if (filterMode === "unassigned" && g.table_id) return false;
+      if (filterMode === "assigned" && !g.table_id) return false;
 
-  const filtered = guests.filter((g) => {
-    // filter mode
-    if (filter === "unassigned" && g.table_id) return false;
-    if (filter === "assigned" && !g.table_id) return false;
+      // RSVP filter
+      if (rsvpFilter !== "all" && g.rsvp_status !== rsvpFilter) return false;
 
-    // search
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      const name = guestName(g).toLowerCase();
-      const group = (g.group_name ?? "").toLowerCase();
-      if (!name.includes(q) && !group.includes(q)) return false;
+      // Tag filter
+      if (selectedTag !== "all" && !g.tags?.includes(selectedTag)) return false;
+
+      // Search
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        const fullName = `${g.first_name} ${g.last_name || ""}`.toLowerCase();
+        const traditionalName = `${g.last_name || ""} ${g.first_name}`.toLowerCase();
+        const group = (g.group_name ?? "").toLowerCase();
+        if (!fullName.includes(q) && !traditionalName.includes(q) && !group.includes(q)) return false;
+      }
+
+      return true;
+    });
+
+    // 2. Sort / Group
+    let sorted: (GuestWithTable & { isSubGuest?: boolean })[] = [];
+
+    if (sortBy === "family") {
+      // Find all primary guests
+      const primaries = filtered.filter(g => !g.parent_id);
+      primaries.sort((a, b) => {
+        const nameA = `${a.last_name || ""} ${a.first_name}`.trim();
+        const nameB = `${b.last_name || ""} ${b.first_name}`.trim();
+        return nameA.localeCompare(nameB);
+      });
+
+      primaries.forEach(p => {
+        sorted.push(p);
+        // Find sub-guests of this primary guest
+        const subs = filtered.filter(g => g.parent_id === p.id);
+        subs.sort((a, b) => a.first_name.localeCompare(b.first_name));
+        subs.forEach(s => {
+          sorted.push({ ...s, isSubGuest: true });
+        });
+      });
+
+      // Leftover sub-guests whose parents are filtered out
+      const remaining = filtered.filter(g => g.parent_id && !sorted.some(dg => dg.id === g.id));
+      sorted.push(...remaining);
+    } else {
+      sorted = [...filtered];
+      if (sortBy === "first_name") {
+        sorted.sort((a, b) => a.first_name.localeCompare(b.first_name));
+      } else if (sortBy === "last_name") {
+        sorted.sort((a, b) => {
+          const nameA = `${a.last_name || ""} ${a.first_name}`.trim();
+          const nameB = `${b.last_name || ""} ${b.first_name}`.trim();
+          return nameA.localeCompare(nameB);
+        });
+      } else if (sortBy === "rsvp") {
+        sorted.sort((a, b) => a.rsvp_status.localeCompare(b.rsvp_status));
+      } else if (sortBy === "table") {
+        sorted.sort((a, b) => {
+          if (a.table_id && !b.table_id) return -1;
+          if (!a.table_id && b.table_id) return 1;
+          // Sort by table name if both assigned
+          const nameA = a.seating_tables?.name || "";
+          const nameB = b.seating_tables?.name || "";
+          return nameA.localeCompare(nameB);
+        });
+      }
     }
 
-    return true;
-  });
+    return sorted;
+  }, [guests, search, filterMode, rsvpFilter, selectedTag, sortBy]);
 
   return (
     <aside
       className={cn(
-        "glass-panel flex max-h-[calc(100vh-10rem)] w-full flex-col overflow-hidden rounded-2xl",
-        className,
+        "flex flex-col h-full w-full overflow-hidden rounded-2xl border border-white/20 bg-white/70 shadow-xl backdrop-blur-lg",
+        className
       )}
     >
-      {/* ── Header ─────────────────────────────────────── */}
-      <div className="space-y-3 border-b border-border/40 p-4 pb-3">
+      {/* ── Header: Search & Basic Controls ──────────────── */}
+      <div className="space-y-3 p-4 pb-3 border-b border-border/40 bg-white/40">
+        <div className="flex items-center justify-between">
+          <h3 className="font-serif text-base font-semibold text-slate-800 flex items-center gap-2">
+            <Users className="h-4.5 w-4.5 text-primary" />
+            Lista Invitați
+          </h3>
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+            {displayedGuestsList.length}
+          </span>
+        </div>
+
         {/* Search */}
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -107,117 +194,222 @@ export function GuestSidebar({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={ro.seating.search.placeholder}
-            className="h-9 pl-9 text-sm"
+            className="h-9 pl-9 pr-8 text-sm rounded-xl"
           />
         </div>
 
-        {/* Filter pills */}
-        <div className="flex items-center gap-1.5">
-          {FILTERS.map(({ key, label }) => {
-            const isActive = filter === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setFilter(key)}
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium transition-all",
-                  isActive
-                    ? "bg-accent text-accent-foreground shadow-sm"
-                    : "bg-muted/60 text-muted-foreground hover:bg-muted",
-                )}
-              >
-                {label}
-              </button>
-            );
-          })}
+        {/* Sorting and Filter Toggle */}
+        <div className="flex gap-2">
+          {/* Sorting */}
+          <div className="flex-1 relative">
+            <ArrowUpDown className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="w-full h-8 pl-8 pr-2 text-xs rounded-lg border border-input bg-transparent font-medium text-slate-700 focus-visible:outline-none"
+            >
+              <option value="family">Grupat Familie</option>
+              <option value="last_name">Nume Familie</option>
+              <option value="first_name">Prenume</option>
+              <option value="rsvp">Status RSVP</option>
+              <option value="table">După Masă</option>
+            </select>
+          </div>
 
-          {/* Count badge */}
-          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">
-            {filtered.length}
-          </span>
+          {/* Advanced Filter Toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn("h-8 rounded-lg px-2 text-xs gap-1", showFilters && "bg-slate-100")}
+          >
+            <Filter className="h-3.5 w-3.5" />
+            Filtre
+            {showFilters ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </Button>
         </div>
+
+        {/* Advanced Filters Drawer */}
+        {showFilters && (
+          <div className="p-3 rounded-xl border border-slate-100 bg-white/60 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+            {/* Assignment Status */}
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase">Repartizare</span>
+              <div className="flex gap-1">
+                {(["all", "unassigned", "assigned"] as FilterMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setFilterMode(mode)}
+                    className={cn(
+                      "flex-1 py-1 text-[11px] font-medium rounded-lg border transition-all",
+                      filterMode === mode
+                        ? "bg-primary border-primary text-primary-foreground shadow-sm"
+                        : "bg-white border-slate-100 text-muted-foreground hover:bg-slate-50"
+                    )}
+                  >
+                    {mode === "all" ? "Toți" : mode === "unassigned" ? "Nerepart." : "Repart."}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* RSVP status */}
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase">Status RSVP</span>
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { val: "all", lbl: "Toți" },
+                  { val: "accepted", lbl: "Confirmat" },
+                  { val: "pending", lbl: "În așteptare" },
+                  { val: "declined", lbl: "Refuzat" }
+                ].map((item) => (
+                  <button
+                    key={item.val}
+                    type="button"
+                    onClick={() => setRsvpFilter(item.val)}
+                    className={cn(
+                      "px-2 py-0.5 text-[10px] font-medium rounded-md border transition-all",
+                      rsvpFilter === item.val
+                        ? "bg-slate-800 text-white border-slate-800"
+                        : "bg-white border-slate-150 text-muted-foreground hover:bg-slate-50"
+                    )}
+                  >
+                    {item.lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tag filter */}
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase">Tag / Categorie</span>
+              <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto p-1 bg-slate-50 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTag("all")}
+                  className={cn(
+                    "px-1.5 py-0.5 text-[9px] font-medium rounded-md border transition-all",
+                    selectedTag === "all"
+                      ? "bg-slate-800 text-white border-slate-800"
+                      : "bg-white border-slate-150 text-muted-foreground hover:bg-slate-100"
+                  )}
+                >
+                  Toate
+                </button>
+                {GUEST_TAGS.map((tag) => (
+                  <button
+                    key={tag.value}
+                    type="button"
+                    onClick={() => setSelectedTag(tag.value)}
+                    className={cn(
+                      "px-1.5 py-0.5 text-[9px] font-medium rounded-md border transition-all flex items-center gap-1",
+                      selectedTag === tag.value
+                        ? "bg-slate-800 text-white border-slate-800"
+                        : "bg-white border-slate-150 text-slate-600 hover:bg-slate-100"
+                    )}
+                  >
+                    <span>{tag.icon}</span>
+                    <span>{tag.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ── Guest list ─────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto p-2">
-        {filtered.length === 0 ? (
-          /* Empty state */
-          <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <Users className="h-8 w-8 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">
+      {/* ── Guest List ───────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto p-2 bg-slate-50/50">
+        {displayedGuestsList.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+            <Users className="h-10 w-10 text-slate-300" />
+            <p className="text-sm font-medium text-slate-400">
               {search.trim()
-                ? `Niciun invitat pentru „${search.trim()}"`
-                : ro.guests.emptyTitle}
+                ? `Niciun invitat pentru „${search.trim()}”`
+                : "Nu s-au găsit invitați."}
             </p>
           </div>
         ) : (
           <ul className="space-y-1">
-            {filtered.map((guest) => {
+            {displayedGuestsList.map((guest) => {
               const isSelected = guest.id === selectedGuestId;
               const isAssigned = !!guest.table_id;
               const initials = getInitials(guest);
-              const avatarColor = getColor(guest.group_name);
 
               return (
-                <li key={guest.id}>
+                <li key={guest.id} className="flex items-center">
+                  {/* Indentation for spouses/children */}
+                  {guest.isSubGuest && (
+                    <CornerDownRight className="h-4.5 w-4.5 text-slate-400/70 ml-2 mr-0.5 shrink-0" />
+                  )}
+
                   <button
                     type="button"
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData("guestId", guest.id);
                     }}
-                    onClick={() =>
-                      onSelectGuest(isSelected ? null : guest.id)
-                    }
+                    onClick={() => onSelectGuest(isSelected ? null : guest.id)}
                     className={cn(
-                      "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all cursor-grab active:cursor-grabbing",
+                      "group flex flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-all border border-transparent shadow-sm bg-white cursor-grab active:cursor-grabbing",
                       isSelected
-                        ? "bg-accent/20 ring-2 ring-accent shadow-sm"
-                        : "hover:bg-muted/50",
+                        ? "bg-primary/10 border-primary/30 ring-2 ring-primary/10 shadow-sm"
+                        : "hover:bg-slate-50 hover:border-slate-100",
+                      guest.isSubGuest && "text-slate-650"
                     )}
                   >
                     {/* Initials avatar */}
                     <span
                       className={cn(
-                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-                        avatarColor,
+                        "flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold shadow-inner border border-white",
+                        isAssigned
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-slate-100 text-slate-600"
                       )}
                     >
                       {initials}
                     </span>
 
-                    {/* Name + group */}
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-1.5">
-                        <span className="truncate text-sm font-medium text-foreground">
+                    {/* Name + Details */}
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-xs font-semibold text-slate-800">
                           {guestName(guest)}
                         </span>
+                        
+                        {/* RSVP Mini Indicator */}
+                        {getRsvpIcon(guest.rsvp_status)}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1">
+                        {/* Group tag */}
+                        {guest.group_name && (
+                          <span className="inline-block truncate text-[9px] px-1 bg-slate-100 text-slate-500 rounded border border-slate-200">
+                            {guest.group_name}
+                          </span>
+                        )}
+                        {/* Plus one */}
                         {guest.plus_one && (
-                          <span className="shrink-0 rounded-full bg-pink-100 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-pink-600">
+                          <span className="inline-block text-[9px] px-1 bg-pink-100 text-pink-700 rounded border border-pink-200 font-medium">
                             +1
                           </span>
                         )}
-                      </span>
-                      {guest.group_name && (
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {guest.group_name}
+                      </div>
+                    </div>
+
+                    {/* Table Assignment status */}
+                    <div className="shrink-0 flex items-center justify-end">
+                      {isAssigned ? (
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full max-w-[80px] truncate">
+                          {guest.seating_tables?.name}
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/50">
+                          Liber
                         </span>
                       )}
-                    </span>
-
-                    {/* Assignment dot */}
-                    <span
-                      className={cn(
-                        "h-2 w-2 shrink-0 rounded-full transition-colors",
-                        isAssigned ? "bg-emerald-500" : "bg-gray-300",
-                      )}
-                      title={
-                        isAssigned
-                          ? guest.seating_tables?.name ?? ro.seating.filters.assigned
-                          : ro.seating.filters.unassigned
-                      }
-                    />
+                    </div>
                   </button>
                 </li>
               );

@@ -16,7 +16,6 @@ import {
 import { cn } from "@/lib/utils";
 import { ro } from "@/lib/i18n/ro";
 import type { TableWithGuests } from "@/lib/seating/queries";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { GuestWithTable } from "@/types/guests";
 import { parseMetadata, getTableOccupancy } from "@/lib/seating/utils";
 

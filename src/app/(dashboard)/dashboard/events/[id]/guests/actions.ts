@@ -227,7 +227,7 @@ export async function assignGuestToTable(
     // Get moving guest
     const { data: guest } = await supabase
       .from("guests")
-      .select("id, parent_id, plus_one")
+      .select("id, parent_id, plus_one, relationship_type")
       .eq("id", guestId)
       .single();
 
@@ -236,7 +236,7 @@ export async function assignGuestToTable(
     // Find all sub-guests of this guest
     const { data: subGuests } = await supabase
       .from("guests")
-      .select("id, parent_id, plus_one")
+      .select("id, parent_id, plus_one, relationship_type")
       .eq("parent_id", guestId);
 
     const movingGuests = [guest, ...(subGuests ?? [])];

@@ -60,7 +60,7 @@ const objectTypes: ObjectTypePreset[] = [
   { value: "entrance", label: "Intrare", icon: DoorOpen, defaultWidth: 160, defaultHeight: 48, defaultShape: "rectangular" },
 ];
 
-export function AddTableDialog({ eventId, open, existingTablesCount: _existingTablesCount, onClose }: AddTableDialogProps) {
+export function AddTableDialog({ eventId, open, onClose }: AddTableDialogProps) {
   const [activeTab, setActiveTab] = useState<TabType>("tables");
   
   // Table state

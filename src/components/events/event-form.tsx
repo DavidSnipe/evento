@@ -22,6 +22,8 @@ type EventFormProps = {
   mode: "create" | "edit";
   event?: EventRow;
   action: (prevState: EventFormState, formData: FormData) => Promise<EventFormState>;
+  initialGodfatherName?: string;
+  initialGodmotherName?: string;
 };
 
 const initialState: EventFormState = {};
@@ -29,12 +31,22 @@ const initialState: EventFormState = {};
 const textareaClassName =
   "flex min-h-[100px] w-full rounded-xl border border-input bg-background/80 px-4 py-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
-export function EventForm({ mode, event, action }: EventFormProps) {
+export function EventForm({
+  mode,
+  event,
+  action,
+  initialGodfatherName = "",
+  initialGodmotherName = "",
+}: EventFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const isEdit = mode === "edit";
   
   const [date, setDate] = useState<Date | undefined>(
     event?.event_date ? new Date(event.event_date) : undefined
+  );
+
+  const [hasGodparents, setHasGodparents] = useState(
+    !!initialGodfatherName || !!initialGodmotherName
   );
 
   return (
@@ -49,6 +61,7 @@ export function EventForm({ mode, event, action }: EventFormProps) {
               placeholder={ro.events.form.titlePlaceholder}
               defaultValue={event?.title ?? ""}
               required
+              disabled={pending}
             />
           </div>
 
@@ -72,6 +85,7 @@ export function EventForm({ mode, event, action }: EventFormProps) {
                     "w-full justify-start text-left font-normal bg-background/80",
                     !date && "text-muted-foreground"
                   )}
+                  disabled={pending}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {date ? (
@@ -100,7 +114,58 @@ export function EventForm({ mode, event, action }: EventFormProps) {
               name="venue"
               placeholder={ro.events.form.venuePlaceholder}
               defaultValue={event?.venue ?? ""}
+              disabled={pending}
             />
+          </div>
+
+          {/* Godparents Configuration Card */}
+          <div className="space-y-4 rounded-2xl border border-border/50 bg-card/50 p-5 backdrop-blur-sm">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="has_godparents" className="text-base font-semibold cursor-pointer">
+                  Evenimentul are nași?
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Activează pentru a adăuga nașii ca invitați speciali (VIP).
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                id="has_godparents"
+                name="has_godparents"
+                checked={hasGodparents}
+                onChange={(e) => setHasGodparents(e.target.checked)}
+                disabled={pending}
+                className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary bg-background/80 accent-primary cursor-pointer"
+              />
+            </div>
+
+            {hasGodparents && (
+              <div className="grid gap-4 pt-2 sm:grid-cols-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="space-y-2">
+                  <Label htmlFor="godfather_name">Nume Naș</Label>
+                  <Input
+                    id="godfather_name"
+                    name="godfather_name"
+                    placeholder="Ex: Bogdan Popescu"
+                    defaultValue={initialGodfatherName}
+                    required={hasGodparents}
+                    disabled={pending}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="godmother_name">Nume Nașă</Label>
+                  <Input
+                    id="godmother_name"
+                    name="godmother_name"
+                    placeholder="Ex: Maria Popescu"
+                    defaultValue={initialGodmotherName}
+                    required={hasGodparents}
+                    disabled={pending}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -111,6 +176,7 @@ export function EventForm({ mode, event, action }: EventFormProps) {
               className={textareaClassName}
               placeholder={ro.events.form.descriptionPlaceholder}
               defaultValue={event?.description ?? ""}
+              disabled={pending}
             />
           </div>
 
@@ -128,7 +194,7 @@ export function EventForm({ mode, event, action }: EventFormProps) {
                   ? ro.events.form.save
                   : ro.events.form.create}
             </Button>
-            <Button type="button" variant="outline" asChild className="sm:flex-1">
+            <Button type="button" variant="outline" asChild className="sm:flex-1" disabled={pending}>
               <Link href={isEdit && event ? `/dashboard/events/${event.id}` : "/dashboard/events"}>
                 {ro.events.form.cancel}
               </Link>

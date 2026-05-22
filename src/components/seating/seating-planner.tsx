@@ -8,10 +8,11 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
-  Move
+  Move,
+  Sparkles
 } from "lucide-react";
 
-import { assignGuestFromSeating, updateTable } from "@/app/(dashboard)/dashboard/events/[id]/seating/actions";
+import { assignGuestFromSeating, updateTable, autoSeatGuestsAction, type TableFormState } from "@/app/(dashboard)/dashboard/events/[id]/seating/actions";
 import { AddTableDialog } from "@/components/seating/add-table-dialog";
 import { GuestSidebar } from "@/components/seating/guest-sidebar";
 import { SeatingToolbar } from "@/components/seating/seating-toolbar";
@@ -46,12 +47,17 @@ export function SeatingPlanner({
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // Synchronized local state
-  const [localTables, setLocalTables] = useState(tables);
+  const [localTables, setLocalTables] = useState<(TableWithGuests & { renderKey: string })[]>(() =>
+    tables.map(t => ({ ...t, renderKey: t.id }))
+  );
   const [localAllGuests, setLocalAllGuests] = useState(allGuests);
   const [localUnassigned, setLocalUnassigned] = useState(unassigned);
 
   useEffect(() => {
-    setLocalTables(tables);
+    setLocalTables(prev => tables.map(t => {
+      const existing = prev.find(lt => lt.id === t.id);
+      return { ...t, renderKey: existing?.renderKey ?? t.id };
+    }));
     setLocalAllGuests(allGuests);
     setLocalUnassigned(unassigned);
   }, [tables, allGuests, unassigned]);
@@ -72,6 +78,17 @@ export function SeatingPlanner({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [globalLock, setGlobalLock] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Auto-Seating animation state
+  const [autoSeatingProgress, setAutoSeatingProgress] = useState<{ current: number; total: number; strategy: "family" | "even" } | null>(null);
+  const [autoSeatingSummary, setAutoSeatingSummary] = useState<{ seatedCount: number; tablesCount: number } | null>(null);
+  const skipAnimationRef = useRef(false);
+
+  // Viewport dimensions state
+  const [viewportDim, setViewportDim] = useState({ width: 1000, height: 800 });
+
+  // Mini-map drag state
+  const [isMiniMapDragging, setIsMiniMapDragging] = useState(false);
 
   // References for dragging/touching coordinates and inertia
   const panStartRef = useRef({ x: 0, y: 0 });
@@ -108,6 +125,32 @@ export function SeatingPlanner({
   // Client-side mobile detection
   useEffect(() => {
     setIsMobile(window.matchMedia("(max-width: 1024px)").matches || "ontouchstart" in window);
+  }, []);
+
+  // Viewport resize observer
+  useEffect(() => {
+    if (!viewportRef.current) return;
+    const updateDimensions = () => {
+      if (viewportRef.current) {
+        setViewportDim({
+          width: viewportRef.current.clientWidth,
+          height: viewportRef.current.clientHeight
+        });
+      }
+    };
+    
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
+    
+    const observer = new ResizeObserver(updateDimensions);
+    if (viewportRef.current) {
+      observer.observe(viewportRef.current);
+    }
+    
+    return () => {
+      window.removeEventListener("resize", updateDimensions);
+      observer.disconnect();
+    };
   }, []);
 
   // Listen to Spacebar for panning shortcut
@@ -210,6 +253,205 @@ export function SeatingPlanner({
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tables.length]);
+
+  const handleRunAutoSeat = async (strategy: "family" | "even") => {
+    skipAnimationRef.current = false;
+    setAutoSeatingSummary(null);
+    
+    // Initialize temporary UI progress
+    setAutoSeatingProgress({
+      current: 0,
+      total: 100,
+      strategy
+    });
+
+    const result = await autoSeatGuestsAction(eventId, strategy);
+    
+    if (!result.success || !result.updates || result.updates.length === 0) {
+      setAutoSeatingProgress(null);
+      if (result.error) {
+        alert(result.error);
+      }
+      return;
+    }
+
+    const updates = result.updates;
+    const L = updates.length;
+
+    // Batching to prevent React rerendering lag
+    const batchSize = Math.max(1, Math.ceil(L / 50));
+    const totalSteps = Math.ceil(L / batchSize);
+    const delay = Math.max(20, Math.min(100, 2000 / totalSteps));
+
+    const applyBatch = (batch: { id: string; table_id: string }[]) => {
+      const batchGuestIds = new Set(batch.map(u => u.id));
+      
+      setLocalAllGuests(prev => prev.map(g => {
+        const match = batch.find(u => u.id === g.id);
+        return match ? { ...g, table_id: match.table_id } : g;
+      }));
+
+      setLocalUnassigned(prev => prev.filter(g => !batchGuestIds.has(g.id)));
+
+      setLocalTables(prev => prev.map(t => {
+        const tableUpdates = batch.filter(u => u.table_id === t.id);
+        if (tableUpdates.length === 0) return t;
+
+        const newGuests = tableUpdates.map(u => allGuests.find(g => g.id === u.id)).filter(Boolean) as GuestWithTable[];
+        const existingIds = new Set(t.guests.map(g => g.id));
+        const toAdd = newGuests.filter(g => !existingIds.has(g.id));
+
+        return {
+          ...t,
+          guests: [...t.guests, ...toAdd]
+        };
+      }));
+    };
+
+    let currentStep = 0;
+
+    const runStep = () => {
+      if (skipAnimationRef.current) {
+        // Apply remaining updates immediately
+        const remainingUpdates = updates.slice(currentStep * batchSize);
+        applyBatch(remainingUpdates);
+
+        // Force complete final states
+        setLocalAllGuests(prev => prev.map(g => {
+          const match = updates.find(u => u.id === g.id);
+          return match ? { ...g, table_id: match.table_id } : g;
+        }));
+        setLocalUnassigned(prev => prev.filter(g => !updates.some(u => u.id === g.id)));
+        setLocalTables(prev => prev.map(t => {
+          const tableUpdates = updates.filter(u => u.table_id === t.id);
+          if (tableUpdates.length === 0) return t;
+          const newGuests = tableUpdates.map(u => allGuests.find(g => g.id === u.id)).filter(Boolean) as GuestWithTable[];
+          const existingIds = new Set(t.guests.map(g => g.id));
+          const toAdd = newGuests.filter(g => !existingIds.has(g.id));
+          return {
+            ...t,
+            guests: [...t.guests, ...toAdd]
+          };
+        }));
+
+        setAutoSeatingProgress(null);
+        setAutoSeatingSummary({
+          seatedCount: updates.length,
+          tablesCount: Array.from(new Set(updates.map(u => u.table_id))).length
+        });
+        router.refresh();
+        return;
+      }
+
+      const startIdx = currentStep * batchSize;
+      const endIdx = Math.min(startIdx + batchSize, L);
+      const batch = updates.slice(startIdx, endIdx);
+
+      applyBatch(batch);
+      currentStep++;
+
+      setAutoSeatingProgress({
+        current: Math.min(endIdx, L),
+        total: L,
+        strategy
+      });
+
+      if (endIdx < L) {
+        setTimeout(runStep, delay);
+      } else {
+        setAutoSeatingProgress(null);
+        setAutoSeatingSummary({
+          seatedCount: updates.length,
+          tablesCount: Array.from(new Set(updates.map(u => u.table_id))).length
+        });
+        router.refresh();
+      }
+    };
+
+    runStep();
+  };
+
+  const updatePanFromMiniMap = (clientX: number, clientY: number, currentTarget: HTMLElement) => {
+    if (!viewportRef.current) return;
+    const rect = currentTarget.getBoundingClientRect();
+    const mx = Math.max(0, Math.min(rect.width, clientX - rect.left));
+    const my = Math.max(0, Math.min(rect.height, clientY - rect.top));
+    
+    const cx = (mx / rect.width) * 3000;
+    const cy = (my / rect.height) * 2400;
+    
+    const VW = viewportRef.current.clientWidth;
+    const VH = viewportRef.current.clientHeight;
+    
+    setPanX(Math.round(VW / 2 - cx * scale));
+    setPanY(Math.round(VH / 2 - cy * scale));
+  };
+
+  const handleMiniMapPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setIsMiniMapDragging(true);
+    updatePanFromMiniMap(e.clientX, e.clientY, e.currentTarget);
+  };
+
+  const handleMiniMapPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isMiniMapDragging) return;
+    e.preventDefault();
+    e.stopPropagation();
+    updatePanFromMiniMap(e.clientX, e.clientY, e.currentTarget);
+  };
+
+  const handleMiniMapPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isMiniMapDragging) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // Ignored
+      }
+      setIsMiniMapDragging(false);
+    }
+  };
+
+  const handleAddOptimistic = (
+    tempTables: TableWithGuests[],
+    promise: Promise<TableFormState>
+  ) => {
+    // Set renderKeys for temps
+    const tempsWithKeys = tempTables.map(t => ({ ...t, renderKey: t.id }));
+    setLocalTables(prev => [...prev, ...tempsWithKeys]);
+    setShowAddDialog(false);
+
+    promise.then((result) => {
+      if (result.error) {
+        alert(result.error);
+        // Rollback
+        setLocalTables(prev => prev.filter(t => !tempTables.some(temp => temp.id === t.id)));
+      } else if (result.tables && result.tables.length > 0) {
+        // Swap temp ids with real DB rows, keeping renderKey stable
+        setLocalTables(prev => {
+          return prev.map(t => {
+            const idx = tempTables.findIndex(temp => temp.id === t.id);
+            if (idx !== -1 && result.tables![idx]) {
+              const realTable = result.tables![idx] as TableWithGuests;
+              return {
+                ...realTable,
+                renderKey: t.renderKey,
+                guests: t.guests
+              };
+            }
+            return t;
+          });
+        });
+      }
+      router.refresh();
+    }).catch((err) => {
+      console.error("Failed to insert tables:", err);
+      // Rollback
+      setLocalTables(prev => prev.filter(t => !tempTables.some(temp => temp.id === t.id)));
+      router.refresh();
+    });
+  };
 
   // Scroll wheel zoom and pan
   const handleWheel = (e: React.WheelEvent) => {
@@ -548,6 +790,12 @@ export function SeatingPlanner({
     }
   }
 
+  // Viewport calculation for Mini-Map
+  const boxX = -panX / scale;
+  const boxY = -panY / scale;
+  const boxW = viewportDim.width / scale;
+  const boxH = viewportDim.height / scale;
+
   return (
     <>
       <div className="flex h-[calc(100vh-14rem)] min-h-[550px] gap-4 print:h-auto print:block">
@@ -577,6 +825,7 @@ export function SeatingPlanner({
               onTogglePrintSort={() => setPrintSort(s => s === "alpha" ? "table" : "alpha")}
               globalLock={globalLock}
               onToggleGlobalLock={() => setGlobalLock(!globalLock)}
+              onRunAutoSeat={handleRunAutoSeat}
             />
           </div>
 
@@ -694,7 +943,7 @@ export function SeatingPlanner({
                   {/* Tables and Room Objects */}
                   {sortedTables.map((table) => (
                     <DraggableWrapper
-                      key={table.id}
+                      key={table.renderKey}
                       table={table}
                       scale={scale}
                       globalLock={globalLock}
@@ -758,8 +1007,98 @@ export function SeatingPlanner({
               </Button>
             </div>
 
+            {/* Mini-Map HUD */}
+            <div
+              onPointerDown={handleMiniMapPointerDown}
+              onPointerMove={handleMiniMapPointerMove}
+              onPointerUp={handleMiniMapPointerUp}
+              onPointerLeave={handleMiniMapPointerUp}
+              className="absolute bottom-4 left-4 w-28 h-[90px] sm:w-36 sm:h-[115px] bg-white/70 hover:bg-white/80 border border-slate-200/50 rounded-2xl shadow-lg backdrop-blur-md overflow-hidden select-none cursor-crosshair z-30 transition-colors hidden md:block"
+            >
+              <div className="relative w-full h-full text-[10px]">
+                {/* Mini Tables */}
+                {localTables.map((t) => {
+                  const meta = parseMetadata(t.notes);
+                  const isObj = !!meta.objectType;
+                  const tx = ((t.pos_x ?? 0) / 3000) * 100;
+                  const ty = ((t.pos_y ?? 0) / 2400) * 100;
+                  const tw = (meta.width || (meta.customShape === "long_banquet" ? 320 : 192)) / 3000 * 100;
+                  const th = (meta.height || 160) / 2400 * 100;
+                  
+                  return (
+                    <div
+                      key={`mini-${t.id}`}
+                      className={cn(
+                        "absolute rounded-xs pointer-events-none",
+                        isObj ? "bg-amber-300/40 border border-amber-400/20" : "bg-slate-400/40 border border-slate-500/20"
+                      )}
+                      style={{
+                        left: `${tx}%`,
+                        top: `${ty}%`,
+                        width: `${tw}%`,
+                        height: `${th}%`
+                      }}
+                    />
+                  );
+                })}
+                
+                {/* Viewport Box */}
+                <div
+                  className="absolute border border-primary bg-primary/5 pointer-events-none rounded-md"
+                  style={{
+                    left: `${(boxX / 3000) * 100}%`,
+                    top: `${(boxY / 2400) * 100}%`,
+                    width: `${(boxW / 3000) * 100}%`,
+                    height: `${(boxH / 2400) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Auto-Seating Progress Overlay HUD */}
+            {autoSeatingProgress && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[320px] sm:w-[400px] bg-white/95 border border-slate-200/50 rounded-2xl shadow-xl backdrop-blur-md p-4 select-none z-40 animate-in slide-in-from-top-4 fade-in duration-300">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+                    <span className="text-sm font-bold text-slate-800">
+                      Repartizare Automată...
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-slate-500">
+                    {Math.round((autoSeatingProgress.current / autoSeatingProgress.total) * 100)}%
+                  </span>
+                </div>
+                
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden mb-3">
+                  <div
+                    className="bg-gradient-to-r from-primary to-pink-500 h-full rounded-full transition-all duration-150 ease-out"
+                    style={{
+                      width: `${(autoSeatingProgress.current / autoSeatingProgress.total) * 100}%`
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">
+                    Se așează {autoSeatingProgress.current} din {autoSeatingProgress.total} invitați
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      skipAnimationRef.current = true;
+                    }}
+                    className="h-7 text-xs font-semibold px-2 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                  >
+                    Sari Peste
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Spacebar Panning Help overlay */}
-            {isSpacePressed && (
+            {isSpacePressed && !autoSeatingProgress && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-slate-900/90 text-white text-xs px-4 py-2 rounded-xl shadow-lg pointer-events-none select-none animate-in fade-in duration-200">
                 <Move className="h-3.5 w-3.5" />
                 <span>Trage cu mouse-ul pentru a muta camera</span>
@@ -805,13 +1144,58 @@ export function SeatingPlanner({
         <AddTableDialog
           eventId={eventId}
           open={showAddDialog}
-          existingTablesCount={localTables.length}
+          tables={localTables}
           onClose={() => {
             setShowAddDialog(false);
             router.refresh();
           }}
+          onAddOptimistic={handleAddOptimistic}
         />
       </div>
+
+      {/* Auto-Seating Summary Modal */}
+      {autoSeatingSummary && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-200 print:hidden">
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-slate-100 max-w-sm w-full p-6 shadow-2xl relative text-center animate-in zoom-in-95 duration-200">
+            <div className="mx-auto w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mb-4">
+              <Sparkles className="h-6 w-6 text-emerald-500" />
+            </div>
+            <h3 className="font-serif text-lg font-bold text-slate-800 mb-2">
+              Așezare Completă!
+            </h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Am reușit să așezăm în mod inteligent invitații la mese conform strategiei.
+            </p>
+            
+            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3 mb-5 flex justify-around text-center">
+              <div>
+                <span className="block text-xl font-bold text-slate-800">
+                  {autoSeatingSummary.seatedCount}
+                </span>
+                <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                  Invitați Așezați
+                </span>
+              </div>
+              <div className="w-px bg-slate-200" />
+              <div>
+                <span className="block text-xl font-bold text-slate-800">
+                  {autoSeatingSummary.tablesCount}
+                </span>
+                <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                  Mese Ocupate
+                </span>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => setAutoSeatingSummary(null)}
+              className="w-full rounded-xl font-semibold text-sm h-10"
+            >
+              Excelent
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* High-fidelity layout print listings */}
       <div className="hidden print:block mt-8 break-before-page">
@@ -959,7 +1343,8 @@ function DraggableWrapper({
         onClick={handleWrapperClick}
         className={cn(
           "absolute draggable-table-wrapper select-none",
-          isDragDisabled ? "cursor-default" : "cursor-move"
+          isDragDisabled ? "cursor-default" : "cursor-move",
+          table.id.startsWith("temp-") && "animate-in fade-in zoom-in-90 duration-350 ease-out"
         )}
       >
         <TableVisual
@@ -968,6 +1353,7 @@ function DraggableWrapper({
           isDropTarget={isDropTarget}
           onClick={() => {}} // Handled via wrapper onClick
           onDrop={onDrop}
+          scale={scale}
         />
       </div>
     </Draggable>

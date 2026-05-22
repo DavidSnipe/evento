@@ -6,6 +6,7 @@ import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { AnimatedPage } from "@/components/layout/animated-page";
 import { getEventById } from "@/lib/events/queries";
 import { ro } from "@/lib/i18n/ro";
+import { createClient } from "@/lib/supabase/server";
 
 type EditEventPageProps = {
   params: Promise<{ id: string }>;
@@ -17,6 +18,23 @@ export default async function EditEventPage({ params }: EditEventPageProps) {
 
   if (!event) notFound();
 
+  const supabase = await createClient();
+  const { data: existingGuests } = await supabase
+    .from("guests")
+    .select("*")
+    .eq("event_id", id);
+
+  const godparents = existingGuests?.filter(g => g.tags?.includes("godparents")) ?? [];
+  const existingGodfather = godparents.find(g => !g.parent_id);
+  const existingGodmother = godparents.find(g => g.parent_id);
+
+  const initialGodfatherName = existingGodfather
+    ? [existingGodfather.last_name, existingGodfather.first_name].filter(Boolean).join(" ")
+    : "";
+  const initialGodmotherName = existingGodmother
+    ? [existingGodmother.last_name, existingGodmother.first_name].filter(Boolean).join(" ")
+    : "";
+
   const updateEventWithId = updateEvent.bind(null, id);
 
   return (
@@ -26,7 +44,13 @@ export default async function EditEventPage({ params }: EditEventPageProps) {
         description={ro.events.editSubtitle}
       />
       <div className="mx-auto max-w-2xl">
-        <EventForm mode="edit" event={event} action={updateEventWithId} />
+        <EventForm
+          mode="edit"
+          event={event}
+          action={updateEventWithId}
+          initialGodfatherName={initialGodfatherName}
+          initialGodmotherName={initialGodmotherName}
+        />
       </div>
     </AnimatedPage>
   );

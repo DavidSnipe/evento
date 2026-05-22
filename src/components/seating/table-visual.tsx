@@ -25,6 +25,7 @@ type TableVisualProps = {
   isDropTarget: boolean;
   onClick: () => void;
   onDrop: (e: React.DragEvent) => void;
+  scale?: number;
 };
 
 interface VirtualGuest {
@@ -214,19 +215,23 @@ function Seat({ guest, x, y, isPercent }: SeatInfo & { isPercent?: boolean }) {
 function OccupancyBadge({
   current,
   max,
+  scale = 1.0,
 }: {
   current: number;
   max: number;
+  scale?: number;
 }) {
+  if (scale < 0.35) return null;
   const isFull = current >= max;
+  const label = scale >= 0.8 ? ` ${ro.seating.tableCard.seats}` : "";
   return (
     <span
       className={cn(
-        "mt-0.5 text-[10px] font-medium tracking-tight px-1.5 py-0.5 rounded-full bg-slate-50 border border-slate-100",
+        "mt-0.5 text-[10px] font-medium tracking-tight px-1.5 py-0.5 rounded-full bg-slate-50 border border-slate-100 transition-colors duration-300",
         isFull ? "text-destructive font-semibold bg-destructive/5" : "text-muted-foreground",
       )}
     >
-      {current}/{max} {ro.seating.tableCard.seats}
+      {current}/{max}{label}
     </span>
   );
 }
@@ -285,12 +290,18 @@ function getObjectLabel(type: string): string {
 /*  Main Component                                                    */
 /* ------------------------------------------------------------------ */
 
+function getSimplifiedName(name: string): string {
+  const match = name.match(/^Masa\s+(.+)$/i);
+  return match ? match[1] : name;
+}
+
 export function TableVisual({
   table,
   isSelected,
   isDropTarget,
   onClick,
   onDrop,
+  scale = 1.0,
 }: TableVisualProps) {
   const metadata = parseMetadata(table.notes);
   const isLocked = metadata.isLocked === true;
@@ -360,7 +371,12 @@ export function TableVisual({
           </div>
         )}
 
-        <div className="flex flex-col items-center justify-center gap-1.5 p-2 text-center">
+        <div 
+          className="flex flex-col items-center justify-center gap-1.5 p-2 text-center transition-transform duration-300 ease-out"
+          style={{
+            transform: `scale(${Math.min(1.5, Math.max(0.6, 0.9 / scale))})`,
+          }}
+        >
           <ObjectIcon className={cn(
             "h-6 w-6 text-slate-500/70 group-hover:text-slate-600 transition-colors",
             metadata.objectType === "dance_floor" && "text-pink-400/90 group-hover:text-pink-500",
@@ -439,34 +455,47 @@ export function TableVisual({
       )}
 
       {/* Seat dots with correct coordinates and scale */}
-      {isSweetheart ? (
-        <>
-          {sweetheartSeats(table, 82).map((seat, i) => (
-            <Seat key={i} {...seat} />
-          ))}
-        </>
-      ) : isRound ? (
-        <>
-          {roundSeats(table, 74).map((seat, i) => (
-            <Seat key={i} {...seat} />
-          ))}
-        </>
-      ) : isSquare ? (
-        <>
-          {squareSeats(table).map((seat, i) => (
-            <Seat key={i} {...seat} isPercent />
-          ))}
-        </>
-      ) : (
-        <>
-          {rectangularSeats(table).map((seat, i) => (
-            <Seat key={i} {...seat} isPercent />
-          ))}
-        </>
-      )}
+      <div
+        className="absolute inset-0 pointer-events-none transition-opacity duration-300 ease-in-out"
+        style={{
+          opacity: scale < 0.5 ? 0 : 1,
+          display: scale < 0.4 ? "none" : "block"
+        }}
+      >
+        {isSweetheart ? (
+          <>
+            {sweetheartSeats(table, 82).map((seat, i) => (
+              <Seat key={i} {...seat} />
+            ))}
+          </>
+        ) : isRound ? (
+          <>
+            {roundSeats(table, 74).map((seat, i) => (
+              <Seat key={i} {...seat} />
+            ))}
+          </>
+        ) : isSquare ? (
+          <>
+            {squareSeats(table).map((seat, i) => (
+              <Seat key={i} {...seat} isPercent />
+            ))}
+          </>
+        ) : (
+          <>
+            {rectangularSeats(table).map((seat, i) => (
+              <Seat key={i} {...seat} isPercent />
+            ))}
+          </>
+        )}
+      </div>
 
       {/* Center label */}
-      <div className="z-10 flex flex-col items-center gap-0.5 pointer-events-none px-3">
+      <div 
+        className="z-10 flex flex-col items-center gap-0.5 pointer-events-none px-3 transition-transform duration-300 ease-out"
+        style={{
+          transform: `scale(${Math.min(1.5, Math.max(0.6, 0.9 / scale))})`,
+        }}
+      >
         {isSweetheart && (
           <Heart
             className="mb-0.5 fill-amber-300/40 text-amber-500 animate-pulse"
@@ -476,13 +505,13 @@ export function TableVisual({
         )}
         <span
           className={cn(
-            "font-serif text-sm font-semibold leading-tight text-center text-slate-800",
+            "font-serif text-sm font-semibold leading-tight text-center text-slate-800 transition-colors duration-300",
             isSweetheart && "text-amber-700 font-bold",
           )}
         >
-          {table.name}
+          {scale < 0.5 ? getSimplifiedName(table.name) : table.name}
         </span>
-        <OccupancyBadge current={occupied} max={capacity} />
+        <OccupancyBadge current={occupied} max={capacity} scale={scale} />
       </div>
     </div>
   );

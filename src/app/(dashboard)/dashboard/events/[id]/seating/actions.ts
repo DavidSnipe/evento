@@ -8,7 +8,7 @@ import { ro } from "@/lib/i18n/ro";
 import { createClient } from "@/lib/supabase/server";
 import type { TableShape } from "@/types/guests";
 
-export type TableFormState = { error?: string; success?: string };
+export type TableFormState = { error?: string; success?: string; tables?: unknown[] };
 
 function revalidateSeating(eventId: string) {
   revalidatePath(`/dashboard/events/${eventId}/seating`);
@@ -53,16 +53,19 @@ export async function createTable(
       isLocked: false
     };
 
-    const { error } = await supabase.from("seating_tables").insert({
-      event_id: eventId,
-      name,
-      capacity: 1, // DB check constraint > 0
-      shape: shape === "round" ? "round" : "rectangular",
-      notes: JSON.stringify(metadata),
-      sort_order,
-      pos_x: 200,
-      pos_y: 200
-    });
+    const { data: insertedObj, error } = await supabase
+      .from("seating_tables")
+      .insert({
+        event_id: eventId,
+        name,
+        capacity: 1, // DB check constraint > 0
+        shape: shape === "round" ? "round" : "rectangular",
+        notes: JSON.stringify(metadata),
+        sort_order,
+        pos_x: 200,
+        pos_y: 200
+      })
+      .select("*");
 
     if (error) {
       console.error("[createTable - object]", error);
@@ -70,7 +73,7 @@ export async function createTable(
     }
 
     revalidateSeating(eventId);
-    return { success: "ok" };
+    return { success: "ok", tables: insertedObj ?? [] };
   }
 
   // Creating regular Tables
@@ -144,7 +147,10 @@ export async function createTable(
     });
   }
 
-  const { error } = await supabase.from("seating_tables").insert(inserts);
+  const { data: insertedTables, error } = await supabase
+    .from("seating_tables")
+    .insert(inserts)
+    .select("*");
 
   if (error) {
     console.error("[createTable]", error);
@@ -152,7 +158,7 @@ export async function createTable(
   }
 
   revalidateSeating(eventId);
-  return { success: "ok" };
+  return { success: "ok", tables: insertedTables ?? [] };
 }
 
 /* ─── Update table / room object ─── */
@@ -247,7 +253,7 @@ export async function autoAssignGuests(eventId: string): Promise<{ count: number
 export async function autoSeatGuestsAction(
   eventId: string,
   strategy: "family" | "even"
-): Promise<{ success: boolean; count: number; error?: string }> {
+): Promise<{ success: boolean; count: number; updates?: { id: string; table_id: string }[]; error?: string }> {
   await requireEvent(eventId);
   const supabase = await createClient();
 
@@ -326,6 +332,7 @@ export async function autoSeatGuestsAction(
   }
 
   const partyInfo = new Map<string, {
+    hasGodparents: boolean;
     hasVip: boolean;
     groupName: string;
     partySize: number;
@@ -333,18 +340,24 @@ export async function autoSeatGuestsAction(
   }>();
 
   for (const [id, party] of partyMap) {
-    const hasVip = party.some((m) => m.tags?.includes("vip") || m.tags?.includes("godparents"));
+    const hasGodparents = party.some((m) => m.tags?.includes("godparents"));
+    const hasVip = party.some((m) => m.tags?.includes("vip"));
     const groupName = party.find((m) => m.group_name)?.group_name || "";
     const partySize = partySizeMap.get(id) ?? 0;
     const firstName = party[0]?.first_name || "";
-    partyInfo.set(id, { hasVip, groupName, partySize, firstName });
+    partyInfo.set(id, { hasGodparents, hasVip, groupName, partySize, firstName });
   }
 
   const sortedParties = Array.from(partyMap.keys()).sort((a, b) => {
     const infoA = partyInfo.get(a)!;
     const infoB = partyInfo.get(b)!;
 
-    // 1. VIP / Godparents status first
+    // 0. Godparents (Nași) status first
+    if (infoA.hasGodparents !== infoB.hasGodparents) {
+      return infoA.hasGodparents ? -1 : 1;
+    }
+
+    // 1. VIP status second
     if (infoA.hasVip !== infoB.hasVip) {
       return infoA.hasVip ? -1 : 1;
     }
@@ -491,13 +504,14 @@ export async function autoSeatGuestsAction(
   }
 
   revalidateSeating(eventId);
-  return { success: true, count: assignedCount };
+  return { success: true, count: assignedCount, updates };
 }
 
 /* ─── Apply Room Template ─── */
 export async function applyRoomTemplate(
   eventId: string,
-  templateType: "ballroom" | "barn" | "garden" | "restaurant"
+  templateType: "ballroom" | "barn" | "garden" | "restaurant" | "long_hall",
+  tableCount: number
 ): Promise<{ success: boolean; error?: string }> {
   await requireEvent(eventId);
   const supabase = await createClient();
@@ -521,60 +535,94 @@ export async function applyRoomTemplate(
   // 3. Build template components
   const tables = [];
 
+  // Default Elements added to EVERY template (Locked sweetheart table, locked room objects)
+  // Sweetheart table (Masa Mirilor) at top center
+  tables.push({
+    event_id: eventId,
+    name: "Masa Mirilor",
+    capacity: 4,
+    shape: "sweetheart",
+    pos_x: 1400,
+    pos_y: 80,
+    notes: JSON.stringify({ customShape: "sweetheart", isLocked: true }),
+    sort_order: 1
+  });
+
+  // Stage (Scenă) at top center
+  tables.push({
+    event_id: eventId,
+    name: "Scenă",
+    capacity: 1,
+    shape: "rectangular",
+    pos_x: 1340,
+    pos_y: 200,
+    notes: JSON.stringify({ objectType: "stage", customShape: "rectangular", width: 320, height: 120, rotation: 0, isLocked: true }),
+    sort_order: 2
+  });
+
+  // DJ Booth next to stage
+  tables.push({
+    event_id: eventId,
+    name: "DJ Booth",
+    capacity: 1,
+    shape: "rectangular",
+    pos_x: 1700,
+    pos_y: 220,
+    notes: JSON.stringify({ objectType: "dj_booth", customShape: "rectangular", width: 160, height: 80, rotation: 0, isLocked: true }),
+    sort_order: 3
+  });
+
+  // Dance Floor (Ring de Dans) in center
+  const isRoundDanceFloor = templateType === "ballroom" || templateType === "garden";
+  tables.push({
+    event_id: eventId,
+    name: "Ring de Dans",
+    capacity: 1,
+    shape: isRoundDanceFloor ? "round" : "rectangular",
+    pos_x: 1340,
+    pos_y: 940,
+    notes: JSON.stringify({
+      objectType: "dance_floor",
+      customShape: isRoundDanceFloor ? "round" : "rectangular",
+      width: isRoundDanceFloor ? 320 : 400,
+      height: isRoundDanceFloor ? 320 : 240,
+      rotation: 0,
+      isLocked: true
+    }),
+    sort_order: 4
+  });
+
+  // Generate tables based on templateType and tableCount
   if (templateType === "ballroom") {
-    // Center dance floor (round, size 320x320)
-    tables.push({
-      event_id: eventId,
-      name: "Ring de Dans",
-      capacity: 1,
-      shape: "round",
-      pos_x: 1340,
-      pos_y: 840,
-      notes: JSON.stringify({ objectType: "dance_floor", customShape: "round", width: 320, height: 320, rotation: 0, isLocked: true }),
-      sort_order: 1
-    });
+    // Round tables arranged in concentric ellipses around the dance floor center (1500, 1100)
+    for (let i = 0; i < tableCount; i++) {
+      let angle = 0;
+      let rx = 550;
+      let ry = 350;
 
-    // Stage at top center (1500, 250)
-    tables.push({
-      event_id: eventId,
-      name: "Scenă",
-      capacity: 1,
-      shape: "rectangular",
-      pos_x: 1340,
-      pos_y: 220,
-      notes: JSON.stringify({ objectType: "stage", customShape: "rectangular", width: 320, height: 120, rotation: 0, isLocked: true }),
-      sort_order: 2
-    });
+      if (tableCount === 8) {
+        angle = (2 * Math.PI / 8) * i;
+        rx = 520;
+        ry = 380;
+      } else if (tableCount === 12) {
+        angle = (2 * Math.PI / 12) * i;
+        rx = 650;
+        ry = 450;
+      } else { // 20 tables: concentric rings
+        if (i < 8) {
+          angle = (2 * Math.PI / 8) * i;
+          rx = 480;
+          ry = 320;
+        } else {
+          angle = (2 * Math.PI / 12) * (i - 8);
+          rx = 820;
+          ry = 580;
+        }
+      }
 
-    // DJ Booth next to stage
-    tables.push({
-      event_id: eventId,
-      name: "DJ Booth",
-      capacity: 1,
-      shape: "rectangular",
-      pos_x: 1700,
-      pos_y: 240,
-      notes: JSON.stringify({ objectType: "dj_booth", customShape: "rectangular", width: 160, height: 80, rotation: 0, isLocked: false }),
-      sort_order: 3
-    });
+      const x = Math.round(1500 + Math.cos(angle) * rx - 80);
+      const y = Math.round(1100 + Math.sin(angle) * ry - 80);
 
-    // Cocktail Bar
-    tables.push({
-      event_id: eventId,
-      name: "Cocktail Bar",
-      capacity: 1,
-      shape: "rectangular",
-      pos_x: 2100,
-      pos_y: 1400,
-      notes: JSON.stringify({ objectType: "bar", customShape: "rectangular", width: 180, height: 96, rotation: 0, isLocked: false }),
-      sort_order: 4
-    });
-
-    // 8 Round tables in ellipse (R_x = 550, R_y = 350)
-    for (let i = 0; i < 8; i++) {
-      const angle = (2 * Math.PI / 8) * i;
-      const x = Math.round(1500 + Math.cos(angle) * 550 - 80);
-      const y = Math.round(1000 + Math.sin(angle) * 350 - 80);
       tables.push({
         event_id: eventId,
         name: `Masa ${i + 1}`,
@@ -587,48 +635,21 @@ export async function applyRoomTemplate(
       });
     }
   } else if (templateType === "barn") {
-    // Rectangular dance floor (size 400x240)
-    tables.push({
-      event_id: eventId,
-      name: "Ring de Dans",
-      capacity: 1,
-      shape: "rectangular",
-      pos_x: 1300,
-      pos_y: 1150,
-      notes: JSON.stringify({ objectType: "dance_floor", customShape: "rectangular", width: 400, height: 240, rotation: 0, isLocked: true }),
-      sort_order: 1
-    });
+    // Long banquet tables arranged in columns
+    // We want 8, 12, or 20 tables
+    const cols = tableCount <= 8 ? 2 : 4;
+    for (let i = 0; i < tableCount; i++) {
+      const colIdx = i % cols;
+      const rowIdx = Math.floor(i / cols);
+      let x = 600;
+      if (cols === 2) {
+        x = colIdx === 0 ? 700 : 2100;
+      } else {
+        const colX = [550, 950, 1850, 2250];
+        x = colX[colIdx];
+      }
+      const y = 300 + rowIdx * 320;
 
-    // DJ Booth
-    tables.push({
-      event_id: eventId,
-      name: "DJ Booth",
-      capacity: 1,
-      shape: "rectangular",
-      pos_x: 1750,
-      pos_y: 1230,
-      notes: JSON.stringify({ objectType: "dj_booth", customShape: "rectangular", width: 160, height: 80, rotation: 90, isLocked: false }),
-      sort_order: 2
-    });
-
-    // Bar
-    tables.push({
-      event_id: eventId,
-      name: "Candy Bar",
-      capacity: 1,
-      shape: "rectangular",
-      pos_x: 2150,
-      pos_y: 350,
-      notes: JSON.stringify({ objectType: "candy_bar", customShape: "rectangular", width: 180, height: 96, rotation: 0, isLocked: false }),
-      sort_order: 3
-    });
-
-    // 6 Long Banquet tables in columns
-    for (let i = 0; i < 6; i++) {
-      const isLeft = i < 3;
-      const idx = i % 3;
-      const x = isLeft ? 700 : 1900;
-      const y = 300 + idx * 350;
       tables.push({
         event_id: eventId,
         name: `Masa ${i + 1}`,
@@ -641,104 +662,76 @@ export async function applyRoomTemplate(
       });
     }
   } else if (templateType === "garden") {
-    // Dance Floor
-    tables.push({
-      event_id: eventId,
-      name: "Ring de Dans",
-      capacity: 1,
-      shape: "round",
-      pos_x: 1350,
-      pos_y: 850,
-      notes: JSON.stringify({ objectType: "dance_floor", customShape: "round", width: 300, height: 300, rotation: 0, isLocked: true }),
-      sort_order: 1
-    });
-
-    // Photo booth
-    tables.push({
-      event_id: eventId,
-      name: "Cabina Foto",
-      capacity: 1,
-      shape: "rectangular",
-      pos_x: 1000,
-      pos_y: 200,
-      notes: JSON.stringify({ objectType: "photo_booth", customShape: "rectangular", width: 160, height: 96, rotation: 0, isLocked: false }),
-      sort_order: 2
-    });
-
-    // Sweet Table
-    tables.push({
-      event_id: eventId,
-      name: "Sweet Table",
-      capacity: 1,
-      shape: "rectangular",
-      pos_x: 1800,
-      pos_y: 200,
-      notes: JSON.stringify({ objectType: "sweet_table", customShape: "rectangular", width: 180, height: 96, rotation: 0, isLocked: false }),
-      sort_order: 3
-    });
-
-    // 10 Round Tables
-    const coords = [
-      { x: 700, y: 500 }, { x: 1100, y: 500 }, { x: 1900, y: 500 }, { x: 2300, y: 500 },
-      { x: 700, y: 1000 }, { x: 2300, y: 1000 },
-      { x: 700, y: 1500 }, { x: 1100, y: 1500 }, { x: 1900, y: 1500 }, { x: 2300, y: 1500 }
-    ];
-
-    for (let i = 0; i < coords.length; i++) {
-      tables.push({
-        event_id: eventId,
-        name: `Masa ${i + 1}`,
-        capacity: 10,
-        shape: "round",
-        pos_x: coords[i].x - 80,
-        pos_y: coords[i].y - 80,
-        notes: JSON.stringify({ customShape: "round", isLocked: false }),
-        sort_order: 10 + i
-      });
-    }
-  } else {
-    // Restaurant Layout
-    tables.push({
-      event_id: eventId,
-      name: "Bar Central",
-      capacity: 1,
-      shape: "rectangular",
-      pos_x: 2200,
-      pos_y: 200,
-      notes: JSON.stringify({ objectType: "bar", customShape: "rectangular", width: 220, height: 96, rotation: 0, isLocked: true }),
-      sort_order: 1
-    });
-
-    tables.push({
-      event_id: eventId,
-      name: "Intrare Principală",
-      capacity: 1,
-      shape: "rectangular",
-      pos_x: 1420,
-      pos_y: 1780,
-      notes: JSON.stringify({ objectType: "entrance", customShape: "rectangular", width: 160, height: 48, rotation: 0, isLocked: true }),
-      sort_order: 2
-    });
-
-    // 12 rectangular and square tables (4x3 grid)
-    for (let row = 0; row < 3; row++) {
-      for (let col = 0; col < 4; col++) {
-        const i = row * 4 + col;
-        const x = 600 + col * 500;
-        const y = 400 + row * 420;
-        const isSquare = i % 2 === 0;
+    // Staggered grid layout avoiding the center dance floor
+    const cols = tableCount <= 8 ? 4 : (tableCount <= 12 ? 4 : 5);
+    let count = 0;
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < cols; col++) {
+        if (count >= tableCount) break;
+        const x = 450 + col * 550;
+        const y = 400 + row * 340;
+        // Avoid center dance floor area
+        if (x > 1100 && x < 1900 && y > 750 && y < 1400) continue;
 
         tables.push({
           event_id: eventId,
-          name: `Masa ${i + 1}`,
+          name: `Masa ${count + 1}`,
+          capacity: 10,
+          shape: "round",
+          pos_x: x - 80,
+          pos_y: y - 80,
+          notes: JSON.stringify({ customShape: "round", isLocked: false }),
+          sort_order: 10 + count
+        });
+        count++;
+      }
+    }
+  } else if (templateType === "restaurant") {
+    // Rectangular/square tables in grid avoiding dance floor
+    const cols = tableCount <= 8 ? 4 : (tableCount <= 12 ? 4 : 5);
+    let count = 0;
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < cols; col++) {
+        if (count >= tableCount) break;
+        const x = 500 + col * 550;
+        const y = 400 + row * 340;
+        // Avoid center dance floor and top sweetheart
+        if (x > 1100 && x < 1900 && y > 750 && y < 1400) continue;
+        if (x > 1200 && x < 1800 && y < 350) continue;
+
+        const isSquare = count % 2 === 0;
+        tables.push({
+          event_id: eventId,
+          name: `Masa ${count + 1}`,
           capacity: isSquare ? 4 : 6,
           shape: "rectangular",
           pos_x: x - (isSquare ? 80 : 96),
           pos_y: y - (isSquare ? 80 : 64),
           notes: JSON.stringify({ customShape: isSquare ? "square" : "rectangular", isLocked: false }),
-          sort_order: 10 + i
+          sort_order: 10 + count
         });
+        count++;
       }
+    }
+  } else if (templateType === "long_hall") {
+    // Two long banquet rows on left and right sides
+    const half = Math.ceil(tableCount / 2);
+    for (let i = 0; i < tableCount; i++) {
+      const isRight = i >= half;
+      const idx = isRight ? i - half : i;
+      const x = isRight ? 1950 : 850;
+      const y = 400 + idx * 180; // closely spaced for long hall feel
+
+      tables.push({
+        event_id: eventId,
+        name: `Masa ${i + 1}`,
+        capacity: 10,
+        shape: "rectangular",
+        pos_x: x,
+        pos_y: y,
+        notes: JSON.stringify({ customShape: "long_banquet", isLocked: false }),
+        sort_order: 10 + i
+      });
     }
   }
 

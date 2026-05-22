@@ -60,21 +60,18 @@ function getRsvpIcon(status: RsvpStatus) {
   }
 }
 
-// Not used, commented out to satisfy ESLint
-// function getRsvpBadgeClass(status: RsvpStatus) {
-//   switch (status) {
-//     case "accepted":
-//       return "bg-emerald-50 text-emerald-700 border-emerald-100";
-//     case "declined":
-//       return "bg-rose-50 text-rose-700 border-rose-100";
-//     default:
-//       return "bg-amber-50 text-amber-700 border-amber-100";
-//   }
-// }
-
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
+function coupleNames(primary: GuestWithTable, partner: GuestWithTable) {
+  const pLast = primary.last_name?.trim();
+  const partnerLast = partner.last_name?.trim();
+  
+  if (pLast && partnerLast && pLast.toLowerCase() === partnerLast.toLowerCase()) {
+    return `${primary.first_name} & ${partner.first_name} ${pLast}`;
+  }
+  
+  const pName = pLast ? `${primary.first_name} ${pLast}` : primary.first_name;
+  const partnerName = partnerLast ? `${partner.first_name} ${partnerLast}` : partner.first_name;
+  return `${pName} & ${partnerName}`;
+}
 
 export function GuestSidebar({
   guests,
@@ -93,8 +90,19 @@ export function GuestSidebar({
 
   /* ---------- derived & filtered guests ---------- */
   const displayedGuestsList = useMemo(() => {
+    // Identify couple sub-guests
+    const couplePartnersByParentId = new Map<string, GuestWithTable>();
+    guests.forEach((g) => {
+      if (g.parent_id && g.relationship_type === "couple") {
+        couplePartnersByParentId.set(g.parent_id, g);
+      }
+    });
+
     // 1. Filter
     const filtered = guests.filter((g) => {
+      // Filter out couple sub-guests from being separate rows
+      if (g.parent_id && g.relationship_type === "couple") return false;
+
       // Base assignment filter
       if (filterMode === "unassigned" && g.table_id) return false;
       if (filterMode === "assigned" && !g.table_id) return false;
@@ -111,14 +119,26 @@ export function GuestSidebar({
         const fullName = `${g.first_name} ${g.last_name || ""}`.toLowerCase();
         const traditionalName = `${g.last_name || ""} ${g.first_name}`.toLowerCase();
         const group = (g.group_name ?? "").toLowerCase();
-        if (!fullName.includes(q) && !traditionalName.includes(q) && !group.includes(q)) return false;
+        
+        let partnerMatch = false;
+        const partner = couplePartnersByParentId.get(g.id);
+        if (partner) {
+          const pFullName = `${partner.first_name} ${partner.last_name || ""}`.toLowerCase();
+          const pTraditionalName = `${partner.last_name || ""} ${partner.first_name}`.toLowerCase();
+          const pGroup = (partner.group_name ?? "").toLowerCase();
+          if (pFullName.includes(q) || pTraditionalName.includes(q) || pGroup.includes(q)) {
+            partnerMatch = true;
+          }
+        }
+
+        if (!fullName.includes(q) && !traditionalName.includes(q) && !group.includes(q) && !partnerMatch) return false;
       }
 
       return true;
     });
 
     // 2. Sort / Group
-    let sorted: (GuestWithTable & { isSubGuest?: boolean })[] = [];
+    let sorted: (GuestWithTable & { isSubGuest?: boolean; couplePartner?: GuestWithTable })[] = [];
 
     if (sortBy === "family") {
       // Find all primary guests
@@ -130,7 +150,7 @@ export function GuestSidebar({
       });
 
       primaries.forEach(p => {
-        sorted.push(p);
+        sorted.push({ ...p, couplePartner: couplePartnersByParentId.get(p.id) });
         // Find sub-guests of this primary guest
         const subs = filtered.filter(g => g.parent_id === p.id);
         subs.sort((a, b) => a.first_name.localeCompare(b.first_name));
@@ -141,9 +161,10 @@ export function GuestSidebar({
 
       // Leftover sub-guests whose parents are filtered out
       const remaining = filtered.filter(g => g.parent_id && !sorted.some(dg => dg.id === g.id));
-      sorted.push(...remaining);
+      sorted.push(...remaining.map(r => ({ ...r, couplePartner: couplePartnersByParentId.get(r.id) })));
     } else {
-      sorted = [...filtered];
+      const mapped = filtered.map(g => ({ ...g, couplePartner: couplePartnersByParentId.get(g.id) }));
+      sorted = [...mapped];
       if (sortBy === "first_name") {
         sorted.sort((a, b) => a.first_name.localeCompare(b.first_name));
       } else if (sortBy === "last_name") {
@@ -209,7 +230,7 @@ export function GuestSidebar({
               onChange={(e) => setSortBy(e.target.value as SortOption)}
               className="w-full h-8 pl-8 pr-2 text-xs rounded-lg border border-input bg-transparent font-medium text-slate-700 focus-visible:outline-none"
             >
-              <option value="family">Grupat Familie</option>
+              <option value="family">Sortare după Familie</option>
               <option value="last_name">Nume Familie</option>
               <option value="first_name">Prenume</option>
               <option value="rsvp">Status RSVP</option>
@@ -361,26 +382,52 @@ export function GuestSidebar({
                     )}
                   >
                     {/* Initials avatar */}
-                    <span
-                      className={cn(
-                        "flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold shadow-inner border border-white",
-                        isAssigned
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-slate-100 text-slate-600"
-                      )}
-                    >
-                      {initials}
-                    </span>
+                    {guest.couplePartner ? (
+                      <div className="relative w-12 h-8.5 shrink-0 flex items-center">
+                        <span
+                          className={cn(
+                            "absolute left-0 top-0 flex h-7.5 w-7.5 items-center justify-center rounded-full text-[9px] font-bold shadow-inner border border-white bg-slate-100 text-slate-600 z-10 transition-colors",
+                            isAssigned && "bg-emerald-50 text-emerald-700"
+                          )}
+                          title={guest.first_name}
+                        >
+                          {initials}
+                        </span>
+                        <span
+                          className={cn(
+                            "absolute right-1 bottom-0 flex h-7.5 w-7.5 items-center justify-center rounded-full text-[9px] font-bold shadow-inner border border-white bg-slate-200 text-slate-500 transition-colors",
+                            isAssigned && "bg-emerald-100 text-emerald-600"
+                          )}
+                          title={guest.couplePartner.first_name}
+                        >
+                          {getInitials(guest.couplePartner)}
+                        </span>
+                      </div>
+                    ) : (
+                      <span
+                        className={cn(
+                          "flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold shadow-inner border border-white transition-colors",
+                          isAssigned
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-slate-100 text-slate-600"
+                        )}
+                      >
+                        {initials}
+                      </span>
+                    )}
 
                     {/* Name + Details */}
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate text-xs font-semibold text-slate-800">
-                          {guestName(guest)}
+                          {guest.couplePartner ? coupleNames(guest, guest.couplePartner) : guestName(guest)}
                         </span>
                         
                         {/* RSVP Mini Indicator */}
-                        {getRsvpIcon(guest.rsvp_status)}
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          {getRsvpIcon(guest.rsvp_status)}
+                          {guest.couplePartner && getRsvpIcon(guest.couplePartner.rsvp_status)}
+                        </div>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-1">
@@ -390,8 +437,20 @@ export function GuestSidebar({
                             {guest.group_name}
                           </span>
                         )}
+                        {/* If godparents tag, show purple tag */}
+                        {(guest.tags?.includes("godparents") || guest.couplePartner?.tags?.includes("godparents")) && (
+                          <span className="inline-block text-[9px] px-1 bg-purple-100 text-purple-700 rounded border border-purple-200 font-semibold">
+                            Nași
+                          </span>
+                        )}
+                        {/* If vip tag, show vip badge */}
+                        {(guest.tags?.includes("vip") || guest.couplePartner?.tags?.includes("vip")) && (
+                          <span className="inline-block text-[9px] px-1 bg-amber-100 text-amber-700 rounded border border-amber-200 font-semibold">
+                            VIP
+                          </span>
+                        )}
                         {/* Plus one */}
-                        {guest.plus_one && (
+                        {guest.plus_one && !guest.couplePartner && (
                           <span className="inline-block text-[9px] px-1 bg-pink-100 text-pink-700 rounded border border-pink-200 font-medium">
                             +1
                           </span>

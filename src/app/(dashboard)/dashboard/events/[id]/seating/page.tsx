@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { SeatingPlanner } from "@/components/seating/seating-planner";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
+import { AnimatedPage } from "@/components/layout/animated-page";
 import { Button } from "@/components/ui/button";
 import { requireEvent } from "@/lib/events/verify-event";
 import { getSeatingPlan } from "@/lib/seating/queries";
@@ -17,7 +18,7 @@ export default async function SeatingPage({ params }: SeatingPageProps) {
   const { tables, unassigned, allGuests } = await getSeatingPlan(id);
 
   return (
-    <>
+    <AnimatedPage>
       <DashboardHeader
         title={ro.seating.title}
         description={`${event.title} · ${ro.seating.subtitle}`}
@@ -35,6 +36,6 @@ export default async function SeatingPage({ params }: SeatingPageProps) {
         unassigned={unassigned}
         allGuests={allGuests}
       />
-    </>
+    </AnimatedPage>
   );
 }

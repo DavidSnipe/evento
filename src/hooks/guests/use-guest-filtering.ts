@@ -37,13 +37,15 @@ export function useGuestFiltering({
     if (debouncedSearch.trim()) {
       const q = debouncedSearch.toLowerCase().trim();
       result = result.filter((g) => {
-        const fullName = `${g.first_name} ${g.last_name ?? ""}`.toLowerCase();
+        const fullName1 = `${g.first_name} ${g.last_name ?? ""}`.toLowerCase();
+        const fullName2 = `${g.last_name ?? ""} ${g.first_name}`.toLowerCase();
         const group = (g.group_name ?? "").toLowerCase();
         const table = (g.seating_tables?.name ?? "").toLowerCase();
         const tags = (g.tags ?? []).join(" ").toLowerCase();
         const plusOne = (g.plus_one_name ?? "").toLowerCase();
         return (
-          fullName.includes(q) ||
+          fullName1.includes(q) ||
+          fullName2.includes(q) ||
           group.includes(q) ||
           table.includes(q) ||
           tags.includes(q) ||
@@ -78,7 +80,9 @@ export function useGuestFiltering({
         if (!aName && bName) return 1;
         if (aName && !bName) return -1;
         if (!aName && !bName) return a.first_name.localeCompare(b.first_name, "ro");
-        return aName.localeCompare(bName, "ro");
+        const cmp = aName.localeCompare(bName, "ro");
+        if (cmp !== 0) return cmp;
+        return a.first_name.localeCompare(b.first_name, "ro");
       });
     } else if (sortBy === "firstName") {
       sortedResults.sort((a, b) => a.first_name.localeCompare(b.first_name, "ro"));

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { updateEvent } from "@/app/(dashboard)/dashboard/events/actions";
 import { EventForm } from "@/components/events/event-form";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
+import { AnimatedPage } from "@/components/layout/animated-page";
 import { getEventById } from "@/lib/events/queries";
 import { ro } from "@/lib/i18n/ro";
 
@@ -19,7 +20,7 @@ export default async function EditEventPage({ params }: EditEventPageProps) {
   const updateEventWithId = updateEvent.bind(null, id);
 
   return (
-    <>
+    <AnimatedPage>
       <DashboardHeader
         title={ro.events.editTitle}
         description={ro.events.editSubtitle}
@@ -27,6 +28,6 @@ export default async function EditEventPage({ params }: EditEventPageProps) {
       <div className="mx-auto max-w-2xl">
         <EventForm mode="edit" event={event} action={updateEventWithId} />
       </div>
-    </>
+    </AnimatedPage>
   );
 }

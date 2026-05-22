@@ -35,7 +35,7 @@ function getAvatarGradient(name: string): string {
 function getInitials(firstName: string, lastName: string | null): string {
   const f = firstName.charAt(0).toUpperCase();
   const l = lastName ? lastName.charAt(0).toUpperCase() : "";
-  return `${f}${l}`;
+  return lastName ? `${l}${f}` : f;
 }
 
 export function GuestCardView({
@@ -79,7 +79,7 @@ type GuestCardProps = {
 
 const GuestCard = React.memo(
   function GuestCard({ guest, isSyncing, onRsvpChange, onSelectGuest, index }: GuestCardProps) {
-    const fullName = `${guest.first_name} ${guest.last_name ?? ""}`.trim();
+    const fullName = guest.last_name ? `${guest.last_name} ${guest.first_name}` : guest.first_name;
     const gradient = getAvatarGradient(fullName);
     const initials = getInitials(guest.first_name, guest.last_name);
 

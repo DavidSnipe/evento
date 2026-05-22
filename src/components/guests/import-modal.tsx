@@ -65,7 +65,7 @@ function splitName(name: string): [string, string] {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 0) return ["", ""];
   if (parts.length === 1) return [parts[0], ""];
-  return [parts[0], parts.slice(1).join(" ")];
+  return [parts.slice(1).join(" "), parts[0]];
 }
 
 export function ImportModal({ eventId, guests, onClose, onImportSuccess }: ImportModalProps) {

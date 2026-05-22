@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 
 import { EventCard } from "@/components/events/event-card";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
+import { AnimatedPage } from "@/components/layout/animated-page";
 import { Button } from "@/components/ui/button";
 import { getActiveEventId } from "@/lib/events/active-event";
 import { getUserEvents } from "@/lib/events/queries";
@@ -12,7 +13,7 @@ export default async function EventsPage() {
   const [events, activeEventId] = await Promise.all([getUserEvents(), getActiveEventId()]);
 
   return (
-    <>
+    <AnimatedPage>
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1">
           <DashboardHeader title={ro.events.title} description={ro.events.subtitle} />
@@ -47,6 +48,6 @@ export default async function EventsPage() {
           ))}
         </div>
       )}
-    </>
+    </AnimatedPage>
   );
 }

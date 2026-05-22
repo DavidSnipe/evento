@@ -25,16 +25,13 @@ type GuestSidebarProps = {
 /* ------------------------------------------------------------------ */
 
 function guestName(g: GuestWithTable) {
-  return [g.first_name, g.last_name].filter(Boolean).join(" ");
+  return g.last_name ? `${g.last_name} ${g.first_name}` : g.first_name;
 }
 
 function getInitials(g: GuestWithTable): string {
-  return (
-    [g.first_name?.[0], g.last_name?.[0]]
-      .filter(Boolean)
-      .join("")
-      .toUpperCase() || "?"
-  );
+  const f = g.first_name?.[0] ?? "";
+  const l = g.last_name?.[0] ?? "";
+  return g.last_name ? `${l}${f}`.toUpperCase() : f.toUpperCase() || "?";
 }
 
 function getColor(name: string | null): string {

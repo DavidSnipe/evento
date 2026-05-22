@@ -49,11 +49,11 @@ function getInitials(guest: GuestWithTable): string {
     return `${f}+${pf}`;
   }
   const l = guest.last_name ? guest.last_name.charAt(0).toUpperCase() : "";
-  return `${f}${l}`;
+  return guest.last_name ? `${l}${f}` : f;
 }
 
 function formatGuestName(guest: GuestWithTable): { mainName: string; subtext?: string } {
-  const fullName = `${guest.first_name} ${guest.last_name ?? ""}`.trim();
+  const fullName = guest.last_name ? `${guest.last_name} ${guest.first_name}` : guest.first_name;
   const subGuests = guest.subGuests ?? [];
 
   if (subGuests.length === 0) {
@@ -62,9 +62,9 @@ function formatGuestName(guest: GuestWithTable): { mainName: string; subtext?: s
 
   const partner = subGuests.find((s) => s.relationship_type === "couple");
   if (partner) {
-    const partnerName = `${partner.first_name} ${partner.last_name ?? ""}`.trim();
+    const partnerName = partner.last_name ? `${partner.last_name} ${partner.first_name}` : partner.first_name;
     if (guest.last_name && partner.last_name && guest.last_name.toLowerCase() === partner.last_name.toLowerCase()) {
-      return { mainName: `${guest.first_name} & ${partner.first_name} ${guest.last_name}` };
+      return { mainName: `${guest.last_name} ${guest.first_name} & ${partner.first_name}` };
     }
     return { mainName: `${fullName} & ${partnerName}` };
   }
@@ -81,7 +81,7 @@ function formatGuestName(guest: GuestWithTable): { mainName: string; subtext?: s
     const familyName = guest.last_name ? `Familia ${guest.last_name}` : fullName;
     return {
       mainName: familyName,
-      subtext: `${guest.first_name} + ${familyMembers.map((f) => f.first_name).join(", ")} (${totalCount} membri)`
+      subtext: `${fullName} + ${familyMembers.map((f) => f.first_name).join(", ")} (${totalCount} membri)`
     };
   }
 
@@ -101,7 +101,7 @@ export function TablePicker({ selectedTableId, tables, onChange, readonly }: Tab
   const [search, setSearch] = useState("");
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -122,6 +122,8 @@ export function TablePicker({ selectedTableId, tables, onChange, readonly }: Tab
       updateCoords();
       window.addEventListener("resize", updateCoords);
       window.addEventListener("scroll", updateCoords, true);
+    } else {
+      setCoords(null);
     }
     return () => {
       window.removeEventListener("resize", updateCoords);
@@ -156,7 +158,12 @@ export function TablePicker({ selectedTableId, tables, onChange, readonly }: Tab
         ref={triggerRef}
         type="button"
         disabled={readonly}
-        onClick={() => !readonly && setIsOpen(!isOpen)}
+        onClick={() => {
+          if (!readonly) {
+            if (!isOpen) updateCoords();
+            setIsOpen(!isOpen);
+          }
+        }}
         className={cn(
           "inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 rounded-xl border border-border/40 px-3.5 md:px-3 py-1.5 md:py-1 text-xs font-medium transition-all duration-200",
           selectedTable
@@ -169,7 +176,7 @@ export function TablePicker({ selectedTableId, tables, onChange, readonly }: Tab
         {selectedTable ? selectedTable.name : "Fără masă"}
       </button>
 
-      {isOpen && mounted && createPortal(
+      {isOpen && mounted && coords && createPortal(
         <div
           ref={dropdownRef}
           style={{
@@ -177,8 +184,9 @@ export function TablePicker({ selectedTableId, tables, onChange, readonly }: Tab
             top: `${coords.top}px`,
             left: `${coords.left}px`,
             zIndex: 99999,
+            transition: "none",
           }}
-          className="w-44 rounded-xl border border-border/40 bg-white/95 p-1 shadow-xl shadow-black/5 backdrop-blur-sm animate-in fade-in-0 zoom-in-95 duration-100 ease-out"
+          className="w-44 rounded-xl border border-border/40 bg-white/95 p-1 shadow-xl shadow-black/5 backdrop-blur-sm transition-none animate-scale-in origin-top-left"
         >
           <div className="p-1">
             <input
@@ -275,17 +283,17 @@ export function GuestTableView({
   return (
     <div
       ref={containerRef}
-      className="overflow-hidden rounded-2xl bg-white/80 shadow-sm ring-1 ring-border/30 max-h-[700px] overflow-y-auto"
+      className="overflow-hidden rounded-2xl bg-white/80 shadow-sm ring-1 ring-border/60 max-h-[700px] overflow-y-auto"
     >
       {/* Desktop Table */}
       <div className="hidden md:block">
         <table className="w-full border-collapse">
           <thead
             ref={theadRef}
-            className="sticky top-0 z-10 bg-white/95 border-b border-border/30 transition-all duration-200"
+            className="sticky top-0 z-10 bg-white/95 border-b border-border/75 transition-all duration-200"
           >
             <tr>
-              <th className="w-10 px-4 py-3.5">
+              <th className="w-10 px-4 py-3.5 border-r border-border/75">
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -293,25 +301,25 @@ export function GuestTableView({
                   className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/30 cursor-pointer"
                 />
               </th>
-              <th className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground border-r border-border/75">
                 Nume
               </th>
-              <th className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground border-r border-border/75">
                 RSVP
               </th>
-              <th className="hidden lg:table-cell px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="hidden lg:table-cell px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground border-r border-border/75">
                 Tag-uri
               </th>
-              <th className="hidden lg:table-cell px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="hidden lg:table-cell px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground border-r border-border/75">
                 Masă
               </th>
-              <th className="hidden xl:table-cell px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="hidden xl:table-cell px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground border-r border-border/75">
                 Grup
               </th>
               <th className="w-10 px-4 py-3.5" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-border/20">
+          <tbody className="divide-y divide-border/65">
             {guests.map((guest, index) => (
               <GuestRow
                 key={guest.id}
@@ -386,7 +394,7 @@ const GuestRow = React.memo(
     const [showMenu, setShowMenu] = useState(false);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
-    const [coords, setCoords] = useState({ top: 0, left: 0 });
+    const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
     const [mounted, setMounted] = useState(false);
 
     const isTemp = guest.id.startsWith("temp-");
@@ -410,6 +418,8 @@ const GuestRow = React.memo(
         updateCoords();
         window.addEventListener("resize", updateCoords);
         window.addEventListener("scroll", updateCoords, true);
+      } else {
+        setCoords(null);
       }
       return () => {
         window.removeEventListener("resize", updateCoords);
@@ -477,7 +487,7 @@ const GuestRow = React.memo(
           isSyncing && "animate-soft-pulse"
         ) }
       >
-        <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+        <td className="px-4 py-2.5 border-r border-border/65" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={isSelected}
@@ -486,7 +496,7 @@ const GuestRow = React.memo(
             className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/30 cursor-pointer disabled:opacity-50"
           />
         </td>
-        <td className="px-3 py-2.5">
+        <td className="px-3 py-2.5 border-r border-border/65">
           <div className="flex items-center gap-3">
             <div
               className={cn(
@@ -513,10 +523,10 @@ const GuestRow = React.memo(
             </div>
           </div>
         </td>
-        <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+        <td className="px-3 py-2.5 border-r border-border/65" onClick={(e) => e.stopPropagation()}>
           <RsvpPill status={guest.rsvp_status} onChange={handleRsvpPillChange} readonly={isTemp} isSyncing={isSyncing} />
         </td>
-        <td className="hidden lg:table-cell px-3 py-2.5">
+        <td className="hidden lg:table-cell px-3 py-2.5 border-r border-border/65">
           <div className="flex flex-wrap gap-1">
             {(guest.tags ?? []).slice(0, 3).map((tag) => (
               <TagBadge key={tag} tag={tag} />
@@ -528,7 +538,7 @@ const GuestRow = React.memo(
             )}
           </div>
         </td>
-        <td className="hidden lg:table-cell px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+        <td className="hidden lg:table-cell px-3 py-2.5 border-r border-border/65" onClick={(e) => e.stopPropagation()}>
           <TablePicker
             selectedTableId={guest.table_id}
             tables={tables}
@@ -536,7 +546,7 @@ const GuestRow = React.memo(
             readonly={isTemp}
           />
         </td>
-        <td className="hidden xl:table-cell px-3 py-2.5 text-xs text-muted-foreground">
+        <td className="hidden xl:table-cell px-3 py-2.5 text-xs text-muted-foreground border-r border-border/65">
           {guest.group_name || "—"}
         </td>
         <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
@@ -547,13 +557,14 @@ const GuestRow = React.memo(
               disabled={isTemp}
               onClick={(e) => {
                 e.stopPropagation();
+                if (!showMenu) updateCoords();
                 setShowMenu(!showMenu);
               }}
               className="rounded-lg p-1.5 text-muted-foreground/60 opacity-0 transition-all group-hover:opacity-100 hover:bg-muted/50 hover:text-foreground disabled:opacity-0"
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>
-            {showMenu && mounted && createPortal(
+            {showMenu && mounted && coords && createPortal(
               <div
                 ref={menuRef}
                 style={{
@@ -561,8 +572,9 @@ const GuestRow = React.memo(
                   top: `${coords.top}px`,
                   left: `${coords.left}px`,
                   zIndex: 99999,
+                  transition: "none",
                 }}
-                className="w-36 rounded-xl border border-border/40 bg-white/95 p-1 shadow-xl shadow-black/5 backdrop-blur-sm animate-in fade-in-0 zoom-in-95 duration-100 ease-out"
+                className="w-36 rounded-xl border border-border/40 bg-white/95 p-1 shadow-xl shadow-black/5 backdrop-blur-sm transition-none animate-scale-in origin-top-right"
               >
                 <button
                   type="button"

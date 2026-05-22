@@ -3,8 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState, useEffect } from "react";
 import { Users, X } from "lucide-react";
-import html2canvas from "html2canvas-pro";
-import { jsPDF } from "jspdf";
 
 import { assignGuestFromSeating, updateTable } from "@/app/(dashboard)/dashboard/events/[id]/seating/actions";
 import { AddTableDialog } from "@/components/seating/add-table-dialog";
@@ -124,6 +122,15 @@ export function SeatingPlanner({
     if (!canvasRef.current) return;
 
     const el = canvasRef.current;
+    
+    // Dynamically load heavy export libraries
+    const [html2canvasModule, jspdfModule] = await Promise.all([
+      import("html2canvas-pro"),
+      import("jspdf")
+    ]);
+    const html2canvas = html2canvasModule.default;
+    const jsPDF = jspdfModule.jsPDF;
+
     const canvas = await html2canvas(el, {
       backgroundColor: "#faf8f5",
       scale: 2,
@@ -224,7 +231,7 @@ export function SeatingPlanner({
                 {(() => {
                   const g = localAllGuests.find((g) => g.id === selectedGuestId);
                   return g
-                    ? `${g.first_name} ${g.last_name || ""}`.trim()
+                    ? (g.last_name ? `${g.last_name} ${g.first_name}` : g.first_name)
                     : "";
                 })()}
               </span>
@@ -337,9 +344,13 @@ export function SeatingPlanner({
         <h2 className="text-2xl font-serif font-bold mb-6 border-b pb-2">Lista Invitați</h2>
         {printSort === "alpha" ? (
           <div className="columns-2 gap-8 text-sm">
-            {[...localAllGuests].sort((a, b) => a.first_name.localeCompare(b.first_name)).map(g => (
+            {[...localAllGuests].sort((a, b) => {
+              const nameA = `${a.last_name || ""} ${a.first_name}`.trim();
+              const nameB = `${b.last_name || ""} ${b.first_name}`.trim();
+              return nameA.localeCompare(nameB);
+            }).map(g => (
               <div key={g.id} className="mb-2">
-                <span className="font-semibold">{g.first_name} {g.last_name}</span>
+                <span className="font-semibold">{g.last_name ? `${g.last_name} ${g.first_name}` : g.first_name}</span>
                 {g.plus_one && <span className="ml-1 text-xs bg-gray-200 px-1 rounded">+1</span>}
                 <span className="text-gray-500 float-right">
                   {g.seating_tables?.name ?? "Nerepartizat"}
@@ -354,7 +365,7 @@ export function SeatingPlanner({
                 <h3 className="font-bold text-lg border-b border-gray-300 mb-2">{t.name} <span className="text-gray-500 text-sm font-normal">({t.guests.length} inv.)</span></h3>
                 {t.guests.map(g => (
                   <div key={g.id} className="py-1 border-b border-gray-100 flex justify-between">
-                    <span>{g.first_name} {g.last_name} {g.plus_one && <span className="ml-1 text-xs bg-gray-200 px-1 rounded">+1</span>}</span>
+                    <span>{g.last_name ? `${g.last_name} ${g.first_name}` : g.first_name} {g.plus_one && <span className="ml-1 text-xs bg-gray-200 px-1 rounded">+1</span>}</span>
                   </div>
                 ))}
                 {t.guests.length === 0 && <span className="text-gray-400 italic">Masa goală</span>}
@@ -364,7 +375,7 @@ export function SeatingPlanner({
               <h3 className="font-bold text-lg border-b border-gray-300 mb-2">Nerepartizați <span className="text-gray-500 text-sm font-normal">({localUnassigned.length} inv.)</span></h3>
               {localUnassigned.map(g => (
                 <div key={g.id} className="py-1 border-b border-gray-100 flex justify-between">
-                  <span>{g.first_name} {g.last_name} {g.plus_one && <span className="ml-1 text-xs bg-gray-200 px-1 rounded">+1</span>}</span>
+                  <span>{g.last_name ? `${g.last_name} ${g.first_name}` : g.first_name} {g.plus_one && <span className="ml-1 text-xs bg-gray-200 px-1 rounded">+1</span>}</span>
                 </div>
               ))}
               {localUnassigned.length === 0 && <span className="text-gray-400 italic">-</span>}

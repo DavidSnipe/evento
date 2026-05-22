@@ -90,9 +90,11 @@ export function GuestDetailPanel({
     setTimeout(onClose, 200);
   };
 
-  const fullName = `${guest.first_name} ${guest.last_name ?? ""}`.trim();
+  const fullName = guest.last_name ? `${guest.last_name} ${guest.first_name}` : guest.first_name;
   const gradient = getAvatarGradient(fullName);
-  const initials = `${guest.first_name.charAt(0)}${guest.last_name?.charAt(0) ?? ""}`.toUpperCase();
+  const initials = guest.last_name
+    ? `${guest.last_name.charAt(0)}${guest.first_name.charAt(0)}`.toUpperCase()
+    : guest.first_name.charAt(0).toUpperCase();
   const guestTags = guest.tags ?? [];
 
   const toggleTag = (tag: string) => {

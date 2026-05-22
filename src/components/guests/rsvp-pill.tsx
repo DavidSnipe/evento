@@ -24,7 +24,7 @@ export function RsvpPill({ status, onChange, readonly, isSyncing }: RsvpPillProp
   const [mounted, setMounted] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
   const config = RSVP_CONFIG[status];
 
   useEffect(() => {
@@ -46,6 +46,8 @@ export function RsvpPill({ status, onChange, readonly, isSyncing }: RsvpPillProp
       updateCoords();
       window.addEventListener("resize", updateCoords);
       window.addEventListener("scroll", updateCoords, true);
+    } else {
+      setCoords(null);
     }
     return () => {
       window.removeEventListener("resize", updateCoords);
@@ -74,7 +76,12 @@ export function RsvpPill({ status, onChange, readonly, isSyncing }: RsvpPillProp
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => !readonly && setIsOpen(!isOpen)}
+        onClick={() => {
+          if (!readonly) {
+            if (!isOpen) updateCoords();
+            setIsOpen(!isOpen);
+          }
+        }}
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all duration-300 ease-out",
           config.bg, config.text,
@@ -86,7 +93,7 @@ export function RsvpPill({ status, onChange, readonly, isSyncing }: RsvpPillProp
         {config.label}
       </button>
 
-      {isOpen && mounted && createPortal(
+      {isOpen && mounted && coords && createPortal(
         <div
           ref={dropdownRef}
           style={{
@@ -94,8 +101,9 @@ export function RsvpPill({ status, onChange, readonly, isSyncing }: RsvpPillProp
             top: `${coords.top}px`,
             left: `${coords.left}px`,
             zIndex: 99999,
+            transition: "none",
           }}
-          className="w-36 rounded-xl border border-border/40 bg-white/95 p-1 shadow-xl shadow-black/5 backdrop-blur-sm animate-in fade-in-0 zoom-in-95 duration-100 ease-out"
+          className="w-36 rounded-xl border border-border/40 bg-white/95 p-1 shadow-xl shadow-black/5 backdrop-blur-sm transition-none animate-scale-in origin-top-left"
         >
           {(Object.keys(RSVP_CONFIG) as RsvpStatus[]).map((s) => {
             const c = RSVP_CONFIG[s];

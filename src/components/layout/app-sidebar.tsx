@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, useRef } from "react";
 import { Heart, LogOut } from "lucide-react";
 
 import { signOut } from "@/app/(auth)/actions";
@@ -18,12 +19,22 @@ type AppSidebarProps = {
   activeEventTitle?: string | null;
 };
 
+const isHighPriorityRoute = (href: string) => {
+  const match = href.match(/^\/dashboard(?:\/events(?:\/[^/]+(?:\/(guests|seating|vendors|budget))?)?)?$/);
+  return !!match;
+};
+
 export function AppSidebar({
   userEmail,
   activeEventId,
   activeEventTitle,
 }: AppSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [loadingHref, setLoadingHref] = useState<string | null>(null);
+  const prefetchedUrls = useRef<Set<string>>(new Set());
+  const prefetchTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const initials = userEmail?.slice(0, 2).toUpperCase() ?? "EV";
   
   // Extract event ID from pathname if we are inside an event (e.g. /dashboard/events/[id]/...)
@@ -32,6 +43,41 @@ export function AppSidebar({
   const contextualEventId = (eventIdMatch && !isNewEvent) ? eventIdMatch[1] : activeEventId;
 
   const navItems = getMainNav(contextualEventId);
+
+  // Clear loading state when page change completes
+  useEffect(() => {
+    setLoadingHref(null);
+  }, [pathname]);
+
+  // Clean up hover prefetch timer on unmount
+  useEffect(() => {
+    return () => {
+      if (prefetchTimerRef.current) {
+        clearTimeout(prefetchTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleMouseEnter = (href: string) => {
+    if (prefetchTimerRef.current) {
+      clearTimeout(prefetchTimerRef.current);
+    }
+    if (!href || prefetchedUrls.current.has(href)) return;
+    if (!isHighPriorityRoute(href)) return;
+
+    prefetchTimerRef.current = setTimeout(() => {
+      prefetchedUrls.current.add(href);
+      router.prefetch(href);
+      prefetchTimerRef.current = null;
+    }, 150);
+  };
+
+  const handleMouseLeave = () => {
+    if (prefetchTimerRef.current) {
+      clearTimeout(prefetchTimerRef.current);
+      prefetchTimerRef.current = null;
+    }
+  };
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
@@ -81,19 +127,33 @@ export function AppSidebar({
             );
           }
 
+          const isCurrentlyLoading = loadingHref === item.href;
+
           return (
             <Link
               key={item.href + item.title}
               href={item.href}
+              prefetch={true}
+              onClick={(e) => {
+                if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && pathname !== item.href) {
+                  setLoadingHref(item.href);
+                }
+              }}
+              onMouseEnter={() => handleMouseEnter(item.href)}
+              onMouseLeave={handleMouseLeave}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out hover:scale-[1.01] active:scale-[0.98]",
+                "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out hover:scale-[1.01] active:scale-[0.98] overflow-hidden",
                 isActive
                   ? "bg-primary/20 text-foreground shadow-sm scale-[1.02]"
-                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground hover:translate-x-0.5"
+                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground hover:translate-x-0.5",
+                isCurrentlyLoading && "opacity-80 bg-primary/5"
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className={cn("h-4 w-4 transition-transform duration-300", isCurrentlyLoading && "animate-soft-pulse text-primary")} />
               {item.title}
+              {isCurrentlyLoading && (
+                <span className="absolute bottom-1 left-3 right-3 h-[1.5px] rounded-full bg-primary/45 animate-soft-pulse" />
+              )}
             </Link>
           );
         })}

@@ -19,12 +19,9 @@ type TableVisualProps = {
 /* ------------------------------------------------------------------ */
 
 function getInitials(g: GuestWithTable): string {
-  return (
-    [g.first_name?.[0], g.last_name?.[0]]
-      .filter(Boolean)
-      .join("")
-      .toUpperCase() || "?"
-  );
+  const f = g.first_name?.[0] ?? "";
+  const l = g.last_name?.[0] ?? "";
+  return g.last_name ? `${l}${f}`.toUpperCase() : f.toUpperCase() || "?";
 }
 
 /* ------------------------------------------------------------------ */
@@ -88,7 +85,7 @@ function Seat({ guest, x, y }: SeatInfo) {
       {guest ? (
         <span
           className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/90 text-[10px] font-semibold text-primary-foreground shadow-sm ring-1 ring-white/60"
-          title={`${guest.first_name} ${guest.last_name ?? ""}`}
+          title={guest.last_name ? `${guest.last_name} ${guest.first_name}` : guest.first_name}
         >
           {getInitials(guest)}
         </span>
@@ -118,7 +115,7 @@ function RectSeat({ guest, x, y }: SeatInfo) {
       {guest ? (
         <span
           className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/90 text-[10px] font-semibold text-primary-foreground shadow-sm ring-1 ring-white/60"
-          title={`${guest.first_name} ${guest.last_name ?? ""}`}
+          title={guest.last_name ? `${guest.last_name} ${guest.first_name}` : guest.first_name}
         >
           {getInitials(guest)}
         </span>

@@ -5,6 +5,7 @@ import { Calendar, MapPin, Pencil, Users, UtensilsCrossed } from "lucide-react";
 import { setActiveEvent } from "@/app/(dashboard)/dashboard/events/actions";
 import { DeleteEventButton } from "@/components/events/delete-event-button";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
+import { AnimatedPage } from "@/components/layout/animated-page";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getActiveEventId } from "@/lib/events/active-event";
@@ -39,7 +40,7 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
   ]);
 
   return (
-    <>
+    <AnimatedPage>
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <DashboardHeader
           title={event.title}
@@ -132,6 +133,6 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
           </div>
         </Link>
       </div>
-    </>
+    </AnimatedPage>
   );
 }

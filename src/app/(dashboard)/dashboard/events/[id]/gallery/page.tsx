@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getEventGalleryInfo, getMediaUploads } from "@/lib/gallery/queries";
 import { GalleryClient } from "@/components/gallery/gallery-client";
+import { AnimatedPage } from "@/components/layout/animated-page";
 
 export const metadata = {
   title: "Galerie & QR | Evento",
@@ -21,7 +22,7 @@ export default async function GalleryAdminPage({
   const media = await getMediaUploads(id);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <AnimatedPage className="mx-auto max-w-5xl space-y-8">
       <div>
         <h1 className="font-serif text-3xl font-bold tracking-tight">
           Galerie & QR Code
@@ -36,6 +37,6 @@ export default async function GalleryAdminPage({
         initialQrSlug={info.qr_slug} 
         initialMedia={media} 
       />
-    </div>
+    </AnimatedPage>
   );
 }

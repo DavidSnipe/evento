@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getBudgetItems } from "@/lib/budget/queries";
 import { getEventById } from "@/lib/events/queries";
 import { BudgetClient } from "@/components/budget/budget-client";
+import { AnimatedPage } from "@/components/layout/animated-page";
 
 export const metadata = {
   title: "Buget Eveniment | Evento",
@@ -23,7 +24,7 @@ export default async function BudgetPage({
   const budgetItems = await getBudgetItems(id);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <AnimatedPage className="mx-auto max-w-5xl space-y-8">
       <div>
         <h1 className="font-serif text-3xl font-bold tracking-tight">
           Buget & Cheltuieli
@@ -34,6 +35,6 @@ export default async function BudgetPage({
       </div>
 
       <BudgetClient eventId={id} initialItems={budgetItems} />
-    </div>
+    </AnimatedPage>
   );
 }

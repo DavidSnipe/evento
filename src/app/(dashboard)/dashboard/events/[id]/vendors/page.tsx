@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getVendors } from "@/lib/vendors/queries";
 import { getEventById } from "@/lib/events/queries";
 import { VendorsClient } from "@/components/vendors/vendors-client";
+import { AnimatedPage } from "@/components/layout/animated-page";
 
 export const metadata = {
   title: "Furnizori Eveniment | Evento",
@@ -23,7 +24,7 @@ export default async function VendorsPage({
   const vendors = await getVendors(id);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <AnimatedPage className="mx-auto max-w-5xl space-y-8">
       <div>
         <h1 className="font-serif text-3xl font-bold tracking-tight">
           Furnizori & Contacte
@@ -34,6 +35,6 @@ export default async function VendorsPage({
       </div>
 
       <VendorsClient eventId={id} initialItems={vendors} />
-    </div>
+    </AnimatedPage>
   );
 }

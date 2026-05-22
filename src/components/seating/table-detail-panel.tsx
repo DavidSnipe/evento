@@ -31,13 +31,13 @@ type TableDetailPanelProps = {
 /* ─── Helpers ─── */
 
 function guestName(g: GuestWithTable) {
-  return [g.first_name, g.last_name].filter(Boolean).join(" ");
+  return g.last_name ? `${g.last_name} ${g.first_name}` : g.first_name;
 }
 
 function guestInitials(g: GuestWithTable) {
   const first = g.first_name?.[0] ?? "";
   const last = g.last_name?.[0] ?? "";
-  return (first + last).toUpperCase() || "?";
+  return g.last_name ? (last + first).toUpperCase() : first.toUpperCase() || "?";
 }
 
 const SHAPE_LABELS: Record<string, string> = {

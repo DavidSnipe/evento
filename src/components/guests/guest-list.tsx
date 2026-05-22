@@ -36,7 +36,7 @@ const filters: { key: RsvpStatus | "all"; label: string }[] = [
 ];
 
 function guestName(g: GuestWithTable) {
-  return [g.first_name, g.last_name].filter(Boolean).join(" ");
+  return g.last_name ? `${g.last_name} ${g.first_name}` : g.first_name;
 }
 
 export function GuestList({

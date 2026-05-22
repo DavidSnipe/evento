@@ -238,7 +238,7 @@ export function TableDetailPanel({
           <span className="mt-1 inline-block rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
             {isRoomObject
               ? "Obiect Sală"
-              : (SHAPE_LABELS[metadata.customShape || table.shape] ?? metadata.customShape || table.shape)}
+              : (SHAPE_LABELS[metadata.customShape || table.shape] ?? (metadata.customShape || table.shape))}
           </span>
         </div>
 

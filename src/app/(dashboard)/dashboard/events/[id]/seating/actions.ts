@@ -31,7 +31,7 @@ export async function createTable(
     const name = String(formData.get("name") ?? "").trim();
     if (!name) return { error: ro.seating.errors.nameRequired };
 
-    const shape = (formData.get("shape") as TableShape) || "rectangular";
+    const shape = (formData.get("shape") as string) || "rectangular";
     const width = Number(formData.get("width")) || (objectType === "dance_floor" ? 280 : 160);
     const height = Number(formData.get("height")) || (objectType === "dance_floor" ? 200 : 96);
 
@@ -76,10 +76,14 @@ export async function createTable(
   // Creating regular Tables
   const quantity = Math.min(20, Math.max(1, Number(formData.get("quantity")) || 1));
   const capacity = Math.min(50, Math.max(1, Number(formData.get("capacity")) || 8));
-  const shape = (formData.get("shape") as TableShape) || "round";
+  const shape = (formData.get("shape") as string) || "round";
 
-  let dbShape = shape;
-  if (shape === "square" || shape === "long_banquet") {
+  let dbShape: TableShape = "round";
+  if (shape === "sweetheart") {
+    dbShape = "sweetheart";
+  } else if (shape === "round") {
+    dbShape = "round";
+  } else {
     dbShape = "rectangular";
   }
 

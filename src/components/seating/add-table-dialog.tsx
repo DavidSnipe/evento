@@ -34,7 +34,9 @@ type AddTableDialogProps = {
 
 type TabType = "tables" | "objects";
 
-const tableShapes: { value: TableShape; label: string; icon: LucideIcon }[] = [
+type CustomTableShape = TableShape | "square" | "long_banquet";
+
+const tableShapes: { value: CustomTableShape; label: string; icon: LucideIcon }[] = [
   { value: "round", label: ro.seating.shapes.round, icon: Circle },
   { value: "square", label: "Pătrată", icon: Square },
   { value: "long_banquet", label: "Banquet Lung", icon: RectangleHorizontal },
@@ -64,7 +66,7 @@ export function AddTableDialog({ eventId, open, onClose }: AddTableDialogProps) 
   const [activeTab, setActiveTab] = useState<TabType>("tables");
   
   // Table state
-  const [tableShape, setTableShape] = useState<TableShape>("round");
+  const [tableShape, setTableShape] = useState<CustomTableShape>("round");
   const [quantity, setQuantity] = useState(1);
   const [capacity, setCapacity] = useState(8);
 
@@ -81,7 +83,7 @@ export function AddTableDialog({ eventId, open, onClose }: AddTableDialogProps) 
   if (!open) return null;
 
   // Sync capacity when shape changes
-  const handleShapeSelect = (shape: TableShape) => {
+  const handleShapeSelect = (shape: CustomTableShape) => {
     setTableShape(shape);
     if (shape === "sweetheart") {
       setCapacity(2);

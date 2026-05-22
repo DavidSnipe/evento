@@ -9,16 +9,24 @@ import {
   ZoomOut,
   Maximize2,
   Move,
-  Sparkles
+  Sparkles,
+  ChevronLeft
 } from "lucide-react";
 
-import { assignGuestFromSeating, updateTable, autoSeatGuestsAction, type TableFormState } from "@/app/(dashboard)/dashboard/events/[id]/seating/actions";
+import {
+  assignGuestFromSeating,
+  updateTable,
+  autoSeatGuestsAction,
+  initializeConcentricOnboarding,
+  type TableFormState
+} from "@/app/(dashboard)/dashboard/events/[id]/seating/actions";
 import { AddTableDialog } from "@/components/seating/add-table-dialog";
 import { GuestSidebar } from "@/components/seating/guest-sidebar";
 import { SeatingToolbar } from "@/components/seating/seating-toolbar";
 import { TableDetailPanel } from "@/components/seating/table-detail-panel";
 import { TableVisual } from "@/components/seating/table-visual";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { TableWithGuests } from "@/lib/seating/queries";
 import Draggable, { type DraggableData, type DraggableEvent } from "react-draggable";
 import { ro } from "@/lib/i18n/ro";
@@ -26,6 +34,60 @@ import { parseMetadata } from "@/lib/seating/utils";
 import { cn } from "@/lib/utils";
 
 import type { GuestWithTable } from "@/types/guests";
+
+function canTableAccommodateGuest(
+  table: TableWithGuests,
+  guestId: string,
+  allGuests: GuestWithTable[]
+): { allowed: boolean; reason?: string } {
+  const metadata = parseMetadata(table.notes);
+  if (metadata.objectType) {
+    return { allowed: false, reason: "Acesta este un obiect decorativ, nu o masă." };
+  }
+  if (metadata.isLocked) {
+    return { allowed: false, reason: "Masa este blocată." };
+  }
+  const guest = allGuests.find((g) => g.id === guestId);
+  if (!guest) return { allowed: false, reason: "Invitatul nu a fost găsit." };
+
+  // If already at this table, allow it
+  if (guest.table_id === table.id) {
+    return { allowed: true };
+  }
+
+  const subGuests = allGuests.filter((g) => g.parent_id === guestId);
+  const movingGuests = [guest, ...subGuests];
+  const movingGuestIds = movingGuests.map((g) => g.id);
+
+  const currentTableGuests = table.guests.filter((g) => !movingGuestIds.includes(g.id));
+  
+  // Deduplicate guests to prevent duplicate occupant counting issues
+  const uniqueGuestsMap = new Map<string, GuestWithTable>();
+  for (const g of [...currentTableGuests, ...movingGuests]) {
+    uniqueGuestsMap.set(g.id, g);
+  }
+  const finalGuests = Array.from(uniqueGuestsMap.values());
+
+  let occupied = 0;
+  for (const g of finalGuests) {
+    occupied += 1;
+    if (!g.parent_id && g.plus_one) {
+      const hasCoupleRow = finalGuests.some(
+        (sub) => sub.parent_id === g.id && sub.relationship_type === "couple"
+      );
+      if (!hasCoupleRow) occupied += 1;
+    }
+  }
+
+  if (occupied > table.capacity) {
+    return {
+      allowed: false,
+      reason: `Masa este plină! (Locuri: ${occupied}/${table.capacity})`,
+    };
+  }
+
+  return { allowed: true };
+}
 
 type SeatingPlannerProps = {
   eventId: string;
@@ -65,9 +127,20 @@ export function SeatingPlanner({
   // Selected states
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
+  const [draggingGuestId, setDraggingGuestId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false);
   const [mobileSidebar, setMobileSidebar] = useState<"guests" | null>(null);
   const [printSort, setPrintSort] = useState<"alpha" | "table">("table");
+
+  // Immersive Focus Mode states
+  const [workspaceMode, setWorkspaceMode] = useState(false);
+  const [guestSidebarWidth, setGuestSidebarWidth] = useState(304); // default w-76 = 304px
+  const [guestSidebarCollapsed, setGuestSidebarCollapsed] = useState(false);
+
+  // Smart Onboarding states
+  const [onboardingSeats, setOnboardingSeats] = useState(10);
+  const [initializingOnboarding, setInitializingOnboarding] = useState(false);
 
   // Pan & Zoom states
   const [scale, setScale] = useState(1.0);
@@ -78,6 +151,61 @@ export function SeatingPlanner({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [globalLock, setGlobalLock] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Toggle workspace-mode-active class on body for CSS selectors
+  useEffect(() => {
+    document.body.classList.toggle("workspace-mode-active", workspaceMode);
+    
+    // Smooth camera adjust on entering focus mode
+    const timer = setTimeout(() => {
+      if (viewportRef.current) {
+        setViewportDim({
+          width: viewportRef.current.clientWidth,
+          height: viewportRef.current.clientHeight
+        });
+      }
+    }, 350); // wait for focus mode CSS transitions to finish
+
+    return () => {
+      document.body.classList.remove("workspace-mode-active");
+      clearTimeout(timer);
+    };
+  }, [workspaceMode]);
+
+  // Sidebar drag resizing pointer handlers
+  const handleResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handleResizeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      const parent = e.currentTarget.parentElement;
+      if (parent) {
+        const rect = parent.getBoundingClientRect();
+        const newWidth = Math.min(480, Math.max(240, e.clientX - rect.left));
+        setGuestSidebarWidth(newWidth);
+      }
+    }
+  };
+
+  const handleResizeStop = (e: React.PointerEvent<HTMLDivElement>) => {
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  // Concentric Onboarding trigger
+  const handleRunOnboarding = async () => {
+    setInitializingOnboarding(true);
+    const result = await initializeConcentricOnboarding(eventId, onboardingSeats);
+    setInitializingOnboarding(false);
+    if (result.success) {
+      router.refresh();
+    } else {
+      alert(result.error || "A apărut o eroare la configurarea inițială.");
+    }
+  };
 
   // Auto-Seating animation state
   const [autoSeatingProgress, setAutoSeatingProgress] = useState<{ current: number; total: number; strategy: "family" | "even" } | null>(null);
@@ -668,7 +796,7 @@ export function SeatingPlanner({
   // Drag-and-drop / Click assignment handler
   const handleTableClick = useCallback(
     async (tableId: string, e?: React.DragEvent) => {
-      const dropGuestId = e ? e.dataTransfer.getData("guestId") : null;
+      const dropGuestId = e ? (e.dataTransfer.getData("guestId") || e.dataTransfer.getData("text/plain")) : null;
       const targetGuestId = dropGuestId || selectedGuestId;
 
       if (targetGuestId) {
@@ -688,11 +816,12 @@ export function SeatingPlanner({
 
             let updatedGuests = t.guests;
             if (isSource) {
-              updatedGuests = t.guests.filter(g => g.id !== targetGuestId && g.parent_id !== targetGuestId);
+              updatedGuests = updatedGuests.filter(g => g.id !== targetGuestId && g.parent_id !== targetGuestId);
             }
             if (isTarget) {
               const related = localAllGuests.filter(g => g.parent_id === targetGuestId);
-              updatedGuests = [...t.guests, guest, ...related];
+              const toAdd = [guest, ...related].filter(g => !updatedGuests.some(ex => ex.id === g.id));
+              updatedGuests = [...updatedGuests, ...toAdd];
             }
             return { ...t, guests: updatedGuests };
           }));
@@ -798,21 +927,58 @@ export function SeatingPlanner({
 
   return (
     <>
-      <div className="flex h-[calc(100vh-14rem)] min-h-[550px] gap-4 print:h-auto print:block">
+      <div className={cn(
+        "transition-all duration-350 ease-in-out",
+        workspaceMode
+          ? "fixed inset-0 z-[45] bg-slate-50 flex h-screen w-screen gap-0 overflow-hidden"
+          : "flex h-[calc(100vh-14rem)] min-h-[550px] gap-4 print:h-auto print:block"
+      )}>
         {/* LEFT: Guest Sidebar (desktop) */}
-        <aside className="hidden w-76 shrink-0 lg:block print:hidden">
-          <GuestSidebar
-            guests={localAllGuests}
-            selectedGuestId={selectedGuestId}
-            onSelectGuest={setSelectedGuestId}
-            className="h-full"
-          />
-        </aside>
+        {!guestSidebarCollapsed && (
+          <aside
+            style={{ width: `${guestSidebarWidth}px` }}
+            className={cn(
+              "hidden shrink-0 lg:block print:hidden relative h-full select-none transition-all duration-350 ease-in-out border-slate-200/60 bg-white/70",
+              workspaceMode ? "rounded-none border-none border-r" : ""
+            )}
+          >
+            <GuestSidebar
+              guests={localAllGuests}
+              selectedGuestId={selectedGuestId}
+              onSelectGuest={setSelectedGuestId}
+              onDragStart={setDraggingGuestId}
+              onDragEnd={() => setDraggingGuestId(null)}
+              className={cn("h-full transition-all duration-300", workspaceMode && "rounded-none border-none")}
+              headerAction={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setGuestSidebarCollapsed(true)}
+                  className="h-7 w-7 rounded-lg text-slate-450 hover:text-slate-700 hover:bg-slate-100 shrink-0"
+                  title="Ascunde lista de invitați"
+                >
+                  <ChevronLeft className="h-4.5 w-4.5" />
+                </Button>
+              }
+            />
+            {/* Drag Resize Handle */}
+            <div
+              onPointerDown={handleResizeStart}
+              onPointerMove={handleResizeMove}
+              onPointerUp={handleResizeStop}
+              onPointerLeave={handleResizeStop}
+              className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors z-50 rounded-r-md"
+            />
+          </aside>
+        )}
 
         {/* CENTER: Toolbar + Canvas Viewport */}
-        <div className="flex flex-1 flex-col gap-4 overflow-hidden print:overflow-visible">
+        <div className={cn(
+          "flex flex-1 flex-col overflow-hidden print:overflow-visible transition-all duration-350 ease-in-out",
+          workspaceMode ? "gap-0 h-full" : "gap-4"
+        )}>
           {/* Toolbar */}
-          <div className="print:hidden">
+          <div className={cn("print:hidden transition-all duration-350", workspaceMode && "border-b border-slate-200 bg-white shadow-sm z-20")}>
             <SeatingToolbar
               eventId={eventId}
               totalSeated={totalSeated}
@@ -826,11 +992,15 @@ export function SeatingPlanner({
               globalLock={globalLock}
               onToggleGlobalLock={() => setGlobalLock(!globalLock)}
               onRunAutoSeat={handleRunAutoSeat}
+              showTemplateMenu={showTemplateMenu}
+              onToggleTemplateMenu={setShowTemplateMenu}
+              workspaceMode={workspaceMode}
+              onToggleWorkspaceMode={() => setWorkspaceMode(prev => !prev)}
             />
           </div>
 
           {/* Mobile guest drawer toggle */}
-          <div className="flex gap-2 lg:hidden print:hidden">
+          <div className={cn("flex gap-2 lg:hidden print:hidden", workspaceMode && "p-3 bg-white border-b border-slate-100")}>
             <Button
               variant="outline"
               size="sm"
@@ -861,6 +1031,8 @@ export function SeatingPlanner({
                     setSelectedGuestId(id);
                     setMobileSidebar(null);
                   }}
+                  onDragStart={setDraggingGuestId}
+                  onDragEnd={() => setDraggingGuestId(null)}
                   className="max-h-80"
                 />
               </div>
@@ -869,7 +1041,12 @@ export function SeatingPlanner({
 
           {/* Selected guest visual floating indicator */}
           {selectedGuestId && (
-            <div className="flex items-center gap-2 rounded-xl bg-pink-50 border border-pink-200/50 px-4 py-2.5 text-sm print:hidden animate-bounce">
+            <div className={cn(
+              "flex items-center gap-2 text-sm print:hidden animate-bounce transition-all duration-350",
+              workspaceMode 
+                ? "bg-pink-50/80 border-b border-pink-100 px-6 py-2" 
+                : "rounded-xl bg-pink-50 border border-pink-200/50 px-4 py-2.5"
+            )}>
               <span className="font-semibold text-primary">
                 {(() => {
                   const g = localAllGuests.find((g) => g.id === selectedGuestId);
@@ -904,10 +1081,26 @@ export function SeatingPlanner({
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             className={cn(
-              "flex-1 overflow-hidden rounded-3xl border border-slate-200/80 bg-[#f1f5f9]/70 shadow-inner relative print:border-none print:shadow-none print:bg-transparent print:p-0 print:overflow-visible",
+              "flex-1 overflow-hidden shadow-inner relative print:border-none print:shadow-none print:bg-transparent print:p-0 print:overflow-visible transition-all duration-350 ease-in-out",
+              workspaceMode
+                ? "border-none rounded-none bg-[#f8fafc]"
+                : "rounded-3xl border border-slate-200/80 bg-[#f1f5f9]/70",
               isSpacePressed ? (isPanning ? "cursor-grabbing" : "cursor-grab") : "cursor-default"
             )}
           >
+            {/* Floating Guest Sidebar Restore Button */}
+            {guestSidebarCollapsed && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setGuestSidebarCollapsed(false)}
+                className="absolute left-4 top-4 z-30 h-10 w-10 rounded-full bg-white shadow-lg border border-slate-200 hover:bg-slate-50 text-slate-700 animate-in fade-in zoom-in-75 duration-200"
+                title="Afișează lista de invitați"
+              >
+                <Users className="h-4.5 w-4.5 text-primary" />
+              </Button>
+            )}
+
             {/* The Actual transformed Floor Canvas */}
             <div
               ref={canvasRef}
@@ -920,42 +1113,106 @@ export function SeatingPlanner({
               }}
             >
               {localTables.length === 0 ? (
-                /* Empty state */
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 print:hidden">
-                  <div className="rounded-full bg-primary/10 p-6">
-                    <Users className="h-10 w-10 text-primary/60" />
+                /* Onboarding Wizard */
+                <div className="absolute inset-0 flex items-center justify-center p-4 bg-slate-500/5 backdrop-blur-xs print:hidden z-10 select-none">
+                  <div className="max-w-md w-full bg-white/95 backdrop-blur-md rounded-3xl border border-slate-150 p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-300">
+                    <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                      <Sparkles className="h-6 w-6 text-primary animate-pulse" />
+                    </div>
+                    
+                    <div className="text-center space-y-1.5">
+                      <h3 className="font-serif text-xl font-bold text-slate-800">
+                        Configurare Sală de Evenimente
+                      </h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Pentru a începe, introdu numărul preferat de locuri pentru o masă. Sistemul va calcula și va genera automat numărul optim de mese dispuse în cercuri concentrice în jurul ringului de dans, pe baza listei de invitați.
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-650">
+                        <span>Invitați Total:</span>
+                        <span className="font-bold text-slate-800 bg-white border border-slate-150 px-2 py-0.5 rounded-md">
+                          {localAllGuests.length} persoane
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Locuri per Masă (implicit 10)
+                        </label>
+                        <div className="relative flex items-center">
+                          <Input
+                            type="number"
+                            min={4}
+                            max={24}
+                            value={onboardingSeats}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10) || 10;
+                              setOnboardingSeats(val);
+                            }}
+                            className="h-10 pr-16 font-semibold text-sm rounded-xl"
+                          />
+                          <span className="absolute right-3 text-xs font-medium text-slate-400">
+                            locuri
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-650 pt-2 border-t border-slate-200/50">
+                        <span>Mese estimate de generat:</span>
+                        <span className="font-bold text-primary">
+                          {Math.max(1, Math.ceil(localAllGuests.length / (onboardingSeats || 10)))} mese
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      <Button
+                        onClick={handleRunOnboarding}
+                        disabled={initializingOnboarding}
+                        className="w-full rounded-xl text-xs h-11 font-bold bg-gradient-to-r from-primary to-pink-500 hover:from-primary/95 hover:to-pink-500/95 text-white shadow-md active:scale-98 transition-all"
+                      >
+                        {initializingOnboarding ? "Se generează schema..." : "Generează Schema Inteligentă"}
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        onClick={() => setShowTemplateMenu(true)}
+                        className="w-full text-xs text-slate-600 hover:text-slate-800 font-semibold h-9 rounded-xl hover:bg-slate-100"
+                      >
+                        Sau alege un șablon manual
+                      </Button>
+                    </div>
                   </div>
-                  <h3 className="font-serif text-xl font-semibold">
-                    {ro.seating.empty.title}
-                  </h3>
-                  <p className="max-w-sm text-center text-muted-foreground text-sm">
-                    {ro.seating.empty.desc}
-                  </p>
-                  <Button
-                    onClick={() => setShowAddDialog(true)}
-                    className="mt-2 rounded-xl font-semibold"
-                  >
-                    {ro.seating.empty.cta}
-                  </Button>
                 </div>
               ) : (
                 <>
                   {/* Tables and Room Objects */}
-                  {sortedTables.map((table) => (
-                    <DraggableWrapper
-                      key={table.renderKey}
-                      table={table}
-                      scale={scale}
-                      globalLock={globalLock}
-                      isMobile={isMobile}
-                      isSpacePressed={isSpacePressed}
-                      isSelected={selectedTableId === table.id}
-                      isDropTarget={!!selectedGuestId}
-                      onClick={() => handleTableClick(table.id)}
-                      onDrop={(e) => handleTableClick(table.id, e)}
-                      onStop={handleTableDragStop}
-                    />
-                  ))}
+                  {sortedTables.map((table) => {
+                    const activeId = draggingGuestId || selectedGuestId;
+                    const validation = activeId
+                      ? canTableAccommodateGuest(table, activeId, localAllGuests)
+                      : { allowed: true };
+
+                    return (
+                      <DraggableWrapper
+                        key={table.renderKey}
+                        table={table}
+                        scale={scale}
+                        globalLock={globalLock}
+                        isMobile={isMobile}
+                        isSpacePressed={isSpacePressed}
+                        isSelected={selectedTableId === table.id}
+                        isDropTarget={!!activeId}
+                        isValidDrop={validation.allowed}
+                        validationReason={validation.reason}
+                        onClick={() => handleTableClick(table.id)}
+                        onDrop={(e) => handleTableClick(table.id, e)}
+                        onStop={handleTableDragStop}
+                      />
+                    );
+                  })}
                 </>
               )}
             </div>
@@ -1109,13 +1366,16 @@ export function SeatingPlanner({
 
         {/* RIGHT: Table Inspector Panel (desktop) */}
         {selectedTable && (
-          <aside className="hidden w-76 shrink-0 lg:block print:hidden">
+          <aside className={cn(
+            "hidden w-76 shrink-0 lg:block print:hidden transition-all duration-350 ease-in-out border-slate-200/60 bg-white/70",
+            workspaceMode ? "h-full rounded-none border-none border-l" : ""
+          )}>
             <TableDetailPanel
               table={selectedTable}
               allGuests={localAllGuests}
               eventId={eventId}
               onClose={() => setSelectedTableId(null)}
-              className="h-full"
+              className={cn("h-full transition-all duration-300", workspaceMode && "rounded-none border-none")}
             />
           </aside>
         )}
@@ -1257,6 +1517,8 @@ type DraggableWrapperProps = {
   isSpacePressed: boolean;
   isSelected: boolean;
   isDropTarget: boolean;
+  isValidDrop?: boolean;
+  validationReason?: string;
   onClick: () => void;
   onDrop: (e: React.DragEvent) => void;
   onStop: (tableId: string, e: DraggableEvent, data: DraggableData) => void;
@@ -1271,6 +1533,8 @@ function DraggableWrapper({
   isSpacePressed,
   isSelected,
   isDropTarget,
+  isValidDrop = true,
+  validationReason,
   onClick,
   onDrop,
   onStop,
@@ -1285,6 +1549,9 @@ function DraggableWrapper({
 
   const dragStartPos = useRef({ x: 0, y: 0 });
   const [dragged, setDragged] = useState(false);
+
+  const [dragEnterCount, setDragEnterCount] = useState(0);
+  const isHovered = dragEnterCount > 0;
 
   const handleStart = (e: DraggableEvent, data: DraggableData) => {
     dragStartPos.current = { x: data.x, y: data.y };
@@ -1327,6 +1594,26 @@ function DraggableWrapper({
     onClick();
   };
 
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (isTableLocked || metadata.objectType) return;
+    setDragEnterCount(prev => prev + 1);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (isTableLocked || metadata.objectType) return;
+    setDragEnterCount(prev => Math.max(0, prev - 1));
+  };
+
+  const handleDropWrapper = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragEnterCount(0);
+    if (!isTableLocked && !metadata.objectType && isValidDrop) {
+      onDrop(e);
+    }
+  };
+
   return (
     <Draggable
       nodeRef={nodeRef}
@@ -1341,6 +1628,15 @@ function DraggableWrapper({
       <div
         ref={nodeRef}
         onClick={handleWrapperClick}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!isTableLocked && !metadata.objectType) {
+            e.dataTransfer.dropEffect = isValidDrop ? "move" : "none";
+          }
+        }}
+        onDrop={handleDropWrapper}
         className={cn(
           "absolute draggable-table-wrapper select-none",
           isDragDisabled ? "cursor-default" : "cursor-move",
@@ -1351,8 +1647,11 @@ function DraggableWrapper({
           table={table}
           isSelected={isSelected}
           isDropTarget={isDropTarget}
+          isHovered={isHovered}
+          isValidDrop={isValidDrop}
+          validationReason={validationReason}
           onClick={() => {}} // Handled via wrapper onClick
-          onDrop={onDrop}
+          onDrop={() => {}} // Handled via wrapper onDrop
           scale={scale}
         />
       </div>

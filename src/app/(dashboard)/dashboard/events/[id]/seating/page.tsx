@@ -24,7 +24,7 @@ export default async function SeatingPage({ params }: SeatingPageProps) {
         description={`${event.title} · ${ro.seating.subtitle}`}
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2 seating-page-actions">
         <Button variant="outline" asChild>
           <Link href={`/dashboard/events/${id}/guests`}>{ro.seating.goToGuests}</Link>
         </Button>

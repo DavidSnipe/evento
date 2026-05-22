@@ -744,3 +744,146 @@ export async function applyRoomTemplate(
   revalidateSeating(eventId);
   return { success: true };
 }
+
+/* ─── Initialize Concentric Onboarding Layout ─── */
+export async function initializeConcentricOnboarding(
+  eventId: string,
+  seatsPerTable: number
+): Promise<{ success: boolean; error?: string }> {
+  await requireEvent(eventId);
+  const supabase = await createClient();
+
+  // 1. Get total guest count
+  const { data: guests, error: guestsError } = await supabase
+    .from("guests")
+    .select("id")
+    .eq("event_id", eventId);
+
+  if (guestsError) return { success: false, error: "Nu s-a putut citi lista de invitați." };
+
+  const totalGuests = guests?.length ?? 0;
+  const capacity = Math.min(50, Math.max(2, seatsPerTable));
+  const tableCount = Math.max(1, Math.ceil(totalGuests / capacity));
+
+  // 2. Unassign all guests at the event
+  const { error: unassignError } = await supabase
+    .from("guests")
+    .update({ table_id: null })
+    .eq("event_id", eventId);
+
+  if (unassignError) return { success: false, error: "Eroare la eliberarea invitaților." };
+
+  // 3. Delete all existing tables / room objects
+  const { error: deleteError } = await supabase
+    .from("seating_tables")
+    .delete()
+    .eq("event_id", eventId);
+
+  if (deleteError) return { success: false, error: "Eroare la curățarea schemei curente." };
+
+  // 4. Build default wedding elements
+  const tables = [];
+
+  // Sweetheart table (Masa Mirilor) at top center
+  tables.push({
+    event_id: eventId,
+    name: "Masa Mirilor",
+    capacity: 4,
+    shape: "sweetheart",
+    pos_x: 1400,
+    pos_y: 80,
+    notes: JSON.stringify({ customShape: "sweetheart", isLocked: true }),
+    sort_order: 1
+  });
+
+  // Stage (Scenă) at top center
+  tables.push({
+    event_id: eventId,
+    name: "Scenă",
+    capacity: 1,
+    shape: "rectangular",
+    pos_x: 1340,
+    pos_y: 200,
+    notes: JSON.stringify({ objectType: "stage", customShape: "rectangular", width: 320, height: 120, rotation: 0, isLocked: true }),
+    sort_order: 2
+  });
+
+  // DJ Booth next to stage
+  tables.push({
+    event_id: eventId,
+    name: "DJ Booth",
+    capacity: 1,
+    shape: "rectangular",
+    pos_x: 1700,
+    pos_y: 220,
+    notes: JSON.stringify({ objectType: "dj_booth", customShape: "rectangular", width: 160, height: 80, rotation: 0, isLocked: true }),
+    sort_order: 3
+  });
+
+  // Dance Floor (Ring de Dans) in center
+  tables.push({
+    event_id: eventId,
+    name: "Ring de Dans",
+    capacity: 1,
+    shape: "round",
+    pos_x: 1340,
+    pos_y: 940,
+    notes: JSON.stringify({
+      objectType: "dance_floor",
+      customShape: "round",
+      width: 320,
+      height: 320,
+      rotation: 0,
+      isLocked: true
+    }),
+    sort_order: 4
+  });
+
+  // Concentric Rings generation for tables
+  let remaining = tableCount;
+  let ringIndex = 0;
+  let tableIndex = 0;
+  const ringCapacities = [8, 12, 16, 20];
+  const ringRadii = [
+    { rx: 520, ry: 380 },
+    { rx: 820, ry: 580 },
+    { rx: 1120, ry: 780 },
+    { rx: 1420, ry: 980 }
+  ];
+
+  while (remaining > 0) {
+    const cap = ringCapacities[ringIndex] || 24;
+    const currentRingCount = Math.min(remaining, cap);
+    const radius = ringRadii[ringIndex] || { rx: 520 + ringIndex * 300, ry: 380 + ringIndex * 200 };
+
+    for (let i = 0; i < currentRingCount; i++) {
+      const angle = (2 * Math.PI / currentRingCount) * i;
+      const x = Math.round(1500 + Math.cos(angle) * radius.rx - 80);
+      const y = Math.round(1100 + Math.sin(angle) * radius.ry - 80);
+
+      tables.push({
+        event_id: eventId,
+        name: `Masa ${tableIndex + 1}`,
+        capacity: capacity,
+        shape: "round",
+        pos_x: x,
+        pos_y: y,
+        notes: JSON.stringify({ customShape: "round", isLocked: false }),
+        sort_order: 10 + tableIndex
+      });
+      tableIndex++;
+    }
+    remaining -= currentRingCount;
+    ringIndex++;
+  }
+
+  const { error: insertError } = await supabase.from("seating_tables").insert(tables);
+  if (insertError) {
+    console.error("[initializeConcentricOnboarding]", insertError);
+    return { success: false, error: "Nu s-au putut genera mesele în baza de date." };
+  }
+
+  revalidateSeating(eventId);
+  return { success: true };
+}
+

@@ -227,11 +227,16 @@ export async function assignGuestToTable(
     // Get moving guest
     const { data: guest } = await supabase
       .from("guests")
-      .select("id, parent_id, plus_one, relationship_type")
+      .select("id, parent_id, plus_one, relationship_type, table_id")
       .eq("id", guestId)
       .single();
 
     if (!guest) return { error: ro.seating.errors.assignFailed };
+
+    // If already at this table, allow it
+    if (guest.table_id === tableId) {
+      return { success: true };
+    }
 
     // Find all sub-guests of this guest
     const { data: subGuests } = await supabase
@@ -243,32 +248,23 @@ export async function assignGuestToTable(
     const movingGuestIds = movingGuests.map(g => g.id);
 
     // Get other guests already at this table (excluding moving guests)
-    const { data: currentTableGuests } = await supabase
+    const { data: allTableGuests } = await supabase
       .from("guests")
       .select("id, parent_id, plus_one, relationship_type")
-      .eq("table_id", tableId)
-      .not("id", "in", `(${movingGuestIds.map(id => `'${id}'`).join(",")})`);
+      .eq("table_id", tableId);
 
-    // Count occupied seats by current table guests
+    const currentTableGuests = (allTableGuests ?? []).filter(
+      (g) => !movingGuestIds.includes(g.id)
+    );
+
+    const finalGuests = [...currentTableGuests, ...movingGuests];
+
+    // Count occupied seats by current table guests plus moving guests
     let occupied = 0;
-    const tableGuestsList = currentTableGuests ?? [];
-    for (const g of tableGuestsList) {
+    for (const g of finalGuests) {
       occupied += 1;
       if (!g.parent_id && g.plus_one) {
-        const hasCoupleRow = tableGuestsList.some(
-          (sub) => sub.parent_id === g.id && sub.relationship_type === "couple"
-        );
-        if (!hasCoupleRow) {
-          occupied += 1;
-        }
-      }
-    }
-
-    // Count seats needed by moving guests
-    for (const g of movingGuests) {
-      occupied += 1;
-      if (!g.parent_id && g.plus_one) {
-        const hasCoupleRow = movingGuests.some(
+        const hasCoupleRow = finalGuests.some(
           (sub) => sub.parent_id === g.id && sub.relationship_type === "couple"
         );
         if (!hasCoupleRow) {

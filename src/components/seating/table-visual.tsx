@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Heart,
   Crown,
@@ -23,6 +24,9 @@ type TableVisualProps = {
   table: TableWithGuests;
   isSelected: boolean;
   isDropTarget: boolean;
+  isHovered?: boolean;
+  isValidDrop?: boolean;
+  validationReason?: string;
   onClick: () => void;
   onDrop: (e: React.DragEvent) => void;
   scale?: number;
@@ -196,7 +200,7 @@ function Seat({ guest, x, y, isPercent }: SeatInfo & { isPercent?: boolean }) {
     >
       {guest ? (
         <span
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/95 text-[10px] font-semibold text-primary-foreground shadow-md ring-2 ring-white hover:scale-115 transition-transform duration-200 cursor-help"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/95 text-[10px] font-semibold text-primary-foreground shadow-md ring-2 ring-white hover:scale-115 transition-transform duration-200 cursor-help animate-in zoom-in-50 duration-300 ease-out"
           title={guest.last_name ? `${guest.last_name} ${guest.first_name}` : guest.first_name}
         >
           {getInitials(guest)}
@@ -299,10 +303,14 @@ export function TableVisual({
   table,
   isSelected,
   isDropTarget,
+  isHovered = false,
+  isValidDrop = true,
+  validationReason,
   onClick,
   onDrop,
   scale = 1.0,
 }: TableVisualProps) {
+  const [isMouseHovered, setIsMouseHovered] = useState(false);
   const metadata = parseMetadata(table.notes);
   const isLocked = metadata.isLocked === true;
   const isRoomObject = !!metadata.objectType;
@@ -399,6 +407,8 @@ export function TableVisual({
 
   const rotation = metadata.rotation || 0;
 
+  const showFeedback = isHovered || (isDropTarget && isMouseHovered);
+
   return (
     <div
       role="button"
@@ -409,6 +419,12 @@ export function TableVisual({
       }}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onMouseEnter={() => {
+        if (isDropTarget) setIsMouseHovered(true);
+      }}
+      onMouseLeave={() => {
+        setIsMouseHovered(false);
+      }}
       className={cn(
         /* base */
         "group relative flex cursor-pointer flex-col items-center justify-center transition-all duration-300 select-none",
@@ -417,14 +433,18 @@ export function TableVisual({
         /* glass surface */
         "border bg-white/95 shadow-md backdrop-blur-sm border-border/80",
 
-        /* hover effect if not locked */
-        !isLocked && "hover:scale-[1.04] hover:shadow-lg hover:border-primary/20",
+        /* hover effect if not locked and not showing feedback */
+        !isLocked && !showFeedback && "hover:scale-[1.04] hover:shadow-lg hover:border-primary/20",
 
-        /* selected state */
-        isSelected && "scale-105 ring-2 ring-primary shadow-xl border-primary/50 z-20",
+        /* selected state (only if not showing active feedback) */
+        isSelected && !showFeedback && "scale-105 ring-2 ring-primary shadow-xl border-primary/50 z-20",
 
-        /* drop target guest assignment preview */
-        isDropTarget && "ring-2 ring-accent border-dashed border-accent animate-pulse scale-[1.02]",
+        /* drop target guest assignment preview (only if not hovered/showing feedback) */
+        isDropTarget && !showFeedback && "ring-2 ring-accent border-dashed border-accent animate-pulse scale-[1.02]",
+
+        /* active droppable/undroppable feedback */
+        showFeedback && isValidDrop && "ring-4 ring-emerald-500 border-emerald-400 bg-emerald-50/5 hover:scale-[1.04] shadow-[0_0_20px_5px_rgba(16,185,129,0.4)] scale-105 z-20",
+        showFeedback && !isValidDrop && "ring-4 ring-rose-500 border-rose-400 bg-rose-50/5 hover:scale-[1.02] shadow-[0_0_20px_5px_rgba(244,63,94,0.4)] scale-102 z-20 cursor-not-allowed",
 
         /* full occupancy styling */
         isFull && !isSelected && !isDropTarget && "bg-pink-50/10 border-pink-200/50 shadow-inner",
@@ -438,6 +458,18 @@ export function TableVisual({
         transform: `rotate(${rotation}deg)`
       }}
     >
+      {/* Invalid Drop Tooltip */}
+      {showFeedback && !isValidDrop && validationReason && (
+        <div 
+          className="absolute -top-12 left-1/2 -translate-x-1/2 bg-rose-600 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg shadow-lg whitespace-nowrap z-50 animate-in fade-in slide-in-from-bottom-1 duration-150"
+          style={{
+            transform: `translate(-50%, 0) rotate(${-rotation}deg)`,
+          }}
+        >
+          {validationReason}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-rose-600" />
+        </div>
+      )}
       {/* Crown decoration for sweetheart table */}
       {isSweetheart && (
         <Crown

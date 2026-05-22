@@ -31,7 +31,10 @@ type GuestSidebarProps = {
   guests: GuestWithTable[];
   selectedGuestId: string | null;
   onSelectGuest: (guestId: string | null) => void;
+  onDragStart?: (guestId: string) => void;
+  onDragEnd?: () => void;
   className?: string;
+  headerAction?: React.ReactNode;
 };
 
 /* ------------------------------------------------------------------ */
@@ -77,7 +80,10 @@ export function GuestSidebar({
   guests,
   selectedGuestId,
   onSelectGuest,
+  onDragStart,
+  onDragEnd,
   className,
+  headerAction,
 }: GuestSidebarProps) {
   const [search, setSearch] = useState("");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
@@ -204,9 +210,12 @@ export function GuestSidebar({
             <Users className="h-4.5 w-4.5 text-primary" />
             Lista Invitați
           </h3>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
-            {displayedGuestsList.length}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+              {displayedGuestsList.length}
+            </span>
+            {headerAction}
+          </div>
         </div>
 
         {/* Search */}
@@ -370,7 +379,12 @@ export function GuestSidebar({
                     type="button"
                     draggable
                     onDragStart={(e) => {
+                      e.dataTransfer.setData("text/plain", guest.id);
                       e.dataTransfer.setData("guestId", guest.id);
+                      onDragStart?.(guest.id);
+                    }}
+                    onDragEnd={() => {
+                      onDragEnd?.();
                     }}
                     onClick={() => onSelectGuest(isSelected ? null : guest.id)}
                     className={cn(

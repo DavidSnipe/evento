@@ -24,7 +24,7 @@ export default async function DashboardLayout({
   return (
     <div className="flex min-h-screen bg-background">
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex print:hidden">
+      <div className="hidden md:flex print:hidden dashboard-sidebar-container">
         <AppSidebar
           userEmail={userEmail}
           activeEventId={activeEventId}
@@ -32,7 +32,7 @@ export default async function DashboardLayout({
         />
       </div>
 
-      <main className="flex-1 overflow-y-auto print:overflow-visible">
+      <main className="flex-1 overflow-y-auto print:overflow-visible dashboard-main-container">
         {/* Mobile Top Bar */}
         <div className="sticky top-0 z-40 flex items-center justify-between border-b border-border/60 bg-background/80 px-5 py-3 backdrop-blur-lg md:hidden print:hidden">
           <div className="flex items-center gap-2.5">
@@ -64,7 +64,7 @@ export default async function DashboardLayout({
         </div>
 
         {/* Page Content */}
-        <div className="mx-auto max-w-6xl p-6 md:p-10 print:max-w-none print:p-0 print:m-0">
+        <div className="mx-auto max-w-6xl p-6 md:p-10 print:max-w-none print:p-0 print:m-0 dashboard-content-container">
           {children}
         </div>
       </main>

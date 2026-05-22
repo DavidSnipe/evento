@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { Heart, LogOut } from "lucide-react";
+import { Heart, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { signOut } from "@/app/(auth)/actions";
 import { getMainNav } from "@/config/navigation";
@@ -34,6 +34,19 @@ export function AppSidebar({
   const [loadingHref, setLoadingHref] = useState<string | null>(null);
   const prefetchedUrls = useRef<Set<string>>(new Set());
   const prefetchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebar-collapsed");
+    setIsCollapsed(saved === "true");
+  }, []);
+
+  const toggleCollapse = () => {
+    const next = !isCollapsed;
+    setIsCollapsed(next);
+    localStorage.setItem("sidebar-collapsed", String(next));
+  };
 
   const initials = userEmail?.slice(0, 2).toUpperCase() ?? "EV";
   
@@ -80,23 +93,47 @@ export function AppSidebar({
   };
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
-      <div className="flex items-center gap-2 px-6 py-8">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/30 text-primary">
+    <aside className={cn(
+      "flex h-full shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-all duration-350 ease-out relative",
+      isCollapsed ? "w-16" : "w-64"
+    )}>
+      {/* Floating Toggle Button */}
+      <button
+        onClick={toggleCollapse}
+        className="absolute -right-3 top-8 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-sidebar-border bg-white text-slate-500 shadow-md hover:text-slate-800 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        title={isCollapsed ? "Extinde meniul" : "Restrânge meniul"}
+      >
+        {isCollapsed ? (
+          <ChevronRight className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronLeft className="h-3.5 w-3.5" />
+        )}
+      </button>
+
+      <div className={cn("flex items-center gap-2 px-4 py-8 overflow-hidden", isCollapsed ? "justify-center" : "px-6")}>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/30 text-primary">
           <Heart className="h-5 w-5 fill-primary/40" />
         </div>
-        <div>
-          <p className="font-serif text-xl font-semibold tracking-tight">Evento</p>
-          <p className="text-xs text-muted-foreground">{ro.brand.tagline}</p>
+        <div className={cn("transition-all duration-300 origin-left", isCollapsed ? "opacity-0 w-0 pointer-events-none" : "opacity-100 w-auto")}>
+          <p className="font-serif text-xl font-semibold tracking-tight whitespace-nowrap">Evento</p>
+          <p className="text-xs text-muted-foreground whitespace-nowrap">{ro.brand.tagline}</p>
         </div>
       </div>
 
       {activeEventTitle ? (
-        <div className="mx-3 mb-4 rounded-xl bg-primary/10 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Eveniment activ
-          </p>
-          <p className="truncate text-sm font-medium">{activeEventTitle}</p>
+        <div className={cn("mx-3 mb-4 rounded-xl bg-primary/10 transition-all duration-300 overflow-hidden", isCollapsed ? "p-1 py-2 text-center" : "px-3 py-2")}>
+          {isCollapsed ? (
+            <span className="text-[10px] font-bold text-primary block" title={activeEventTitle}>
+              {activeEventTitle.slice(0, 2).toUpperCase()}
+            </span>
+          ) : (
+            <>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Eveniment activ
+              </p>
+              <p className="truncate text-sm font-medium">{activeEventTitle}</p>
+            </>
+          )}
         </div>
       ) : null}
 
@@ -115,14 +152,21 @@ export function AppSidebar({
             return (
               <span
                 key={item.href}
-                className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground/40 transition-opacity duration-200"
+                className={cn(
+                  "flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground/40 transition-all duration-200 overflow-hidden",
+                  isCollapsed && "justify-center"
+                )}
                 title={ro.nav.comingSoon}
               >
-                <Icon className="h-4 w-4" />
-                {item.title}
-                <span className="ml-auto text-[10px] uppercase tracking-wider">
-                  {ro.nav.soon}
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className={cn("transition-opacity duration-300 whitespace-nowrap", isCollapsed ? "opacity-0 w-0 hidden" : "opacity-100")}>
+                  {item.title}
                 </span>
+                {!isCollapsed && (
+                  <span className="ml-auto text-[10px] uppercase tracking-wider">
+                    {ro.nav.soon}
+                  </span>
+                )}
               </span>
             );
           }
@@ -146,12 +190,16 @@ export function AppSidebar({
                 isActive
                   ? "bg-primary/20 text-foreground shadow-sm scale-[1.02]"
                   : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground hover:translate-x-0.5",
-                isCurrentlyLoading && "opacity-80 bg-primary/5"
+                isCurrentlyLoading && "opacity-80 bg-primary/5",
+                isCollapsed && "justify-center hover:translate-x-0"
               )}
+              title={isCollapsed ? item.title : undefined}
             >
-              <Icon className={cn("h-4 w-4 transition-transform duration-300", isCurrentlyLoading && "animate-soft-pulse text-primary")} />
-              {item.title}
-              {isCurrentlyLoading && (
+              <Icon className={cn("h-4 w-4 shrink-0 transition-transform duration-300", isCurrentlyLoading && "animate-soft-pulse text-primary")} />
+              <span className={cn("transition-all duration-300 origin-left whitespace-nowrap", isCollapsed ? "opacity-0 w-0 pointer-events-none" : "opacity-100 w-auto")}>
+                {item.title}
+              </span>
+              {isCurrentlyLoading && !isCollapsed && (
                 <span className="absolute bottom-1 left-3 right-3 h-[1.5px] rounded-full bg-primary/45 animate-soft-pulse" />
               )}
             </Link>
@@ -159,23 +207,25 @@ export function AppSidebar({
         })}
       </nav>
 
-      <div className="mt-auto p-4">
+      <div className="mt-auto p-3">
         <Separator className="mb-4" />
-        <div className="flex items-center gap-3 rounded-xl bg-white/50 p-3">
-          <Avatar>
+        <div className={cn("flex items-center gap-3 rounded-xl bg-white/50 transition-all duration-300 overflow-hidden", isCollapsed ? "p-1 justify-center" : "p-3")}>
+          <Avatar className="h-8 w-8 shrink-0">
             <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{ro.nav.planner}</p>
-            <p className="truncate text-xs text-muted-foreground">
+          <div className={cn("min-w-0 flex-1 transition-all duration-300 origin-left", isCollapsed ? "opacity-0 w-0 pointer-events-none" : "opacity-100 w-auto")}>
+            <p className="truncate text-sm font-medium whitespace-nowrap">{ro.nav.planner}</p>
+            <p className="truncate text-xs text-muted-foreground whitespace-nowrap">
               {userEmail ?? ro.nav.guest}
             </p>
           </div>
         </div>
         <form action={signOut} className="mt-3">
-          <Button type="submit" variant="ghost" className="w-full justify-start gap-2">
-            <LogOut className="h-4 w-4" />
-            {ro.nav.signOut}
+          <Button type="submit" variant="ghost" className={cn("w-full justify-start gap-2 px-3", isCollapsed && "justify-center px-0")} title={isCollapsed ? ro.nav.signOut : undefined}>
+            <LogOut className="h-4 w-4 shrink-0" />
+            <span className={cn("transition-all duration-300 origin-left whitespace-nowrap", isCollapsed ? "opacity-0 w-0 pointer-events-none" : "opacity-100 w-auto")}>
+              {ro.nav.signOut}
+            </span>
           </Button>
         </form>
       </div>

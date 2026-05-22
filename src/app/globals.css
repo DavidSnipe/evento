@@ -205,3 +205,25 @@
     @apply transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-primary/15 focus-visible:shadow-[0_0_0_3px_hsl(350_42%_72%/0.06)];
   }
 }
+
+/* Immersive Workspace Mode Focus styles */
+body.workspace-mode-active .dashboard-sidebar-container {
+  display: none !important;
+}
+body.workspace-mode-active .dashboard-content-container {
+  max-width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+body.workspace-mode-active .dashboard-main-container {
+  overflow: hidden !important;
+}
+body.workspace-mode-active .sticky.top-0 {
+  display: none !important;
+}
+body.workspace-mode-active .dashboard-header {
+  display: none !important;
+}
+body.workspace-mode-active .seating-page-actions {
+  display: none !important;
+}

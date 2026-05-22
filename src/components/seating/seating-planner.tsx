@@ -8,10 +8,7 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
-  Lock,
-  Unlock,
-  Move,
-  CornerRightDown
+  Move
 } from "lucide-react";
 
 import { assignGuestFromSeating, updateTable } from "@/app/(dashboard)/dashboard/events/[id]/seating/actions";
@@ -211,6 +208,7 @@ export function SeatingPlanner({
       fitAll();
     }, 100);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tables.length]);
 
   // Scroll wheel zoom and pan
@@ -572,8 +570,6 @@ export function SeatingPlanner({
               totalSeated={totalSeated}
               totalGuests={localAllGuests.length}
               totalCapacity={totalCapacity}
-              showStage={true}
-              onToggleStage={() => {}}
               onAddTable={() => setShowAddDialog(true)}
               onExportPng={() => exportAsImage("png")}
               onExportPdf={() => exportAsImage("pdf")}

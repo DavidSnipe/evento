@@ -7,6 +7,8 @@ export interface TableMetadata {
   width?: number;
   height?: number;
   rotation?: number; // 0, 90, 180, 270 deg
+  userNotes?: string;
+  notesText?: string;
 }
 
 export function parseMetadata(notes: string | null): TableMetadata {
@@ -17,7 +19,7 @@ export function parseMetadata(notes: string | null): TableMetadata {
       // Check if metadata is nested inside a 'metadata' key, otherwise it's at root
       return parsed.metadata || parsed;
     }
-  } catch (e) {}
+  } catch {}
   return {};
 }
 
@@ -28,7 +30,7 @@ export function getNotesText(notes: string | null): string {
     if (typeof parsed === "object" && parsed !== null) {
       return parsed.userNotes ?? parsed.notesText ?? "";
     }
-  } catch (e) {
+  } catch {
     return notes || "";
   }
   return "";
@@ -42,10 +44,10 @@ export function serializeNotes(currentNotes: string | null, newNotesText: string
       if (typeof parsed === "object" && parsed !== null) {
         metadata = parsed.metadata || parsed;
         // Clean out nested userNotes if present
-        delete (metadata as any).userNotes;
+        delete metadata.userNotes;
       }
     }
-  } catch (e) {}
+  } catch {}
 
   if (newMetadata) {
     metadata = { ...metadata, ...newMetadata };

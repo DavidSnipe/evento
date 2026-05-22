@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ro } from "@/lib/i18n/ro";
 import type { TableWithGuests } from "@/lib/seating/queries";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { GuestWithTable } from "@/types/guests";
 import { parseMetadata, getTableOccupancy } from "@/lib/seating/utils";
 
@@ -27,12 +28,22 @@ type TableVisualProps = {
   onDrop: (e: React.DragEvent) => void;
 };
 
+interface VirtualGuest {
+  id: string;
+  first_name: string;
+  last_name: string;
+  parent_id?: string;
+  isVirtual: boolean;
+}
+
+type VisualGuest = GuestWithTable | VirtualGuest;
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
 
-function getVisualGuests(table: TableWithGuests): any[] {
-  const list: any[] = [];
+function getVisualGuests(table: TableWithGuests): VisualGuest[] {
+  const list: VisualGuest[] = [];
   for (const g of table.guests) {
     list.push(g);
     if (!g.parent_id && g.plus_one) {
@@ -53,8 +64,8 @@ function getVisualGuests(table: TableWithGuests): any[] {
   return list;
 }
 
-function getInitials(g: any): string {
-  if (g.isVirtual) return "+1";
+function getInitials(g: VisualGuest): string {
+  if ("isVirtual" in g && g.isVirtual) return "+1";
   const f = g.first_name?.[0] ?? "";
   const l = g.last_name?.[0] ?? "";
   return g.last_name ? `${l}${f}`.toUpperCase() : f.toUpperCase() || "?";
@@ -64,7 +75,7 @@ function getInitials(g: any): string {
 /*  Seat layout generators                                            */
 /* ------------------------------------------------------------------ */
 
-type SeatInfo = { guest: any | null; x: number; y: number };
+type SeatInfo = { guest: VisualGuest | null; x: number; y: number };
 
 function roundSeats(table: TableWithGuests, radius: number): SeatInfo[] {
   const visualGuests = getVisualGuests(table);
@@ -129,7 +140,7 @@ function squareSeats(table: TableWithGuests): SeatInfo[] {
   const capacity = table.capacity;
   
   // Distribute seats to 4 sides: top, right, bottom, left
-  const sides: (any | null)[][] = [[], [], [], []];
+  const sides: (VisualGuest | null)[][] = [[], [], [], []];
   for (let i = 0; i < capacity; i++) {
     sides[i % 4].push(visualGuests[i] ?? null);
   }

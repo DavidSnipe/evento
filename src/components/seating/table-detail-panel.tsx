@@ -126,7 +126,7 @@ export function TableDetailPanel({
     setIsEditingName(false);
     setNotesValue(getNotesText(table.notes));
     setShowDeleteConfirm(false);
-  }, [table.id, table.notes]);
+  }, [table.id, table.notes, table.name]);
 
   const { occupied, capacity } = getTableOccupancy(table);
   const isOverCapacity = occupied > capacity;

@@ -6,7 +6,6 @@ import {
   Plus,
   Wand2,
   Download,
-  Music,
   ImageIcon,
   FileText,
   Printer,
@@ -29,8 +28,6 @@ type SeatingToolbarProps = {
   totalSeated: number;
   totalGuests: number;
   totalCapacity: number;
-  showStage: boolean;
-  onToggleStage: () => void;
   onAddTable: () => void;
   onExportPng: () => void;
   onExportPdf: () => void;
@@ -45,8 +42,6 @@ export function SeatingToolbar({
   totalSeated,
   totalGuests,
   totalCapacity,
-  showStage,
-  onToggleStage,
   onAddTable,
   onExportPng,
   onExportPdf,

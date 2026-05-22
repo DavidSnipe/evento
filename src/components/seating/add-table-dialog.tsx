@@ -12,7 +12,8 @@ import {
   Cake,
   Camera,
   DoorOpen,
-  LayoutGrid
+  LayoutGrid,
+  type LucideIcon
 } from "lucide-react";
 import { useState } from "react";
 
@@ -33,14 +34,23 @@ type AddTableDialogProps = {
 
 type TabType = "tables" | "objects";
 
-const tableShapes: { value: TableShape; label: string; icon: any }[] = [
+const tableShapes: { value: TableShape; label: string; icon: LucideIcon }[] = [
   { value: "round", label: ro.seating.shapes.round, icon: Circle },
   { value: "square", label: "Pătrată", icon: Square },
   { value: "long_banquet", label: "Banquet Lung", icon: RectangleHorizontal },
   { value: "sweetheart", label: ro.seating.shapes.sweetheart, icon: Heart },
 ];
 
-const objectTypes = [
+type ObjectTypePreset = {
+  value: string;
+  label: string;
+  icon: LucideIcon;
+  defaultWidth: number;
+  defaultHeight: number;
+  defaultShape: "round" | "rectangular";
+};
+
+const objectTypes: ObjectTypePreset[] = [
   { value: "dance_floor", label: "Ring de Dans", icon: Music, defaultWidth: 320, defaultHeight: 320, defaultShape: "round" },
   { value: "stage", label: "Scenă", icon: Mic, defaultWidth: 320, defaultHeight: 120, defaultShape: "rectangular" },
   { value: "dj_booth", label: "DJ Booth", icon: Sliders, defaultWidth: 160, defaultHeight: 80, defaultShape: "rectangular" },
@@ -50,7 +60,7 @@ const objectTypes = [
   { value: "entrance", label: "Intrare", icon: DoorOpen, defaultWidth: 160, defaultHeight: 48, defaultShape: "rectangular" },
 ];
 
-export function AddTableDialog({ eventId, open, existingTablesCount, onClose }: AddTableDialogProps) {
+export function AddTableDialog({ eventId, open, existingTablesCount: _existingTablesCount, onClose }: AddTableDialogProps) {
   const [activeTab, setActiveTab] = useState<TabType>("tables");
   
   // Table state
@@ -92,7 +102,7 @@ export function AddTableDialog({ eventId, open, existingTablesCount, onClose }: 
       setObjectName(preset.label);
       setObjectWidth(preset.defaultWidth);
       setObjectHeight(preset.defaultHeight);
-      setObjectShape(preset.defaultShape as any);
+      setObjectShape(preset.defaultShape);
     }
   };
 

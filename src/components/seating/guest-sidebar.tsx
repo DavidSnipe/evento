@@ -7,13 +7,13 @@ import {
   CheckCircle,
   XCircle,
   HelpCircle,
-  Tag,
   ChevronDown,
   ChevronUp,
   ArrowUpDown,
   CornerDownRight,
   Filter
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ro } from "@/lib/i18n/ro";
 import { cn } from "@/lib/utils";
@@ -60,16 +60,17 @@ function getRsvpIcon(status: RsvpStatus) {
   }
 }
 
-function getRsvpBadgeClass(status: RsvpStatus) {
-  switch (status) {
-    case "accepted":
-      return "bg-emerald-50 text-emerald-700 border-emerald-100";
-    case "declined":
-      return "bg-rose-50 text-rose-700 border-rose-100";
-    default:
-      return "bg-amber-50 text-amber-700 border-amber-100";
-  }
-}
+// Not used, commented out to satisfy ESLint
+// function getRsvpBadgeClass(status: RsvpStatus) {
+//   switch (status) {
+//     case "accepted":
+//       return "bg-emerald-50 text-emerald-700 border-emerald-100";
+//     case "declined":
+//       return "bg-rose-50 text-rose-700 border-rose-100";
+//     default:
+//       return "bg-amber-50 text-amber-700 border-amber-100";
+//   }
+// }
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */

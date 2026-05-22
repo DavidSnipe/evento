@@ -271,7 +271,7 @@ export async function autoSeatGuestsAction(
         if (actualMeta.objectType) return false;
         if (actualMeta.customShape === "sweetheart") return false;
       }
-    } catch (e) {}
+    } catch {}
     if (t.shape === "sweetheart") return false;
     return true;
   });

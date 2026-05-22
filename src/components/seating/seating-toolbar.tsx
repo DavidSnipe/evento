@@ -14,14 +14,12 @@ import {
   Layout,
   Check,
   ChevronDown,
-  X,
   Maximize2,
   Minimize2
 } from "lucide-react";
 
 import {
-  autoSeatGuestsAction,
-  applyRoomTemplate
+  autoSeatGuestsAction
 } from "@/app/(dashboard)/dashboard/events/[id]/seating/actions";
 import { Button } from "@/components/ui/button";
 import { ro } from "@/lib/i18n/ro";
@@ -42,8 +40,8 @@ type SeatingToolbarProps = {
   onRunAutoSeat?: (strategy: "family" | "even") => Promise<void>;
   
   // Immersive focus mode and lifted template props
-  showTemplateMenu: boolean;
   onToggleTemplateMenu: (show: boolean) => void;
+  applyingTemplate?: boolean;
   workspaceMode: boolean;
   onToggleWorkspaceMode: () => void;
 };
@@ -62,29 +60,16 @@ export function SeatingToolbar({
   onToggleGlobalLock,
   onRunAutoSeat,
   
-  showTemplateMenu,
   onToggleTemplateMenu,
+  applyingTemplate = false,
   workspaceMode,
   onToggleWorkspaceMode,
 }: SeatingToolbarProps) {
   const router = useRouter();
   const [assigning, setAssigning] = useState(false);
-  const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showAutoSeatMenu, setShowAutoSeatMenu] = useState(false);
   const [strategy, setStrategy] = useState<"family" | "even">("family");
-  
-  // Selected tables count for each layout template
-  const [selectedCounts, setSelectedCounts] = useState<Record<string, number>>({
-    ballroom: 8,
-    barn: 8,
-    garden: 8,
-    restaurant: 8,
-    long_hall: 8,
-  });
-
-  // Selected Vibe filter for Templates Browser
-  const [selectedVibe, setSelectedVibe] = useState<"all" | "elegant" | "rustic" | "modern">("all");
 
   async function handleAutoAssign() {
     setAssigning(true);
@@ -102,70 +87,7 @@ export function SeatingToolbar({
     setAssigning(false);
   }
 
-  async function handleApplyTemplate(
-    type: "ballroom" | "barn" | "garden" | "restaurant" | "long_hall",
-    count: number
-  ) {
-    if (!confirm("Sigur doriți să ștergeți așezarea curentă și să aplicați acest șablon? Toți invitații vor fi nerepartizați.")) {
-      return;
-    }
-    setApplyingTemplate(true);
-    onToggleTemplateMenu(false);
-    const result = await applyRoomTemplate(eventId, type, count);
-    setApplyingTemplate(false);
-    if (result.success) {
-      router.refresh();
-    } else {
-      alert(result.error || "A apărut o eroare la aplicarea șablonului.");
-    }
-  }
 
-  const templates = [
-    {
-      id: "ballroom",
-      title: "Ballroom Clasic",
-      desc: "Mese rotunde dispuse concentric în jurul unui ring de dans central circular. Ideal pentru nunți clasice, elegante.",
-      previewType: "ballroom",
-      vibe: "elegant",
-      features: ["Masa Mirilor (Secționată)", "Ring de Dans Central", "Mese Rotunde Consecutive"]
-    },
-    {
-      id: "barn",
-      title: "Hambar Rustic",
-      desc: "Design cald cu mese lungi de banquet aliniate în coloane simetrice pe lateral. Ideal pentru nunți retro, rustice sau în hambar.",
-      previewType: "barn",
-      vibe: "rustic",
-      features: ["Masa Mirilor în Centru", "Coloane Paralele Symmetrice", "Mese Rectangulare Lungi"]
-    },
-    {
-      id: "garden",
-      title: "Grădină Aer Liber",
-      desc: "Mese rotunde aerisite, distanțate lejer pe gazon, ferite de zona de dans. Perfect pentru petreceri în aer liber sau cort.",
-      previewType: "garden",
-      vibe: "rustic",
-      features: ["Mese Rotunde Distanțate", "Ring de Dans Rotund", "Aranjament Aerisit & Fluid"]
-    },
-    {
-      id: "restaurant",
-      title: "Restaurant Clasic",
-      desc: "Configurație organizată tip grid cu mese pătrate și rectangulare combinate. Perfect pentru saloane clasice de restaurant.",
-      previewType: "restaurant",
-      vibe: "elegant",
-      features: ["Mese Pătrate & Rectangulare", "Optimizare Spațiu Tip Grid", "Configurație Compactă"]
-    },
-    {
-      id: "long_hall",
-      title: "Salon Lung",
-      desc: "Două rânduri masive paralele de mese lungi pe lungimea sălii, ideale pentru spații lungi și înguste sau corturi liniare.",
-      previewType: "long_hall",
-      vibe: "modern",
-      features: ["Mese Lungi Tip Banquet", "Două Culoare de Trecere", "Ring de Dans Alungit"]
-    }
-  ] as const;
-
-  const filteredTemplates = templates.filter(
-    (t) => selectedVibe === "all" || t.vibe === selectedVibe
-  );
 
   return (
     <div className={cn(
@@ -391,210 +313,6 @@ export function SeatingToolbar({
           Adaugă Element
         </Button>
       </div>
-
-      {/* ── Immersive Full-Page Templates Browser ──────────────── */}
-      {showTemplateMenu && (
-        <div
-          className="fixed inset-0 z-[100] flex flex-col bg-slate-50 overflow-hidden animate-in fade-in duration-300 h-screen w-screen p-6 md:p-12 select-none"
-          onClick={() => onToggleTemplateMenu(false)}
-        >
-          {/* Main Container */}
-          <div
-            className="mx-auto max-w-6xl w-full flex flex-col h-full relative space-y-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex justify-between items-start">
-              <div className="space-y-1">
-                <h3 className="font-serif text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight">
-                  Design-ul Sălii de Evenimente
-                </h3>
-                <p className="text-sm text-muted-foreground max-w-3xl leading-relaxed">
-                  Selectează un stil care se potrivește cu tematica nunții tale. Fiecare șablon include elemente de bază implicite (ring de dans, scenă, DJ booth, masa mirilor) și un set de mese gata aranjate pe care le poți personaliza ulterior.
-                </p>
-              </div>
-
-              {/* Close Button */}
-              <button
-                type="button"
-                onClick={() => onToggleTemplateMenu(false)}
-                className="p-3 text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 rounded-full transition-colors shrink-0 shadow-xs bg-white/50 border border-slate-100"
-                title="Închide"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Vibe filter tabs */}
-            <div className="flex gap-1.5 bg-slate-200/50 p-1.5 rounded-2xl border border-slate-200/60 w-fit">
-              {([
-                { id: "all", label: "Toate stilurile" },
-                { id: "elegant", label: "Elegant & Clasic" },
-                { id: "rustic", label: "Rustic & Bohemian" },
-                { id: "modern", label: "Modern & Minimalist" }
-              ] as const).map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => setSelectedVibe(v.id)}
-                  className={cn(
-                    "px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200",
-                    selectedVibe === v.id
-                      ? "bg-white text-slate-800 shadow-sm"
-                      : "text-slate-550 hover:text-slate-800"
-                  )}
-                >
-                  {v.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Filtered Templates Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto pr-1 pb-6 flex-1 max-h-[calc(100vh-14rem)]">
-              {filteredTemplates.map((tpl) => (
-                <div
-                  key={tpl.id}
-                  className="flex flex-col rounded-3xl border border-slate-200/60 bg-white p-5 hover:border-primary/45 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 group"
-                >
-                  {/* Abstract Mini Preview with animations */}
-                  <div className={cn(
-                     "w-full h-36 rounded-2xl border border-slate-100 relative overflow-hidden flex items-center justify-center mb-4 bg-slate-50 transition-all duration-500 group-hover:bg-slate-50/50",
-                    tpl.previewType === "garden" && "bg-emerald-50/10"
-                  )}>
-                    {/* Sweetheart table (top center) */}
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-4 h-1.5 rounded-full bg-amber-400 shadow-xs" />
-                    
-                    {/* Dance Floor */}
-                    <div className={cn(
-                      "w-11 h-9 border border-dashed flex items-center justify-center transition-all duration-300 group-hover:scale-105",
-                      tpl.previewType === "ballroom" || tpl.previewType === "garden" ? "rounded-full" : "rounded-sm",
-                      "border-pink-300 bg-pink-50/20 text-[8px] text-pink-400 font-semibold"
-                    )}>
-                      Dans
-                    </div>
-
-                    {/* Relative Tables representations */}
-                    {tpl.previewType === "ballroom" && (
-                      <>
-                        <div className="absolute top-5 left-16 w-2 h-2 rounded-full bg-slate-350" />
-                        <div className="absolute top-16 left-12 w-2 h-2 rounded-full bg-slate-350" />
-                        <div className="absolute bottom-6 left-16 w-2 h-2 rounded-full bg-slate-350" />
-                        <div className="absolute top-5 right-16 w-2 h-2 rounded-full bg-slate-350" />
-                        <div className="absolute top-16 right-12 w-2 h-2 rounded-full bg-slate-350" />
-                        <div className="absolute bottom-6 right-16 w-2 h-2 rounded-full bg-slate-350" />
-                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-slate-350" />
-                      </>
-                    )}
-                    
-                    {tpl.previewType === "barn" && (
-                      <>
-                        <div className="absolute top-6 left-6 w-5 h-2 rounded-xs bg-slate-350" />
-                        <div className="absolute top-16 left-6 w-5 h-2 rounded-xs bg-slate-350" />
-                        <div className="absolute bottom-6 left-6 w-5 h-2 rounded-xs bg-slate-350" />
-                        <div className="absolute top-6 right-6 w-5 h-2 rounded-xs bg-slate-350" />
-                        <div className="absolute top-16 right-6 w-5 h-2 rounded-xs bg-slate-350" />
-                        <div className="absolute bottom-6 right-6 w-5 h-2 rounded-xs bg-slate-350" />
-                      </>
-                    )}
-
-                    {tpl.previewType === "garden" && (
-                      <>
-                        <div className="absolute top-5 left-10 w-3.5 h-3.5 rounded-full bg-slate-350" />
-                        <div className="absolute top-20 left-8 w-3.5 h-3.5 rounded-full bg-slate-350" />
-                        <div className="absolute bottom-5 left-14 w-3.5 h-3.5 rounded-full bg-slate-350" />
-                        <div className="absolute top-5 right-10 w-3.5 h-3.5 rounded-full bg-slate-350" />
-                        <div className="absolute top-20 right-8 w-3.5 h-3.5 rounded-full bg-slate-350" />
-                        <div className="absolute bottom-5 right-14 w-3.5 h-3.5 rounded-full bg-slate-350" />
-                      </>
-                    )}
-
-                    {tpl.previewType === "restaurant" && (
-                      <>
-                        <div className="absolute top-5 left-10 w-2.5 h-2.5 rounded-sm bg-slate-350" />
-                        <div className="absolute top-18 left-8 w-4 h-2.5 rounded-sm bg-slate-350" />
-                        <div className="absolute bottom-5 left-12 w-3 h-3 rounded-full bg-slate-350" />
-                        <div className="absolute top-5 right-10 w-2.5 h-2.5 rounded-sm bg-slate-350" />
-                        <div className="absolute top-18 right-8 w-4 h-2.5 rounded-sm bg-slate-350" />
-                        <div className="absolute bottom-5 right-12 w-3 h-3 rounded-full bg-slate-350" />
-                      </>
-                    )}
-
-                    {tpl.previewType === "long_hall" && (
-                      <>
-                        <div className="absolute top-6 left-12 w-2 h-24 rounded-xs bg-slate-350" />
-                        <div className="absolute top-6 right-12 w-2 h-24 rounded-xs bg-slate-350" />
-                      </>
-                    )}
-                  </div>
-
-                  {/* Template Meta Info */}
-                  <div className="flex-1 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold text-slate-800 group-hover:text-primary transition-colors">
-                          {tpl.title}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400 capitalize px-2 py-0.5 rounded-md bg-slate-100">
-                          {tpl.vibe === "elegant" ? "Elegant" : tpl.vibe === "rustic" ? "Rustic" : "Modern"}
-                        </span>
-                      </div>
-                      
-                      <p className="text-xs text-muted-foreground leading-relaxed mt-2 mb-4">
-                        {tpl.desc}
-                      </p>
-
-                      {/* Dynamic Room Features Checklist */}
-                      <div className="space-y-1.5 mb-5">
-                        {tpl.features.map((f, i) => (
-                          <div key={i} className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
-                            <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                            <span>{f}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 pt-4 border-t border-slate-100">
-                      {/* Table count picker */}
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          Număr de mese
-                        </label>
-                        <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/50">
-                          {[8, 12, 20].map((c) => (
-                            <button
-                              key={c}
-                              type="button"
-                              onClick={() => setSelectedCounts((prev: Record<string, number>) => ({ ...prev, [tpl.id]: c }))}
-                              className={cn(
-                                "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all",
-                                selectedCounts[tpl.id] === c
-                                  ? "bg-white text-slate-800 shadow-sm"
-                                  : "text-slate-550 hover:text-slate-800"
-                              )}
-                            >
-                              {c} Mese
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Apply CTA */}
-                      <Button
-                        type="button"
-                        className="w-full rounded-xl text-xs h-9.5 font-bold bg-slate-900 text-white hover:bg-slate-850"
-                        onClick={() => handleApplyTemplate(tpl.id, selectedCounts[tpl.id])}
-                      >
-                        Aplică Șablon ({selectedCounts[tpl.id]} mese)
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -13,9 +13,7 @@ import {
   Sparkles,
   Layout,
   Check,
-  ChevronDown,
-  Maximize2,
-  Minimize2
+  ChevronDown
 } from "lucide-react";
 
 import {
@@ -43,7 +41,6 @@ type SeatingToolbarProps = {
   onToggleTemplateMenu: (show: boolean) => void;
   applyingTemplate?: boolean;
   workspaceMode: boolean;
-  onToggleWorkspaceMode: () => void;
 };
 
 export function SeatingToolbar({
@@ -63,7 +60,6 @@ export function SeatingToolbar({
   onToggleTemplateMenu,
   applyingTemplate = false,
   workspaceMode,
-  onToggleWorkspaceMode,
 }: SeatingToolbarProps) {
   const router = useRouter();
   const [assigning, setAssigning] = useState(false);
@@ -277,31 +273,7 @@ export function SeatingToolbar({
           <ChevronDown className="h-3 w-3 text-slate-400" />
         </Button>
 
-        {/* Workspace Focus Mode Toggle */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onToggleWorkspaceMode}
-          className={cn(
-            "gap-2 rounded-xl h-9 text-xs font-semibold border-slate-200/80 shadow-sm transition-all duration-200",
-            workspaceMode
-              ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/15"
-              : "hover:bg-slate-50 text-slate-700"
-          )}
-          title={workspaceMode ? "Ieși din Modul Focus" : "Intră în Modul Focus"}
-        >
-          {workspaceMode ? (
-            <>
-              <Minimize2 className="h-4 w-4 text-primary animate-pulse" />
-              <span>Mod Normal</span>
-            </>
-          ) : (
-            <>
-              <Maximize2 className="h-4 w-4 text-slate-500" />
-              <span>Mod Focus</span>
-            </>
-          )}
-        </Button>
+
 
         {/* Add Element (Primary CTA) */}
         <Button

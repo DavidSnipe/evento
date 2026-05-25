@@ -12,7 +12,9 @@ import {
   Move,
   Sparkles,
   ChevronLeft,
-  Check
+  Check,
+  Maximize,
+  Minimize
 } from "lucide-react";
 
 import {
@@ -185,21 +187,226 @@ export function SeatingPlanner({
   const [panY, setPanY] = useState(0);
   const [isPanning, setIsPanning] = useState(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const [globalLock, setGlobalLock] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Zoom & Pan target refs for smooth interpolation
+  const targetScaleRef = useRef(1.0);
+  const targetPanXRef = useRef(0);
+  const targetPanYRef = useRef(0);
+  const zoomAnimationRef = useRef<number | null>(null);
+
+  // Zoom & Pan active current refs for high-performance direct DOM manipulation
+  const scaleRef = useRef(1.0);
+  const panXRef = useRef(0);
+  const panYRef = useRef(0);
+
+  // Viewport dimensions ref to allow reading dimensions instantly without triggering React rerenders
+  const viewportDimRef = useRef({ width: 1000, height: 800 });
+
+  // DOM element refs for direct stylesheet manipulation
+  const miniMapBoxRef = useRef<HTMLDivElement>(null);
+  const zoomPercentTextRef = useRef<HTMLSpanElement>(null);
+
+  // Initialize targets once component is mounted
+  useEffect(() => {
+    targetScaleRef.current = scale;
+    targetPanXRef.current = panX;
+    targetPanYRef.current = panY;
+    scaleRef.current = scale;
+    panXRef.current = panX;
+    panYRef.current = panY;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Direct DOM transforms bypassing React render updates for 60 FPS performance
+  const updateCanvasDOM = (x: number, y: number, s: number) => {
+    if (canvasRef.current) {
+      canvasRef.current.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${s})`;
+    }
+    if (miniMapBoxRef.current) {
+      const W = viewportDimRef.current.width;
+      const H = viewportDimRef.current.height;
+      const bx = -x / s;
+      const by = -y / s;
+      const bw = W / s;
+      const bh = H / s;
+      
+      miniMapBoxRef.current.style.left = `${(bx / 3000) * 100}%`;
+      miniMapBoxRef.current.style.top = `${(by / 2400) * 100}%`;
+      miniMapBoxRef.current.style.width = `${(bw / 3000) * 100}%`;
+      miniMapBoxRef.current.style.height = `${(bh / 2400) * 100}%`;
+    }
+    if (zoomPercentTextRef.current) {
+      zoomPercentTextRef.current.innerText = `${Math.round(s * 100)}%`;
+    }
+  };
+
+  // Strict boundary clamping so layout/canvas NEVER leaves the viewport
+  const constrainPosition = (x: number, y: number, currentScale: number) => {
+    const W = viewportRef.current?.clientWidth ?? 1000;
+    const H = viewportRef.current?.clientHeight ?? 800;
+
+    const canvasW = 3000 * currentScale;
+    const canvasH = 2400 * currentScale;
+
+    let minX = 0;
+    let maxX = 0;
+    if (canvasW > W) {
+      minX = W - canvasW;
+      maxX = 0;
+    } else {
+      // Centered if canvas fits screen
+      minX = (W - canvasW) / 2;
+      maxX = minX;
+    }
+
+    const topPadding = workspaceMode ? 140 : 40;
+    const bottomPadding = 100;
+
+    let minY = 0;
+    let maxY = 0;
+    if (canvasH > H) {
+      minY = H - canvasH - bottomPadding;
+      maxY = topPadding;
+    } else {
+      // Centered if canvas fits screen, but with pan nudge allowance
+      const centerY = (H - canvasH) / 2;
+      minY = centerY - bottomPadding;
+      maxY = centerY + topPadding;
+    }
+
+    return {
+      x: Math.min(Math.max(x, minX), maxX),
+      y: Math.min(Math.max(y, minY), maxY)
+    };
+  };
+
+  // Edge resistance clamping (elastic pull past edges - restrained to a subtle 15% factor)
+  const constrainPositionWithResistance = (x: number, y: number, currentScale: number) => {
+    const W = viewportRef.current?.clientWidth ?? 1000;
+    const H = viewportRef.current?.clientHeight ?? 800;
+
+    const canvasW = 3000 * currentScale;
+    const canvasH = 2400 * currentScale;
+
+    let minX = 0;
+    let maxX = 0;
+    if (canvasW > W) {
+      minX = W - canvasW;
+      maxX = 0;
+    } else {
+      minX = (W - canvasW) / 2;
+      maxX = minX;
+    }
+
+    const topPadding = workspaceMode ? 140 : 40;
+    const bottomPadding = 100;
+
+    let minY = 0;
+    let maxY = 0;
+    if (canvasH > H) {
+      minY = H - canvasH - bottomPadding;
+      maxY = topPadding;
+    } else {
+      const centerY = (H - canvasH) / 2;
+      minY = centerY - bottomPadding;
+      maxY = centerY + topPadding;
+    }
+
+    let rx = x;
+    let ry = y;
+
+    // Apply restrained 15% edge resistance
+    if (x > maxX) {
+      rx = maxX + (x - maxX) * 0.15;
+    } else if (x < minX) {
+      rx = minX - (minX - x) * 0.15;
+    }
+
+    if (y > maxY) {
+      ry = maxY + (y - maxY) * 0.15;
+    } else if (y < minY) {
+      ry = minY - (minY - y) * 0.15;
+    }
+
+    return { x: rx, y: ry };
+  };
+
+  // Smooth camera zoom/pan interpolation with zero per-frame React rerenders
+  const animateZoom = () => {
+    const lerp = (start: number, end: number, amt: number) => {
+      return (1 - amt) * start + amt * end;
+    };
+
+    const step = () => {
+      let isDone = true;
+      
+      const currentScale = scaleRef.current;
+      const targetScale = targetScaleRef.current;
+      let nextScale = currentScale;
+      if (Math.abs(currentScale - targetScale) > 0.0005) {
+        isDone = false;
+        nextScale = lerp(currentScale, targetScale, 0.25);
+      } else {
+        nextScale = targetScale;
+      }
+      scaleRef.current = nextScale;
+
+      const currentPanX = panXRef.current;
+      const targetPanX = targetPanXRef.current;
+      let nextPanX = currentPanX;
+      if (Math.abs(currentPanX - targetPanX) > 0.2) {
+        isDone = false;
+        nextPanX = Math.round(lerp(currentPanX, targetPanX, 0.25));
+      } else {
+        nextPanX = targetPanX;
+      }
+      panXRef.current = nextPanX;
+
+      const currentPanY = panYRef.current;
+      const targetPanY = targetPanYRef.current;
+      let nextPanY = currentPanY;
+      if (Math.abs(currentPanY - targetPanY) > 0.2) {
+        isDone = false;
+        nextPanY = Math.round(lerp(currentPanY, targetPanY, 0.25));
+      } else {
+        nextPanY = targetPanY;
+      }
+      panYRef.current = nextPanY;
+
+      // Update style directly in DOM (no React state updates during animation!)
+      updateCanvasDOM(nextPanX, nextPanY, nextScale);
+
+      if (!isDone) {
+        zoomAnimationRef.current = requestAnimationFrame(step);
+      } else {
+        // Deferred sync to React state only when settles
+        setScale(nextScale);
+        setPanX(nextPanX);
+        setPanY(nextPanY);
+        zoomAnimationRef.current = null;
+      }
+    };
+
+    if (zoomAnimationRef.current !== null) {
+      cancelAnimationFrame(zoomAnimationRef.current);
+    }
+    zoomAnimationRef.current = requestAnimationFrame(step);
+  };
 
   // Toggle workspace-mode-active class on body for CSS selectors
   useEffect(() => {
     document.body.classList.toggle("workspace-mode-active", workspaceMode);
     
-    // Smooth camera adjust on entering focus mode
+    // Smooth camera adjust once layout settled
     const timer = setTimeout(() => {
       if (viewportRef.current) {
         setViewportDim({
           width: viewportRef.current.clientWidth,
           height: viewportRef.current.clientHeight
         });
+        fitAll();
       }
     }, 350); // wait for focus mode CSS transitions to finish
 
@@ -207,6 +414,7 @@ export function SeatingPlanner({
       document.body.classList.remove("workspace-mode-active");
       clearTimeout(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceMode]);
 
   // Sidebar drag resizing pointer handlers
@@ -251,6 +459,11 @@ export function SeatingPlanner({
 
   // Viewport dimensions state
   const [viewportDim, setViewportDim] = useState({ width: 1000, height: 800 });
+
+  // Sync viewportDim state to its ref
+  useEffect(() => {
+    viewportDimRef.current = viewportDim;
+  }, [viewportDim]);
 
   // Mini-map drag state
   const [isMiniMapDragging, setIsMiniMapDragging] = useState(false);
@@ -339,74 +552,73 @@ export function SeatingPlanner({
     };
   }, []);
 
-  // Zoom HUD triggers smooth CSS transition
-  const triggerTransition = () => {
-    setIsTransitioning(true);
-    setTimeout(() => setIsTransitioning(false), 300);
-  };
-
   const handleZoomIn = () => {
-    triggerTransition();
-    setScale(prev => Math.min(prev * 1.25, 3.0));
+    if (viewportRef.current) {
+      const W = viewportRef.current.clientWidth;
+      const H = viewportRef.current.clientHeight;
+      const centerX = W / 2;
+      const centerY = H / 2;
+
+      const currentScale = targetScaleRef.current;
+      const maxScale = 2.0;
+      const nextScaleTarget = Math.min(currentScale * 1.25, maxScale);
+
+      const nextPanXTarget = Math.round(centerX - (centerX - targetPanXRef.current) * (nextScaleTarget / currentScale));
+      const nextPanYTarget = Math.round(centerY - (centerY - targetPanYRef.current) * (nextScaleTarget / currentScale));
+
+      const constrained = constrainPosition(nextPanXTarget, nextPanYTarget, nextScaleTarget);
+
+      targetScaleRef.current = nextScaleTarget;
+      targetPanXRef.current = constrained.x;
+      targetPanYRef.current = constrained.y;
+
+      animateZoom();
+    }
   };
 
   const handleZoomOut = () => {
-    triggerTransition();
-    setScale(prev => Math.max(prev / 1.25, 0.2));
-  };
-
-  const centerLayout = () => {
     if (viewportRef.current) {
-      triggerTransition();
-      const viewportW = viewportRef.current.clientWidth;
-      const viewportH = viewportRef.current.clientHeight;
-      setScale(1.0);
-      setPanX(Math.round(viewportW / 2 - 1500)); // center of 3000px canvas
-      setPanY(Math.round(viewportH / 2 - 1200)); // center of 2400px canvas
+      const W = viewportRef.current.clientWidth;
+      const H = viewportRef.current.clientHeight;
+      const centerX = W / 2;
+      const centerY = H / 2;
+
+      const minScale = Math.min(W / 3000, H / 2400) * 0.95;
+      const currentScale = targetScaleRef.current;
+      const nextScaleTarget = Math.max(currentScale / 1.25, minScale);
+
+      const nextPanXTarget = Math.round(centerX - (centerX - targetPanXRef.current) * (nextScaleTarget / currentScale));
+      const nextPanYTarget = Math.round(centerY - (centerY - targetPanYRef.current) * (nextScaleTarget / currentScale));
+
+      const constrained = constrainPosition(nextPanXTarget, nextPanYTarget, nextScaleTarget);
+
+      targetScaleRef.current = nextScaleTarget;
+      targetPanXRef.current = constrained.x;
+      targetPanYRef.current = constrained.y;
+
+      animateZoom();
     }
   };
 
   const fitAll = () => {
-    if (localTables.length === 0) {
-      centerLayout();
-      return;
-    }
-    triggerTransition();
-
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minY = Infinity;
-    let maxY = -Infinity;
-
-    localTables.forEach(t => {
-      const x = t.pos_x ?? 0;
-      const y = t.pos_y ?? 0;
-      const meta = parseMetadata(t.notes);
+    if (viewportRef.current) {
+      const W = viewportRef.current.clientWidth;
+      const H = viewportRef.current.clientHeight;
       
-      const width = meta.width || (meta.customShape === "long_banquet" ? 320 : 192);
-      const height = meta.height || 160;
+      const fitScale = Math.min(W / 3000, H / 2400) * 0.92;
+      const targetX = Math.round((W - 3000 * fitScale) / 2);
+      const targetY = Math.round((H - 2400 * fitScale) / 2);
 
-      if (x < minX) minX = x;
-      if (x + width > maxX) maxX = x + width;
-      if (y < minY) minY = y;
-      if (y + height > maxY) maxY = y + height;
-    });
+      targetScaleRef.current = fitScale;
+      targetPanXRef.current = targetX;
+      targetPanYRef.current = targetY;
 
-    const bboxW = maxX - minX;
-    const bboxH = maxY - minY;
-    const bboxCenterX = minX + bboxW / 2;
-    const bboxCenterY = minY + bboxH / 2;
+      animateZoom();
+    }
+  };
 
-    const viewportW = viewportRef.current?.clientWidth ?? 1000;
-    const viewportH = viewportRef.current?.clientHeight ?? 800;
-
-    const scaleX = (viewportW * 0.85) / bboxW;
-    const scaleY = (viewportH * 0.85) / bboxH;
-    const nextScale = Math.max(0.2, Math.min(Math.min(scaleX, scaleY), 1.5));
-
-    setScale(nextScale);
-    setPanX(Math.round(viewportW / 2 - bboxCenterX * nextScale));
-    setPanY(Math.round(viewportH / 2 - bboxCenterY * nextScale));
+  const centerLayout = () => {
+    fitAll();
   };
 
   // Run fitAll once on layout load
@@ -548,8 +760,14 @@ export function SeatingPlanner({
     const VW = viewportRef.current.clientWidth;
     const VH = viewportRef.current.clientHeight;
     
-    setPanX(Math.round(VW / 2 - cx * scale));
-    setPanY(Math.round(VH / 2 - cy * scale));
+    const nextPanX = Math.round(VW / 2 - cx * scaleRef.current);
+    const nextPanY = Math.round(VH / 2 - cy * scaleRef.current);
+
+    const constrained = constrainPosition(nextPanX, nextPanY, scaleRef.current);
+    
+    panXRef.current = constrained.x;
+    panYRef.current = constrained.y;
+    updateCanvasDOM(constrained.x, constrained.y, scaleRef.current);
   };
 
   const handleMiniMapPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -575,6 +793,11 @@ export function SeatingPlanner({
         // Ignored
       }
       setIsMiniMapDragging(false);
+      
+      // Sync final position to state
+      setScale(scaleRef.current);
+      setPanX(panXRef.current);
+      setPanY(panYRef.current);
     }
   };
 
@@ -618,8 +841,8 @@ export function SeatingPlanner({
     });
   };
 
-  // Scroll wheel zoom and pan
-  const handleWheel = (e: React.WheelEvent) => {
+  // Scroll wheel zoom
+  const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
     
     // Cancel any ongoing inertia animation on scroll
@@ -628,36 +851,79 @@ export function SeatingPlanner({
       inertiaFrameRef.current = null;
     }
 
-    if (e.ctrlKey) {
+    if (viewportRef.current) {
       // Zoom centered on cursor
-      const zoomFactor = 1.05;
-      const zoomIntensity = Math.min(Math.max(Math.abs(e.deltaY) / 100, 0.1), 2.0);
+      const zoomFactor = 1.08;
+      const zoomIntensity = Math.min(Math.max(Math.abs(e.deltaY) / 120, 0.05), 1.2);
       const factor = Math.pow(zoomFactor, e.deltaY < 0 ? zoomIntensity : -zoomIntensity);
-      const nextScale = Math.min(Math.max(scale * factor, 0.15), 3.0);
-
-      if (viewportRef.current) {
-        const rect = viewportRef.current.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-
-        setPanX(prev => Math.round(mouseX - (mouseX - prev) * (nextScale / scale)));
-        setPanY(prev => Math.round(mouseY - (mouseY - prev) * (nextScale / scale)));
-        setScale(nextScale);
-      }
-    } else {
-      // Pan canvas
-      const dx = e.shiftKey ? e.deltaY : e.deltaX;
-      const dy = e.shiftKey ? 0 : e.deltaY;
       
-      setPanX(prev => Math.round(prev - dx));
-      setPanY(prev => Math.round(prev - dy));
+      const rect = viewportRef.current.getBoundingClientRect();
+      const minScale = Math.min(rect.width / 3000, rect.height / 2400) * 0.95;
+      const maxScale = 2.0;
+
+      const currentScale = targetScaleRef.current;
+      const nextScale = Math.min(Math.max(currentScale * factor, minScale), maxScale);
+
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const currentPanX = targetPanXRef.current;
+      const currentPanY = targetPanYRef.current;
+
+      const nextPanX = Math.round(mouseX - (mouseX - currentPanX) * (nextScale / currentScale));
+      const nextPanY = Math.round(mouseY - (mouseY - currentPanY) * (nextScale / currentScale));
+
+      const constrained = constrainPosition(nextPanX, nextPanY, nextScale);
+
+      targetScaleRef.current = nextScale;
+      targetPanXRef.current = constrained.x;
+      targetPanYRef.current = constrained.y;
+
+      animateZoom();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Register non-passive wheel event listener to block browser scrolling
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const onWheelEvent = (e: WheelEvent) => {
+      handleWheel(e);
+    };
+
+    viewport.addEventListener("wheel", onWheelEvent, { passive: false });
+    return () => {
+      viewport.removeEventListener("wheel", onWheelEvent);
+    };
+  }, [handleWheel]);
+
+  // Double click viewport to reset zoom/pan to fit layout
+  const handleDoubleClickCanvas = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      target.closest(".draggable-table-wrapper") ||
+      target.closest("button") ||
+      target.closest("select") ||
+      target.closest("input")
+    ) {
+      return;
+    }
+    e.preventDefault();
+    fitAll();
   };
 
   // Inertia start calculation
   const startInertia = () => {
     const pos = lastPositionsRef.current;
-    if (pos.length < 2) return;
+    if (pos.length < 2) {
+      // Sync state immediately if no inertia
+      setScale(scaleRef.current);
+      setPanX(panXRef.current);
+      setPanY(panYRef.current);
+      return;
+    }
     
     const first = pos[0];
     const last = pos[pos.length - 1];
@@ -683,20 +949,41 @@ export function SeatingPlanner({
         lastTime = time;
         const step = Math.min(delta, 30); // clamp frame delta
         
-        setPanX(prev => Math.round(prev + vx * step));
-        setPanY(prev => Math.round(prev + vy * step));
+        const nextX = panXRef.current + vx * step;
+        const nextY = panYRef.current + vy * step;
+        
+        // Constrain to standard hard boundaries
+        const constrained = constrainPosition(nextX, nextY, scaleRef.current);
+        
+        // If we hit boundaries, stop velocity in that direction
+        if (constrained.x !== nextX) vx = 0;
+        if (constrained.y !== nextY) vy = 0;
+        
+        panXRef.current = constrained.x;
+        panYRef.current = constrained.y;
+        
+        updateCanvasDOM(constrained.x, constrained.y, scaleRef.current);
         
         vx *= Math.pow(friction, step / 16);
         vy *= Math.pow(friction, step / 16);
         
-        if (Math.abs(vx) > 0.05 || Math.abs(vy) > 0.05) {
+        if ((Math.abs(vx) > 0.05 || Math.abs(vy) > 0.05) && (vx !== 0 || vy !== 0)) {
           inertiaFrameRef.current = requestAnimationFrame(animate);
         } else {
+          // Sync state when inertia completes
+          setScale(scaleRef.current);
+          setPanX(panXRef.current);
+          setPanY(panYRef.current);
           inertiaFrameRef.current = null;
         }
       };
 
       inertiaFrameRef.current = requestAnimationFrame(animate);
+    } else {
+      // Sync state immediately if no inertia
+      setScale(scaleRef.current);
+      setPanX(panXRef.current);
+      setPanY(panYRef.current);
     }
     lastPositionsRef.current = [];
   };
@@ -721,7 +1008,7 @@ export function SeatingPlanner({
     }
 
     setIsPanning(true);
-    panStartRef.current = { x: e.clientX - panX, y: e.clientY - panY };
+    panStartRef.current = { x: e.clientX - panXRef.current, y: e.clientY - panYRef.current };
     lastPositionsRef.current = [{ x: e.clientX, y: e.clientY, t: Date.now() }];
   };
 
@@ -730,8 +1017,13 @@ export function SeatingPlanner({
     
     const nextX = Math.round(e.clientX - panStartRef.current.x);
     const nextY = Math.round(e.clientY - panStartRef.current.y);
-    setPanX(nextX);
-    setPanY(nextY);
+    
+    // Apply soft edge resistance
+    const res = constrainPositionWithResistance(nextX, nextY, scaleRef.current);
+    
+    panXRef.current = res.x;
+    panYRef.current = res.y;
+    updateCanvasDOM(res.x, res.y, scaleRef.current);
 
     const now = Date.now();
     const pos = lastPositionsRef.current;
@@ -742,7 +1034,17 @@ export function SeatingPlanner({
   const handleMouseUp = () => {
     if (isPanning) {
       setIsPanning(false);
-      startInertia();
+      
+      const hardConstrained = constrainPosition(panXRef.current, panYRef.current, scaleRef.current);
+      if (hardConstrained.x !== panXRef.current || hardConstrained.y !== panYRef.current) {
+        // Snap back to hard bounds smoothly
+        targetScaleRef.current = scaleRef.current;
+        targetPanXRef.current = hardConstrained.x;
+        targetPanYRef.current = hardConstrained.y;
+        animateZoom();
+      } else {
+        startInertia();
+      }
     }
   };
 
@@ -762,7 +1064,7 @@ export function SeatingPlanner({
       // Single touch pan
       const touch = e.touches[0];
       setIsPanning(true);
-      panStartRef.current = { x: touch.clientX - panX, y: touch.clientY - panY };
+      panStartRef.current = { x: touch.clientX - panXRef.current, y: touch.clientY - panYRef.current };
       lastPositionsRef.current = [{ x: touch.clientX, y: touch.clientY, t: Date.now() }];
     } else if (e.touches.length === 2) {
       // Pinch to Zoom
@@ -778,9 +1080,9 @@ export function SeatingPlanner({
 
       touchStartRef.current = {
         dist,
-        scale,
-        panX,
-        panY,
+        scale: scaleRef.current,
+        panX: panXRef.current,
+        panY: panYRef.current,
         centerX,
         centerY
       };
@@ -790,8 +1092,14 @@ export function SeatingPlanner({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (e.touches.length === 1 && isPanning) {
       const touch = e.touches[0];
-      setPanX(Math.round(touch.clientX - panStartRef.current.x));
-      setPanY(Math.round(touch.clientY - panStartRef.current.y));
+      const nextX = Math.round(touch.clientX - panStartRef.current.x);
+      const nextY = Math.round(touch.clientY - panStartRef.current.y);
+      
+      const res = constrainPositionWithResistance(nextX, nextY, scaleRef.current);
+      
+      panXRef.current = res.x;
+      panYRef.current = res.y;
+      updateCanvasDOM(res.x, res.y, scaleRef.current);
       
       const now = Date.now();
       const pos = lastPositionsRef.current;
@@ -805,19 +1113,28 @@ export function SeatingPlanner({
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       const scaleRatio = dist / touchStartRef.current.dist;
-      const nextScale = Math.min(Math.max(touchStartRef.current.scale * scaleRatio, 0.2), 3.0);
-
-      const centerX = (t1.clientX + t2.clientX) / 2;
-      const centerY = (t1.clientY + t2.clientY) / 2;
-
+      
       if (viewportRef.current) {
         const rect = viewportRef.current.getBoundingClientRect();
+        const minScale = Math.min(rect.width / 3000, rect.height / 2400) * 0.95;
+        const maxScale = 2.0;
+        const nextScale = Math.min(Math.max(touchStartRef.current.scale * scaleRatio, minScale), maxScale);
+
+        const centerX = (t1.clientX + t2.clientX) / 2;
+        const centerY = (t1.clientY + t2.clientY) / 2;
+
         const relativeX = centerX - rect.left;
         const relativeY = centerY - rect.top;
 
-        setPanX(Math.round(relativeX - (relativeX - touchStartRef.current.panX) * (nextScale / touchStartRef.current.scale)));
-        setPanY(Math.round(relativeY - (relativeY - touchStartRef.current.panY) * (nextScale / touchStartRef.current.scale)));
-        setScale(nextScale);
+        const nextPanX = Math.round(relativeX - (relativeX - touchStartRef.current.panX) * (nextScale / touchStartRef.current.scale));
+        const nextPanY = Math.round(relativeY - (relativeY - touchStartRef.current.panY) * (nextScale / touchStartRef.current.scale));
+
+        const res = constrainPositionWithResistance(nextPanX, nextPanY, nextScale);
+
+        scaleRef.current = nextScale;
+        panXRef.current = res.x;
+        panYRef.current = res.y;
+        updateCanvasDOM(res.x, res.y, nextScale);
       }
     }
   };
@@ -825,7 +1142,29 @@ export function SeatingPlanner({
   const handleTouchEnd = () => {
     if (isPanning) {
       setIsPanning(false);
-      startInertia();
+      
+      const hardConstrained = constrainPosition(panXRef.current, panYRef.current, scaleRef.current);
+      if (hardConstrained.x !== panXRef.current || hardConstrained.y !== panYRef.current) {
+        targetScaleRef.current = scaleRef.current;
+        targetPanXRef.current = hardConstrained.x;
+        targetPanYRef.current = hardConstrained.y;
+        animateZoom();
+      } else {
+        startInertia();
+      }
+    } else {
+      const hardConstrained = constrainPosition(panXRef.current, panYRef.current, scaleRef.current);
+      if (hardConstrained.x !== panXRef.current || hardConstrained.y !== panYRef.current) {
+        targetScaleRef.current = scaleRef.current;
+        targetPanXRef.current = hardConstrained.x;
+        targetPanYRef.current = hardConstrained.y;
+        animateZoom();
+      } else {
+        // Sync state immediately if no snap back zoom
+        setScale(scaleRef.current);
+        setPanX(panXRef.current);
+        setPanY(panYRef.current);
+      }
     }
     touchStartRef.current = null;
   };
@@ -1032,7 +1371,6 @@ export function SeatingPlanner({
               onToggleTemplateMenu={setShowTemplateMenu}
               applyingTemplate={applyingTemplate}
               workspaceMode={workspaceMode}
-              onToggleWorkspaceMode={() => setWorkspaceMode(prev => !prev)}
             />
           </div>
 
@@ -1109,7 +1447,7 @@ export function SeatingPlanner({
           {/* Canvas Viewport Container */}
           <div
             ref={viewportRef}
-            onWheel={handleWheel}
+            onDoubleClick={handleDoubleClickCanvas}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -1141,12 +1479,10 @@ export function SeatingPlanner({
             {/* The Actual transformed Floor Canvas */}
             <div
               ref={canvasRef}
-              className={cn(
-                "absolute w-[3000px] h-[2400px] bg-[#fafbfe] shadow-inner canvas-grid origin-top-left",
-                isTransitioning && "transition-transform duration-300 ease-out"
-              )}
+              className="absolute w-[3000px] h-[2400px] bg-[#fafbfe] shadow-inner canvas-grid origin-top-left"
               style={{
-                transform: `translate(${panX}px, ${panY}px) scale(${scale})`
+                transform: `translate3d(${panX}px, ${panY}px, 0px) scale(${scale})`,
+                willChange: "transform"
               }}
             >
               {localTables.length === 0 ? (
@@ -1256,7 +1592,7 @@ export function SeatingPlanner({
 
             {/* Canvas HUD Controls overlay */}
             <div className="absolute bottom-4 right-4 flex items-center gap-1 bg-white/95 px-3 py-1.5 rounded-2xl shadow-lg border border-slate-100 select-none print:hidden z-30">
-              <span className="text-[11px] font-mono font-bold text-slate-500 mr-2 w-10 text-center">
+              <span ref={zoomPercentTextRef} className="text-[11px] font-mono font-bold text-slate-500 mr-2 w-10 text-center">
                 {Math.round(scale * 100)}%
               </span>
               
@@ -1299,6 +1635,27 @@ export function SeatingPlanner({
               >
                 <Move className="h-4.5 w-4.5 lg:h-4 lg:w-4" />
               </Button>
+
+              <div className="h-4 w-px bg-slate-200 mx-1" />
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-10 w-10 lg:h-8 lg:w-8 rounded-xl lg:rounded-lg transition-all duration-300 ease-out press-scale",
+                  workspaceMode
+                    ? "bg-primary/10 text-primary hover:bg-primary/15"
+                    : "text-slate-650 hover:bg-slate-100"
+                )}
+                onClick={() => setWorkspaceMode(prev => !prev)}
+                title={workspaceMode ? "Ieși din Modul Focus" : "Intră în Modul Focus"}
+              >
+                {workspaceMode ? (
+                  <Minimize className="h-4.5 w-4.5 lg:h-4 lg:w-4 text-primary animate-pulse" />
+                ) : (
+                  <Maximize className="h-4.5 w-4.5 lg:h-4 lg:w-4 text-slate-500" />
+                )}
+              </Button>
             </div>
 
             {/* Mini-Map HUD */}
@@ -1338,6 +1695,7 @@ export function SeatingPlanner({
                 
                 {/* Viewport Box */}
                 <div
+                  ref={miniMapBoxRef}
                   className="absolute border border-primary bg-primary/5 pointer-events-none rounded-md"
                   style={{
                     left: `${(boxX / 3000) * 100}%`,

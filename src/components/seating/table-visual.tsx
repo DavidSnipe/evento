@@ -225,7 +225,7 @@ function OccupancyBadge({
   max: number;
   scale?: number;
 }) {
-  if (scale < 0.35) return null;
+  if (scale < 0.15) return null;
   const isFull = current >= max;
   const label = scale >= 0.8 ? ` ${ro.seating.tableCard.seats}` : "";
   return (
@@ -382,7 +382,7 @@ export function TableVisual({
         <div 
           className="flex flex-col items-center justify-center gap-1.5 p-2 text-center transition-transform duration-300 ease-out"
           style={{
-            transform: `scale(${Math.min(1.5, Math.max(0.6, 0.9 / scale))})`,
+            transform: `scale(${Math.min(3.5, Math.max(0.6, 0.9 / scale))})`,
           }}
         >
           <ObjectIcon className={cn(
@@ -525,7 +525,7 @@ export function TableVisual({
       <div 
         className="z-10 flex flex-col items-center gap-0.5 pointer-events-none px-3 transition-transform duration-300 ease-out"
         style={{
-          transform: `scale(${Math.min(1.5, Math.max(0.6, 0.9 / scale))})`,
+          transform: `scale(${Math.min(3.5, Math.max(0.6, 0.9 / scale))})`,
         }}
       >
         {isSweetheart && (

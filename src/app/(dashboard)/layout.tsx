@@ -34,7 +34,7 @@ export default async function DashboardLayout({
 
       <main className="flex-1 overflow-y-auto print:overflow-visible dashboard-main-container">
         {/* Mobile Top Bar */}
-        <div className="sticky top-0 z-40 flex items-center justify-between border-b border-border/60 bg-background/80 px-5 py-3 backdrop-blur-lg md:hidden print:hidden">
+        <div className="sticky top-0 z-40 flex items-center justify-between border-b border-border/60 bg-background/80 px-5 py-3 backdrop-blur-lg md:hidden print:hidden mobile-top-bar">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-primary">
               <svg

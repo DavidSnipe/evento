@@ -61,7 +61,7 @@ export function EventSubNav({ eventId }: EventSubNavProps) {
   };
 
   return (
-    <nav className="mb-8 flex flex-wrap gap-2 border-b border-border/60 pb-4">
+    <nav className="mb-8 flex flex-wrap gap-2 border-b border-border/60 pb-4 event-sub-nav">
       {items.map((tab) => {
         const isActive = tab.exact
           ? pathname === tab.href

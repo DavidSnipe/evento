@@ -19,7 +19,7 @@ export function AnimatedPage({ children, className }: AnimatedPageProps) {
   return (
     <div
       className={cn(
-        "transition-all duration-300 ease-out will-change-[opacity,transform]",
+        "transition-all duration-300 ease-out will-change-[opacity,transform] animated-page-wrapper",
         mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2",
         className
       )}

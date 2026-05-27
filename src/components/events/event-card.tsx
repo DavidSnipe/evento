@@ -23,41 +23,46 @@ export function EventCard({ event, isActive, index = 0 }: EventCardProps) {
       href={`/dashboard/events/${event.id}`}
       style={{ animationDelay: delay }}
       className={cn(
-        "glass-panel block p-6 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/8 active:scale-[0.99] animate-fade-in-up",
-        isActive && "ring-2 ring-primary/40"
+        "glass-panel hover-lift block p-6 transition-all duration-250 ease-out active:scale-[0.99] animate-fade-in-up border",
+        isActive 
+          ? "border-[#B8516B] bg-gradient-to-br from-[#FEF0F3]/30 to-[#FCE8EE]/10 shadow-[0_4px_20px_rgba(184,81,107,0.12)]" 
+          : "border-[rgba(210,170,185,0.22)] bg-white"
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium uppercase tracking-wider text-primary">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#B8516B]">
             {getEventTypeLabel(event.event_type)}
           </p>
-          <h3 className="mt-1 font-serif text-xl font-semibold leading-tight">{event.title}</h3>
+          <h3 className="mt-1 font-serif text-lg font-bold leading-tight text-[#1A0E14]">{event.title}</h3>
         </div>
         {days !== null ? (
-          <span className="shrink-0 rounded-full bg-primary/15 px-3 py-1 text-xs font-medium">
+          <span className="shrink-0 rounded-full bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] border border-[rgba(210,170,185,0.18)] px-3 py-1 text-[11px] font-semibold text-[#B8516B]">
             {formatDaysUntil(days)}
           </span>
         ) : null}
       </div>
 
-      <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+      <div className="mt-4 space-y-2 text-xs text-text-secondary">
         <p className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 shrink-0" />
+          <Calendar className="h-3.5 w-3.5 shrink-0 text-text-subtle" />
           {formattedDate ?? ro.events.detail.noDate}
         </p>
         {event.venue ? (
           <p className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 shrink-0" />
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-text-subtle" />
             <span className="truncate">{event.venue}</span>
           </p>
         ) : null}
       </div>
 
       {isActive ? (
-        <span className="mt-4 inline-block text-xs font-medium text-primary">
-          {ro.events.detail.active}
-        </span>
+        <div className="mt-4 flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-confirmed-green animate-pulse" />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#B8516B]">
+            {ro.events.detail.active}
+          </span>
+        </div>
       ) : null}
     </Link>
   );

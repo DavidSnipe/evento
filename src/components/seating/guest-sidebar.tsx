@@ -94,6 +94,34 @@ export function GuestSidebar({
   // Collapse filter settings accordion
   const [showFilters, setShowFilters] = useState(false);
 
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  const totalGuests = guests.length;
+  const unassigned = guests.filter((g) => !g.table_id).length;
+
+  const activeTab = useMemo(() => {
+    if (filterMode === "unassigned") return "unassigned";
+    if (rsvpFilter === "accepted") return "confirmed";
+    if (rsvpFilter === "pending") return "pending";
+    return "all";
+  }, [filterMode, rsvpFilter]);
+
+  const setActiveTab = (tabKey: string) => {
+    if (tabKey === "unassigned") {
+      setFilterMode("unassigned");
+      setRsvpFilter("all");
+    } else if (tabKey === "confirmed") {
+      setFilterMode("all");
+      setRsvpFilter("accepted");
+    } else if (tabKey === "pending") {
+      setFilterMode("all");
+      setRsvpFilter("pending");
+    } else {
+      setFilterMode("all");
+      setRsvpFilter("all");
+    }
+  };
+
   /* ---------- derived & filtered guests ---------- */
   const displayedGuestsList = useMemo(() => {
     // Identify couple sub-guests
@@ -199,159 +227,98 @@ export function GuestSidebar({
   return (
     <aside
       className={cn(
-        "flex flex-col h-full w-full overflow-hidden rounded-2xl border border-white/20 bg-white/70 shadow-xl backdrop-blur-lg",
+        "flex flex-col h-full w-full overflow-hidden select-none transition-all duration-350 ease-in-out",
         className
       )}
+      style={{
+        background: 'var(--ev-bg-sidebar)',
+        backdropFilter: 'blur(20px)',
+        borderRight: '1px solid var(--ev-border-soft)',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '2px 0 16px rgba(160,80,110,0.06)',
+      }}
     >
-      {/* ── Header: Search & Basic Controls ──────────────── */}
-      <div className="space-y-3 p-4 pb-3 border-b border-border/40 bg-white/40">
-        <div className="flex items-center justify-between">
-          <h3 className="font-serif text-base font-semibold text-slate-800 flex items-center gap-2">
-            <Users className="h-4.5 w-4.5 text-primary" />
+      {/* ── Header: Title & Info ── */}
+      <div style={{ padding: '18px 18px 14px', borderBottom: '1px solid var(--ev-border-soft)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--ev-text-primary)', fontFamily: 'Inter, sans-serif', margin: 0, letterSpacing: '-0.3px', lineHeight: 1 }}>
             Lista Invitați
           </h3>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
-              {displayedGuestsList.length}
-            </span>
-            {headerAction}
-          </div>
+          <p style={{ fontSize: 11, color: 'var(--ev-text-muted)', margin: '5px 0 0', fontFamily: 'Inter, sans-serif', letterSpacing: '0.01em' }}>
+            {totalGuests} persoane · {unassigned} nealocate
+          </p>
         </div>
-
-        {/* Search */}
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={ro.seating.search.placeholder}
-            className="h-9 pl-9 pr-8 text-sm rounded-xl"
-          />
-        </div>
-
-        {/* Sorting and Filter Toggle */}
-        <div className="flex gap-2">
-          {/* Sorting */}
-          <div className="flex-1 relative">
-            <ArrowUpDown className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="w-full h-8 pl-8 pr-2 text-xs rounded-lg border border-input bg-transparent font-medium text-slate-700 focus-visible:outline-none"
-            >
-              <option value="family">Sortare după Familie</option>
-              <option value="last_name">Nume Familie</option>
-              <option value="first_name">Prenume</option>
-              <option value="rsvp">Status RSVP</option>
-              <option value="table">După Masă</option>
-            </select>
-          </div>
-
-          {/* Advanced Filter Toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className={cn("h-8 rounded-lg px-2 text-xs gap-1", showFilters && "bg-slate-100")}
-          >
-            <Filter className="h-3.5 w-3.5" />
-            Filtre
-            {showFilters ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          </Button>
-        </div>
-
-        {/* Advanced Filters Drawer */}
-        {showFilters && (
-          <div className="p-3 rounded-xl border border-slate-100 bg-white/60 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-            {/* Assignment Status */}
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase">Repartizare</span>
-              <div className="flex gap-1">
-                {(["all", "unassigned", "assigned"] as FilterMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setFilterMode(mode)}
-                    className={cn(
-                      "flex-1 py-1 text-[11px] font-medium rounded-lg border transition-all",
-                      filterMode === mode
-                        ? "bg-primary border-primary text-primary-foreground shadow-sm"
-                        : "bg-white border-slate-100 text-muted-foreground hover:bg-slate-50"
-                    )}
-                  >
-                    {mode === "all" ? "Toți" : mode === "unassigned" ? "Nerepart." : "Repart."}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* RSVP status */}
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase">Status RSVP</span>
-              <div className="flex flex-wrap gap-1">
-                {[
-                  { val: "all", lbl: "Toți" },
-                  { val: "accepted", lbl: "Confirmat" },
-                  { val: "pending", lbl: "În așteptare" },
-                  { val: "declined", lbl: "Refuzat" }
-                ].map((item) => (
-                  <button
-                    key={item.val}
-                    type="button"
-                    onClick={() => setRsvpFilter(item.val)}
-                    className={cn(
-                      "px-2 py-0.5 text-[10px] font-medium rounded-md border transition-all",
-                      rsvpFilter === item.val
-                        ? "bg-slate-800 text-white border-slate-800"
-                        : "bg-white border-slate-150 text-muted-foreground hover:bg-slate-50"
-                    )}
-                  >
-                    {item.lbl}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Tag filter */}
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase">Tag / Categorie</span>
-              <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto p-1 bg-slate-50 rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => setSelectedTag("all")}
-                  className={cn(
-                    "px-1.5 py-0.5 text-[9px] font-medium rounded-md border transition-all",
-                    selectedTag === "all"
-                      ? "bg-slate-800 text-white border-slate-800"
-                      : "bg-white border-slate-150 text-muted-foreground hover:bg-slate-100"
-                  )}
-                >
-                  Toate
-                </button>
-                {GUEST_TAGS.map((tag) => (
-                  <button
-                    key={tag.value}
-                    type="button"
-                    onClick={() => setSelectedTag(tag.value)}
-                    className={cn(
-                      "px-1.5 py-0.5 text-[9px] font-medium rounded-md border transition-all flex items-center gap-1",
-                      selectedTag === tag.value
-                        ? "bg-slate-800 text-white border-slate-800"
-                        : "bg-white border-slate-150 text-slate-600 hover:bg-slate-100"
-                    )}
-                  >
-                    <span>{tag.icon}</span>
-                    <span>{tag.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        {headerAction}
       </div>
 
-      {/* ── Guest List ───────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto p-2 bg-slate-50/50">
+      {/* Search Bar */}
+      <div style={{
+        margin: '0 14px 12px',
+        background: 'rgba(255,255,255,0.85)',
+        borderRadius: 10,
+        border: '1px solid rgba(210,170,185,0.25)',
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '8px 12px',
+        boxShadow: '0 1px 4px rgba(180,100,120,0.06)',
+      }}>
+        <Search size={14} color="var(--ev-text-muted)" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={ro.seating.search.placeholder || "Caută invitat..."}
+          style={{
+            border: 'none', background: 'transparent', outline: 'none',
+            fontSize: 13, color: 'var(--ev-text-primary)', fontFamily: 'Inter, sans-serif', flex: 1,
+          }}
+        />
+      </div>
+
+      {/* Tab filters (Toți / Confirmați / Așteptare / Nealocați) */}
+      <div style={{ display: 'flex', gap: 5, padding: '0 14px 10px', flexWrap: 'wrap' }}>
+        {[
+          { key: "all", label: "Toți", count: guests.length },
+          { key: "confirmed", label: "Confirmați", count: guests.filter(g => g.rsvp_status === "accepted").length },
+          { key: "pending", label: "Așteptare", count: guests.filter(g => g.rsvp_status === "pending").length },
+          { key: "unassigned", label: "Nealocați", count: guests.filter(g => !g.table_id).length },
+        ].map(tab => (
+          <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} style={{
+            padding: '3px 9px', borderRadius: 20,
+            fontSize: 12, fontWeight: activeTab === tab.key ? 600 : 500,
+            fontFamily: 'Inter, sans-serif',
+            background: activeTab === tab.key ? 'var(--ev-rose-500)' : 'rgba(255,255,255,0.6)',
+            color: activeTab === tab.key ? 'rgba(255,255,255,0.98)' : 'var(--ev-text-secondary)',
+            border: activeTab === tab.key ? 'none' : '1px solid var(--ev-border-soft)',
+            cursor: 'pointer', transition: 'all 0.15s ease',
+            boxShadow: activeTab === tab.key ? '0 2px 8px rgba(192,100,130,0.28)' : 'none',
+          }}>
+            {tab.label} {tab.count > 0 && <span style={{ opacity: 0.8 }}>{tab.count}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* Quick Sorting Dropdown */}
+      <div style={{ padding: '0 14px 10px', display: 'flex', gap: 8, alignItems: 'center' }}>
+        <span style={{ fontSize: 11, color: 'var(--ev-text-muted)', fontFamily: 'Inter, sans-serif', fontWeight: 550 }}>Sortat:</span>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortOption)}
+          style={{
+            border: 'none', background: 'transparent', outline: 'none',
+            fontSize: 11.5, color: 'var(--ev-text-secondary)', fontFamily: 'Inter, sans-serif', fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          <option value="family">Familie</option>
+          <option value="last_name">Nume familie</option>
+          <option value="first_name">Prenume</option>
+          <option value="rsvp">Status RSVP</option>
+          <option value="table">După masă</option>
+        </select>
+      </div>
+
+      {/* ── Guest List ── */}
+      <div className="flex-1 overflow-y-auto px-2 py-1" style={{ background: 'rgba(249, 244, 241, 0.45)' }}>
         {displayedGuestsList.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
             <Users className="h-10 w-10 text-slate-300" />
@@ -367,12 +334,13 @@ export function GuestSidebar({
               const isSelected = guest.id === selectedGuestId;
               const isAssigned = !!guest.table_id;
               const initials = getInitials(guest);
+              const isDragging = draggingId === guest.id;
 
               return (
-                <li key={guest.id} className="flex items-center">
+                <li key={guest.id} className="flex items-center" style={{ paddingLeft: guest.isSubGuest ? 16 : 0 }}>
                   {/* Indentation for spouses/children */}
                   {guest.isSubGuest && (
-                    <CornerDownRight className="h-4.5 w-4.5 text-slate-400/70 ml-2 mr-0.5 shrink-0" />
+                    <CornerDownRight className="h-4.5 w-4.5 text-slate-400/70 mr-0.5 shrink-0" />
                   )}
 
                   <button
@@ -381,109 +349,109 @@ export function GuestSidebar({
                     onDragStart={(e) => {
                       e.dataTransfer.setData("text/plain", guest.id);
                       e.dataTransfer.setData("guestId", guest.id);
+                      setDraggingId(guest.id);
                       onDragStart?.(guest.id);
                     }}
                     onDragEnd={() => {
+                      setDraggingId(null);
                       onDragEnd?.();
                     }}
                     onClick={() => onSelectGuest(isSelected ? null : guest.id)}
+                    style={{
+                      margin: '3px 6px',
+                      padding: '9px 12px',
+                      borderRadius: 12,
+                      background: isDragging
+                        ? 'rgba(192,100,130,0.08)'
+                        : 'rgba(255,255,255,0.75)',
+                      border: isDragging
+                        ? '1.5px solid rgba(192,100,130,0.35)'
+                        : '1px solid var(--ev-border-soft)',
+                      boxShadow: isDragging ? 'var(--ev-shadow-md)' : 'var(--ev-shadow-sm)',
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      cursor: 'grab', transition: 'all 0.12s ease',
+                      opacity: isDragging ? 0.85 : 1,
+                      transform: isDragging ? 'scale(1.02) rotate(0.5deg)' : 'none',
+                      width: '100%',
+                    }}
                     className={cn(
-                      "group flex flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-all border border-transparent shadow-sm bg-white cursor-grab active:cursor-grabbing",
-                      isSelected
-                        ? "bg-primary/10 border-primary/30 ring-2 ring-primary/10 shadow-sm"
-                        : "hover:bg-slate-50 hover:border-slate-100",
-                      guest.isSubGuest && "text-slate-650"
+                      "group text-left border border-transparent shadow-sm bg-white cursor-grab active:cursor-grabbing",
+                      isSelected && "ring-2 ring-primary/20 bg-primary/10 border-primary/30"
                     )}
                   >
                     {/* Initials avatar */}
                     {guest.couplePartner ? (
-                      <div className="relative w-12 h-8.5 shrink-0 flex items-center">
-                        <span
-                          className={cn(
-                            "absolute left-0 top-0 flex h-7.5 w-7.5 items-center justify-center rounded-full text-[9px] font-bold shadow-inner border border-white bg-slate-100 text-slate-600 z-10 transition-colors",
-                            isAssigned && "bg-emerald-50 text-emerald-700"
-                          )}
-                          title={guest.first_name}
-                        >
+                      <div style={{ position: 'relative', width: 36, height: 32, flexShrink: 0 }}>
+                        <div style={{
+                          position: 'absolute', left: 0, top: 0,
+                          width: 24, height: 24, borderRadius: '50%',
+                          background: `linear-gradient(135deg, ${isAssigned ? 'var(--ev-rose-400)' : 'var(--ev-text-muted)'}, ${isAssigned ? 'var(--ev-rose-500)' : 'var(--ev-text-secondary)'})`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.98)',
+                          fontFamily: 'Inter, sans-serif',
+                          boxShadow: '0 1px 4px rgba(160,80,110,0.15)',
+                          border: '1px solid rgba(255,255,255,0.98)',
+                          zIndex: 10,
+                        }}>
                           {initials}
-                        </span>
-                        <span
-                          className={cn(
-                            "absolute right-1 bottom-0 flex h-7.5 w-7.5 items-center justify-center rounded-full text-[9px] font-bold shadow-inner border border-white bg-slate-200 text-slate-500 transition-colors",
-                            isAssigned && "bg-emerald-100 text-emerald-600"
-                          )}
-                          title={guest.couplePartner.first_name}
-                        >
+                        </div>
+                        <div style={{
+                          position: 'absolute', right: 0, bottom: 0,
+                          width: 24, height: 24, borderRadius: '50%',
+                          background: `linear-gradient(135deg, ${!!guest.couplePartner.table_id ? 'var(--ev-rose-300)' : 'var(--ev-text-muted)'}, ${!!guest.couplePartner.table_id ? 'var(--ev-rose-400)' : 'var(--ev-text-secondary)'})`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.98)',
+                          fontFamily: 'Inter, sans-serif',
+                          boxShadow: '0 1px 4px rgba(160,80,110,0.15)',
+                          border: '1px solid rgba(255,255,255,0.98)',
+                        }}>
                           {getInitials(guest.couplePartner)}
-                        </span>
+                        </div>
                       </div>
                     ) : (
-                      <span
-                        className={cn(
-                          "flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold shadow-inner border border-white transition-colors",
-                          isAssigned
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-slate-100 text-slate-600"
-                        )}
-                      >
+                      <div style={{
+                        width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                        background: `linear-gradient(135deg, ${isAssigned ? 'var(--ev-rose-400)' : 'var(--ev-text-muted)'}, ${isAssigned ? 'var(--ev-rose-500)' : 'var(--ev-text-secondary)'})`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.98)',
+                        fontFamily: 'Inter, sans-serif',
+                        boxShadow: '0 1px 4px rgba(160,80,110,0.15)',
+                      }}>
                         {initials}
-                      </span>
+                      </div>
                     )}
 
                     {/* Name + Details */}
-                    <div className="min-w-0 flex-1 space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="truncate text-xs font-semibold text-slate-800">
-                          {guest.couplePartner ? coupleNames(guest, guest.couplePartner) : guestName(guest)}
-                        </span>
-                        
-                        {/* RSVP Mini Indicator */}
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          {getRsvpIcon(guest.rsvp_status)}
-                          {guest.couplePartner && getRsvpIcon(guest.couplePartner.rsvp_status)}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-1">
-                        {/* Group tag */}
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ev-text-primary)', fontFamily: 'Inter, sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {guest.couplePartner ? coupleNames(guest, guest.couplePartner) : guestName(guest)}
+                      </span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
                         {guest.group_name && (
-                          <span className="inline-block truncate text-[9px] px-1 bg-slate-100 text-slate-500 rounded border border-slate-200">
+                          <span style={{ fontSize: 9.5, color: 'var(--ev-text-muted)', fontFamily: 'Inter, sans-serif' }}>
                             {guest.group_name}
                           </span>
                         )}
-                        {/* If godparents tag, show purple tag */}
-                        {(guest.tags?.includes("godparents") || guest.couplePartner?.tags?.includes("godparents")) && (
-                          <span className="inline-block text-[9px] px-1 bg-purple-100 text-purple-700 rounded border border-purple-200 font-semibold">
-                            Nași
-                          </span>
-                        )}
-                        {/* If vip tag, show vip badge */}
-                        {(guest.tags?.includes("vip") || guest.couplePartner?.tags?.includes("vip")) && (
-                          <span className="inline-block text-[9px] px-1 bg-amber-100 text-amber-700 rounded border border-amber-200 font-semibold">
-                            VIP
-                          </span>
-                        )}
-                        {/* Plus one */}
                         {guest.plus_one && !guest.couplePartner && (
-                          <span className="inline-block text-[9px] px-1 bg-pink-100 text-pink-700 rounded border border-pink-200 font-medium">
+                          <span style={{ fontSize: 9.5, color: 'var(--ev-rose-500)', fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>
                             +1
                           </span>
                         )}
                       </div>
                     </div>
 
-                    {/* Table Assignment status */}
-                    <div className="shrink-0 flex items-center justify-end">
-                      {isAssigned ? (
-                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full max-w-[80px] truncate">
-                          {guest.seating_tables?.name}
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/50">
-                          Liber
-                        </span>
-                      )}
-                    </div>
+                    {/* Badge masă / Liber */}
+                    <span style={{
+                      padding: '2px 8px', borderRadius: 12,
+                      fontSize: 10.5, fontWeight: 600,
+                      background: isAssigned ? 'rgba(192,100,130,0.1)' : 'rgba(230,220,225,0.5)',
+                      color: isAssigned ? 'var(--ev-rose-500)' : 'var(--ev-text-muted)',
+                      border: isAssigned ? '1px solid rgba(192,100,130,0.2)' : '1px solid rgba(210,190,200,0.3)',
+                      fontFamily: 'Inter, sans-serif',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {isAssigned ? (guest.seating_tables?.name ? (guest.seating_tables.name.startsWith("Masa") ? guest.seating_tables.name.replace(/^Masa\s+/i, "") : guest.seating_tables.name) : "M") : 'Liber'}
+                    </span>
                   </button>
                 </li>
               );

@@ -22,14 +22,33 @@ type GuestDetailPanelProps = {
   isSyncing: boolean;
 };
 
-function getAvatarGradient(name: string): string {
-  const gradients = [
-    "from-rose-300 to-pink-400",
-    "from-violet-300 to-purple-400",
-    "from-sky-300 to-blue-400",
-    "from-emerald-300 to-green-400",
-    "from-amber-300 to-orange-400",
-    "from-teal-300 to-cyan-400",
+type AvatarTheme = {
+  bg: string;
+  text: string;
+};
+
+// Premium styling for each semantic tag value
+const TAG_THEME: Record<string, string> = {
+  vip: "bg-[#FFF9E6] text-[#B8860B] border-[#FCE49F]", // Gold
+  godparents: "bg-[#FAF3FB] text-[#7030A0] border-[#F2DDF5]", // Lavender / Violet
+  family: "bg-[#FEF0F3] text-[#B8516B] border-[#FCE2E9]", // Brand Blush / Rose
+  friends: "bg-[#EEF6FC] text-[#2B6CB0] border-[#D2E7F7]", // Soft Blue
+  kids: "bg-[#F2FAF3] text-[#2E7D32] border-[#D5EED8]", // Soft Green
+  transport: "bg-[#F4F5F7] text-[#4E5D6C] border-[#E4E6EA]", // Slate / Grey
+  accommodation: "bg-[#EDFAF8] text-[#007A78] border-[#CEF1ED]", // Teal
+  vegetarian: "bg-[#F5FAF0] text-[#558B2F] border-[#E1F0D5]", // Olive / Herb Green
+  allergies: "bg-[#FFF0F0] text-[#C53030] border-[#FFD2D2]", // Soft Coral / Red
+};
+
+// Generate premium gradient avatar colors from name
+function getAvatarGradient(name: string): AvatarTheme {
+  const gradients: AvatarTheme[] = [
+    { bg: "from-[#FEF0F3] to-[#FCEAEF]", text: "text-[#B8516B] border border-[#FCE2E9]" },
+    { bg: "from-[#FAF3FB] to-[#F2DDF5]", text: "text-[#7030A0] border border-[#F2DDF5]" },
+    { bg: "from-[#FFF9E6] to-[#FFEAA7]", text: "text-[#B8860B] border border-[#FCE49F]" },
+    { bg: "from-[#EEF6FC] to-[#D2E7F7]", text: "text-[#2B6CB0] border border-[#D2E7F7]" },
+    { bg: "from-[#F2FAF3] to-[#D5EED8]", text: "text-[#2E7D32] border border-[#D5EED8]" },
+    { bg: "from-[#EDFAF8] to-[#CEF1ED]", text: "text-[#007A78] border border-[#CEF1ED]" }
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -91,7 +110,7 @@ export function GuestDetailPanel({
   };
 
   const fullName = guest.last_name ? `${guest.last_name} ${guest.first_name}` : guest.first_name;
-  const gradient = getAvatarGradient(fullName);
+  const theme = getAvatarGradient(fullName);
   const initials = guest.last_name
     ? `${guest.last_name.charAt(0)}${guest.first_name.charAt(0)}`.toUpperCase()
     : guest.first_name.charAt(0).toUpperCase();
@@ -121,7 +140,7 @@ export function GuestDetailPanel({
       {/* Backdrop */}
       <div
         className={cn(
-          "fixed inset-0 bg-black/30 transition-opacity duration-300 ease-out",
+          "fixed inset-0 bg-[#1A0E14]/15 transition-opacity duration-300 ease-out backdrop-blur-[2px]",
           isVisible ? "opacity-100" : "opacity-0"
         )}
         style={{ zIndex: 9998 }}
@@ -132,7 +151,7 @@ export function GuestDetailPanel({
       <div
         className={cn(
           // Desktop
-          "fixed top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] flex flex-col",
+          "fixed top-0 right-0 bottom-0 w-full max-w-md bg-white/95 border-l border-border-rose-18 shadow-[0_0_40px_rgba(180,100,120,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col backdrop-blur-md",
           "hidden md:flex",
           isVisible ? "translate-x-0" : "translate-x-full"
         )}
@@ -140,7 +159,7 @@ export function GuestDetailPanel({
       >
         <PanelContent
           guest={guest}
-          gradient={gradient}
+          theme={theme}
           initials={initials}
           guestTags={guestTags}
           tables={tables}
@@ -160,20 +179,20 @@ export function GuestDetailPanel({
       {/* Mobile bottom sheet */}
       <div
         className={cn(
-          "fixed inset-x-0 bottom-0 max-h-[90vh] rounded-t-3xl bg-white shadow-2xl transition-transform duration-400 ease-[cubic-bezier(0.32,0.72,0,1)] flex flex-col",
+          "fixed inset-x-0 bottom-0 max-h-[90vh] rounded-t-[24px] border-t border-border-rose-18 bg-white/95 shadow-[0_-8px_48px_rgba(180,100,120,0.15)] transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col backdrop-blur-md",
           "flex md:hidden",
           isVisible ? "translate-y-0" : "translate-y-full"
         )}
         style={{ zIndex: 9999 }}
       >
         {/* Handle */}
-        <div className="flex justify-center py-2 shrink-0">
-          <div className="h-1 w-10 rounded-full bg-gray-300" />
+        <div className="flex justify-center py-2.5 shrink-0">
+          <div className="h-1 w-12 rounded-full bg-[#D2AAA9]/40" />
         </div>
         <div className="flex-1 overflow-y-auto">
           <PanelContent
             guest={guest}
-            gradient={gradient}
+            theme={theme}
             initials={initials}
             guestTags={guestTags}
             tables={tables}
@@ -200,7 +219,7 @@ export function GuestDetailPanel({
 // ── Panel Content (shared between desktop & mobile) ──
 function PanelContent({
   guest,
-  gradient,
+  theme,
   initials,
   guestTags,
   tables,
@@ -216,7 +235,7 @@ function PanelContent({
   handleUpdateSubField,
 }: {
   guest: GuestWithTable;
-  gradient: string;
+  theme: AvatarTheme;
   initials: string;
   guestTags: string[];
   tables: SeatingTableRow[];
@@ -232,14 +251,14 @@ function PanelContent({
   handleUpdateSubField: (subId: string, field: string, value: string | null) => void;
 }) {
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col font-sans">
       {/* Header */}
-      <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-border/10 shrink-0">
+      <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-border-rose-18/30 shrink-0">
         <div className="flex items-center gap-4 flex-1 mr-4 min-w-0">
           <div
             className={cn(
-              "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-lg font-bold text-white shadow-md",
-              gradient
+              "flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br text-base font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]",
+              theme.bg, theme.text
             )}
           >
             {initials}
@@ -257,7 +276,7 @@ function PanelContent({
                     onUpdateField("first_name", val);
                   }
                 }}
-                className="font-serif text-lg font-semibold text-foreground bg-transparent border-0 p-0 focus:outline-none focus:ring-0 focus:border-b-2 focus:border-primary/20 placeholder:text-muted-foreground/30 min-w-[100px]"
+                className="font-serif text-lg font-bold text-foreground bg-transparent border-0 p-0 focus:outline-none focus:ring-0 focus:border-b focus:border-[#B8516B]/40 placeholder:text-text-subtle/30 min-w-[90px] hover:bg-[#FEF0F3]/30 rounded px-1 transition-all"
                 placeholder="Prenume"
               />
               <input
@@ -270,13 +289,13 @@ function PanelContent({
                     onUpdateField("last_name", val);
                   }
                 }}
-                className="font-serif text-lg font-semibold text-foreground bg-transparent border-0 p-0 focus:outline-none focus:ring-0 focus:border-b-2 focus:border-primary/20 placeholder:text-muted-foreground/30 min-w-[100px]"
-                placeholder="Nume de familie"
+                className="font-serif text-lg font-bold text-foreground bg-transparent border-0 p-0 focus:outline-none focus:ring-0 focus:border-b focus:border-[#B8516B]/40 placeholder:text-text-subtle/30 min-w-[90px] hover:bg-[#FEF0F3]/30 rounded px-1 transition-all"
+                placeholder="Nume"
               />
             </div>
             {guest.plus_one && (
-              <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
-                <Heart className="h-3 w-3 text-rose-400" />
+              <p className="mt-1 flex items-center gap-1 text-[10.5px] font-bold text-[#B8516B]">
+                <Heart className="h-3 w-3 fill-[#B8516B]/10 text-[#B8516B] shrink-0" />
                 {guest.plus_one_name || "Partener asociat"}
               </p>
             )}
@@ -284,16 +303,16 @@ function PanelContent({
         </div>
         
         {/* Top Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           {visualState === "saving" && (
-            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground animate-in fade-in duration-200">
-              <span className="h-2 w-2 rounded-full bg-primary/60 animate-soft-pulse" />
-              Se salvează...
+            <span className="flex items-center gap-1.5 text-[10.5px] font-bold text-[#B8516B] animate-in fade-in duration-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#B8516B] animate-ping" />
+              Salvare...
             </span>
           )}
           {visualState === "saved" && (
-            <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 animate-in fade-in slide-in-from-top-1 duration-200">
-              <svg className="h-3.5 w-3.5 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <span className="flex items-center gap-1 text-[10.5px] font-bold text-emerald-600 animate-in fade-in slide-in-from-top-1 duration-200">
+              <svg className="h-3 w-3 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
               Salvat
@@ -302,9 +321,9 @@ function PanelContent({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl p-2 text-muted-foreground transition-colors hover:bg-muted/50"
+            className="rounded-lg p-2 text-text-secondary hover:text-[#B8516B] hover:bg-[#FEF0F3] transition-colors cursor-pointer"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -313,7 +332,7 @@ function PanelContent({
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
         {/* RSVP */}
         <div className="animate-fade-in-up" style={{ animationDelay: "30ms" }}>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="mb-2 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
             Status RSVP
           </p>
           <RsvpPill
@@ -326,27 +345,29 @@ function PanelContent({
 
         {/* Tags */}
         <div className="animate-fade-in-up" style={{ animationDelay: "60ms" }}>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="mb-2 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
             Tag-uri
           </p>
           <div className="flex flex-wrap gap-1.5">
             {GUEST_TAGS.map((tag) => {
               const isActive = guestTags.includes(tag.value);
+              const customColorClass = isActive 
+                ? (TAG_THEME[tag.value] ?? tag.color) 
+                : "border-border-rose-18 bg-[#F3F3F5]/60 text-text-secondary hover:bg-[#FEF0F3]/60 hover:text-[#B8516B] hover:border-[#FCEAEF]";
+              
               return (
                 <button
                   key={tag.value}
                   type="button"
                   onClick={() => toggleTag(tag.value)}
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all duration-200 ease-out active:scale-90 hover:scale-[1.03]",
-                    isActive
-                      ? tag.color
-                      : "border-border/40 bg-muted/30 text-muted-foreground/60 hover:bg-muted/50",
+                    "inline-flex items-center gap-1 rounded-[7px] border px-2.5 py-1 text-xs font-semibold transition-all duration-200 ease-out active:scale-95 hover:scale-[1.02] cursor-pointer",
+                    customColorClass,
                     isSyncing && "animate-soft-pulse"
                   )}
                 >
-                  <span>{tag.icon}</span>
-                  {tag.label}
+                  <span className="leading-none text-[11px]">{tag.icon}</span>
+                  <span className="tracking-wide">{tag.label}</span>
                 </button>
               );
             })}
@@ -355,12 +376,12 @@ function PanelContent({
 
         {/* Contact (Inline Editable) */}
         <div className="animate-fade-in-up" style={{ animationDelay: "90ms" }}>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="mb-2 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
             Contact
           </p>
           <div className="space-y-2">
-            <div className="flex items-center gap-3 rounded-xl bg-muted/30 px-3.5 py-2 hover:bg-muted/50 transition-colors">
-              <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="flex items-center gap-3 rounded-[10px] bg-[#f3f3f5] border border-transparent px-3 py-2.5 hover:bg-[#FEF0F3]/30 focus-within:bg-[#FEF0F3]/15 focus-within:border-border-rose-30 focus-within:ring-2 focus-within:ring-[#B8516B]/5 transition-all duration-200">
+              <Phone className="h-4 w-4 text-text-subtle shrink-0" />
               <input
                 type="text"
                 defaultValue={guest.phone ?? ""}
@@ -371,12 +392,12 @@ function PanelContent({
                     onUpdateField("phone", val);
                   }
                 }}
-                className="flex-1 bg-transparent border-0 p-0 text-sm text-foreground focus:outline-none focus:ring-0 placeholder:text-muted-foreground/40"
+                className="flex-1 bg-transparent border-0 p-0 text-xs font-semibold text-foreground focus:outline-none focus:ring-0 placeholder:text-text-subtle/50"
                 placeholder="Adăugați telefon..."
               />
             </div>
-            <div className="flex items-center gap-3 rounded-xl bg-muted/30 px-3.5 py-2 hover:bg-muted/50 transition-colors">
-              <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="flex items-center gap-3 rounded-[10px] bg-[#f3f3f5] border border-transparent px-3 py-2.5 hover:bg-[#FEF0F3]/30 focus-within:bg-[#FEF0F3]/15 focus-within:border-border-rose-30 focus-within:ring-2 focus-within:ring-[#B8516B]/5 transition-all duration-200">
+              <Mail className="h-4 w-4 text-text-subtle shrink-0" />
               <input
                 type="email"
                 defaultValue={guest.email ?? ""}
@@ -387,7 +408,7 @@ function PanelContent({
                     onUpdateField("email", val);
                   }
                 }}
-                className="flex-1 bg-transparent border-0 p-0 text-sm text-foreground focus:outline-none focus:ring-0 placeholder:text-muted-foreground/40"
+                className="flex-1 bg-transparent border-0 p-0 text-xs font-semibold text-foreground focus:outline-none focus:ring-0 placeholder:text-text-subtle/50"
                 placeholder="Adăugați email..."
               />
             </div>
@@ -396,15 +417,15 @@ function PanelContent({
 
         {/* Table */}
         <div className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Masă
+          <p className="mb-2 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
+            Masă repartizată
           </p>
           <select
             value={guest.table_id ?? ""}
             onChange={(e) => {
               onUpdateField("table_id", e.target.value || null);
             }}
-            className="h-10 w-full rounded-xl border border-border/40 bg-muted/20 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+            className="h-10 w-full rounded-[10px] border border-[#d2aaa9]/20 bg-[#F3F3F5] px-3.5 text-xs font-semibold text-text-secondary outline-none focus:bg-[#FEF0F3]/20 focus:border-[#B8516B]/50 transition-all cursor-pointer"
           >
             <option value="">Fără masă</option>
             {tables.map((t) => (
@@ -417,8 +438,8 @@ function PanelContent({
 
         {/* Group */}
         <div className="animate-fade-in-up" style={{ animationDelay: "150ms" }}>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Grup
+          <p className="mb-2 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
+            Grup / Familie
           </p>
           <input
             type="text"
@@ -430,31 +451,31 @@ function PanelContent({
                 onUpdateField("group_name", val);
               }
             }}
-            placeholder="ex. Familie mireasă"
-            className="h-10 w-full rounded-xl border border-border/40 bg-muted/20 px-3 text-sm outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20"
+            placeholder="ex. Familie mireasă, Colegi de facultate..."
+            className="h-10 w-full rounded-[10px] border border-[#d2aaa9]/20 bg-[#F3F3F5] px-3.5 text-xs font-semibold text-text-secondary outline-none placeholder:text-text-subtle/50 focus:bg-[#FEF0F3]/20 focus:border-[#B8516B]/50 transition-all"
           />
         </div>
 
         {/* Associated Guests (Sub-Guests Relationship Management) */}
-        <div className="border-t border-border/20 pt-5 animate-fade-in-up" style={{ animationDelay: "180ms" }}>
+        <div className="border-t border-border-rose-18/30 pt-5 animate-fade-in-up" style={{ animationDelay: "180ms" }}>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Membri asociați (Cuplu / Familie)
+            <p className="text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
+              Membri asociați
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               {!guest.subGuests?.some((s) => s.relationship_type === "couple") && (
                 <button
                   type="button"
                   onClick={() => handleAddSubGuest("couple")}
-                  className="text-[11px] font-semibold text-primary hover:underline"
+                  className="text-[10px] font-bold text-[#B8516B] hover:text-[#AA3F58] hover:underline cursor-pointer"
                 >
-                  + Partener (Cuplu)
+                  + Partener
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => handleAddSubGuest("family")}
-                className="text-[11px] font-semibold text-primary hover:underline"
+                className="text-[10px] font-bold text-[#B8516B] hover:text-[#AA3F58] hover:underline cursor-pointer"
               >
                 + Familie
               </button>
@@ -469,8 +490,8 @@ function PanelContent({
                   <div
                     key={sub.id}
                     className={cn(
-                      "flex items-center gap-2 rounded-xl bg-muted/20 p-2 border border-border/30 shadow-sm transition-all duration-150 animate-slide-in",
-                      isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85"
+                      "flex items-center gap-2 rounded-[12px] bg-[#F3F3F5]/40 p-2.5 border border-border-rose-18/30 shadow-[0_1px_2px_rgba(180,100,120,0.02)] transition-all",
+                      isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/20 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85"
                     )}
                   >
                     <div className="min-w-0 flex-1 grid grid-cols-2 gap-2">
@@ -485,7 +506,7 @@ function PanelContent({
                             handleUpdateSubField(sub.id, "first_name", val);
                           }
                         }}
-                        className="h-8 bg-white border border-border/30 rounded-lg px-2 text-xs outline-none focus:ring-1 focus:ring-primary/30 disabled:bg-gray-50"
+                        className="h-8 bg-white border border-[#d2aaa9]/20 rounded-[8px] px-2 text-xs font-semibold outline-none focus:border-[#B8516B]/40 focus:ring-1 focus:ring-[#B8516B]/10 disabled:bg-gray-50 transition-all"
                         placeholder="Prenume"
                       />
                       <input
@@ -499,7 +520,7 @@ function PanelContent({
                             handleUpdateSubField(sub.id, "last_name", val);
                           }
                         }}
-                        className="h-8 bg-white border border-border/30 rounded-lg px-2 text-xs outline-none focus:ring-1 focus:ring-primary/30 disabled:bg-gray-50"
+                        className="h-8 bg-white border border-[#d2aaa9]/20 rounded-[8px] px-2 text-xs font-semibold outline-none focus:border-[#B8516B]/40 focus:ring-1 focus:ring-[#B8516B]/10 disabled:bg-gray-50 transition-all"
                         placeholder="Nume"
                       />
                     </div>
@@ -507,7 +528,7 @@ function PanelContent({
                       value={sub.relationship_type ?? "family"}
                       disabled={isTemp}
                       onChange={(e) => handleUpdateSubField(sub.id, "relationship_type", e.target.value)}
-                      className="h-8 bg-white border border-border/30 rounded-lg px-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30 disabled:bg-gray-50"
+                      className="h-8 bg-white border border-[#d2aaa9]/20 rounded-[8px] px-1.5 text-xs font-semibold outline-none focus:border-[#B8516B]/40 focus:ring-1 focus:ring-[#B8516B]/10 disabled:bg-gray-50 transition-all cursor-pointer"
                     >
                       <option value="couple">Partener</option>
                       <option value="family">Familie</option>
@@ -517,7 +538,7 @@ function PanelContent({
                       type="button"
                       disabled={isTemp}
                       onClick={() => handleDeleteSubGuest(sub.id)}
-                      className="p-1 rounded-lg text-muted-foreground/60 hover:text-destructive hover:bg-destructive/5 transition-colors disabled:opacity-50"
+                      className="p-1 rounded-lg text-text-secondary hover:text-[#FF3B30] hover:bg-[#FFF0F0] transition-colors disabled:opacity-50 cursor-pointer"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -525,16 +546,16 @@ function PanelContent({
                 );
               })
             ) : (
-              <p className="text-xs text-muted-foreground/60 italic">Niciun membru asociat.</p>
+              <p className="text-xs text-text-subtle font-medium italic py-1">Niciun membru asociat.</p>
             )}
           </div>
         </div>
 
         {/* Dietary */}
         <div className="animate-fade-in-up" style={{ animationDelay: "210ms" }}>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center">
-            <UtensilsCrossed className="mr-1.5 h-3.5 w-3.5" />
-            Preferințe alimentare
+          <p className="mb-2 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle flex items-center">
+            <UtensilsCrossed className="mr-1.5 h-3.5 w-3.5 text-text-subtle" />
+            Preferințe alimentare / Alergii
           </p>
           <textarea
             defaultValue={guest.dietary_notes ?? ""}
@@ -545,17 +566,17 @@ function PanelContent({
                 onUpdateField("dietary_notes", val);
               }
             }}
-            placeholder="Vegetarian, alergii, etc."
+            placeholder="Vegetarian, vegan, fără gluten, alergie alune, etc..."
             rows={2}
-            className="w-full rounded-xl border border-border/40 bg-muted/20 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 resize-none"
+            className="w-full rounded-[10px] border border-[#d2aaa9]/20 bg-[#F3F3F5] px-3.5 py-2.5 text-xs font-semibold text-text-secondary outline-none placeholder:text-text-subtle/50 focus:bg-[#FEF0F3]/20 focus:border-[#B8516B]/50 transition-all resize-none"
           />
         </div>
 
         {/* Notes */}
         <div className="animate-fade-in-up" style={{ animationDelay: "240ms" }}>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center">
-            <StickyNote className="mr-1.5 h-3.5 w-3.5" />
-            Note
+          <p className="mb-2 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle flex items-center">
+            <StickyNote className="mr-1.5 h-3.5 w-3.5 text-text-subtle" />
+            Observații / Note
           </p>
           <textarea
             defaultValue={guest.notes ?? ""}
@@ -566,14 +587,14 @@ function PanelContent({
                 onUpdateField("notes", val);
               }
             }}
-            placeholder="Note suplimentare..."
+            placeholder="Note suplimentare despre cazare, transport sau cerințe speciale..."
             rows={3}
-            className="w-full rounded-xl border border-border/40 bg-muted/20 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 resize-none"
+            className="w-full rounded-[10px] border border-[#d2aaa9]/20 bg-[#F3F3F5] px-3.5 py-2.5 text-xs font-semibold text-text-secondary outline-none placeholder:text-text-subtle/50 focus:bg-[#FEF0F3]/20 focus:border-[#B8516B]/50 transition-all resize-none"
           />
         </div>
 
         {/* Added date */}
-        <p className="text-xs text-muted-foreground/60 animate-fade-in-up" style={{ animationDelay: "270ms" }}>
+        <p className="text-[10px] font-semibold text-text-faint/80 animate-fade-in-up" style={{ animationDelay: "270ms" }}>
           Adăugat pe {new Date(guest.created_at).toLocaleDateString("ro-RO", {
             day: "numeric",
             month: "long",
@@ -585,7 +606,7 @@ function PanelContent({
         <button
           type="button"
           onClick={onDelete}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-destructive/30 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/5 animate-fade-in-up"
+          className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-[#FF3B30]/30 py-2.5 text-xs font-bold text-[#FF3B30] transition-all hover:bg-[#FFF0F0] cursor-pointer animate-fade-in-up"
           style={{ animationDelay: "300ms" }}
         >
           <Trash2 className="h-4 w-4" />

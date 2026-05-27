@@ -34,9 +34,9 @@ export default async function DashboardLayout({
 
       <main className="flex-1 overflow-y-auto print:overflow-visible dashboard-main-container">
         {/* Mobile Top Bar */}
-        <div className="sticky top-0 z-40 flex items-center justify-between border-b border-border/60 bg-background/80 px-5 py-3 backdrop-blur-lg md:hidden print:hidden mobile-top-bar">
+        <div className="sticky top-0 z-40 flex items-center justify-between px-5 glass-toolbar md:hidden print:hidden mobile-top-bar">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-primary">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#E8748A] to-[#AA3F58] text-white shadow-[0_2px_8px_rgba(184,81,107,0.18)]">
               <svg
                 className="h-4 w-4"
                 viewBox="0 0 24 24"
@@ -46,11 +46,11 @@ export default async function DashboardLayout({
               </svg>
             </div>
             <div>
-              <p className="font-serif text-base font-semibold leading-tight">
+              <p className="font-sans text-sm font-semibold leading-none text-[#1A0E14]">
                 Evento
               </p>
               {activeEvent ? (
-                <p className="max-w-[180px] truncate text-[11px] text-primary">
+                <p className="max-w-[180px] truncate text-[10px] text-text-secondary mt-0.5 font-medium">
                   {activeEvent.title}
                 </p>
               ) : null}
@@ -64,7 +64,7 @@ export default async function DashboardLayout({
         </div>
 
         {/* Page Content */}
-        <div className="mx-auto max-w-6xl p-6 md:p-10 print:max-w-none print:p-0 print:m-0 dashboard-content-container">
+        <div className="mx-auto max-w-6xl p-6 md:p-10 pb-24 md:pb-10 print:max-w-none print:p-0 print:m-0 dashboard-content-container">
           {children}
         </div>
       </main>

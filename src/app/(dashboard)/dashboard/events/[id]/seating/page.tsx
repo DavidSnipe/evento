@@ -1,12 +1,7 @@
-import Link from "next/link";
-
 import { SeatingPlanner } from "@/components/seating/seating-planner";
-import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { AnimatedPage } from "@/components/layout/animated-page";
-import { Button } from "@/components/ui/button";
 import { requireEvent } from "@/lib/events/verify-event";
 import { getSeatingPlan } from "@/lib/seating/queries";
-import { ro } from "@/lib/i18n/ro";
 
 type SeatingPageProps = {
   params: Promise<{ id: string }>;
@@ -14,22 +9,11 @@ type SeatingPageProps = {
 
 export default async function SeatingPage({ params }: SeatingPageProps) {
   const { id } = await params;
-  const event = await requireEvent(id);
+  await requireEvent(id);
   const { tables, unassigned, allGuests } = await getSeatingPlan(id);
 
   return (
-    <AnimatedPage>
-      <DashboardHeader
-        title={ro.seating.title}
-        description={`${event.title} · ${ro.seating.subtitle}`}
-      />
-
-      <div className="mb-4 flex flex-wrap gap-2 seating-page-actions">
-        <Button variant="outline" asChild>
-          <Link href={`/dashboard/events/${id}/guests`}>{ro.seating.goToGuests}</Link>
-        </Button>
-      </div>
-
+    <AnimatedPage className="flex min-h-0 flex-1 flex-col">
       <SeatingPlanner
         eventId={id}
         tables={tables}

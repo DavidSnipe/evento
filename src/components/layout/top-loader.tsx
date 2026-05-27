@@ -182,10 +182,10 @@ function TopLoaderInner() {
       }`}
     >
       <div
-        className="h-full bg-gradient-to-r from-primary via-accent to-primary transition-all duration-200 ease-out"
+        className="h-full bg-gradient-to-r from-[#E8748A] to-[#B8516B] transition-all duration-200 ease-out"
         style={{
           width: `${progress}%`,
-          boxShadow: "0 0 6px hsl(350 42% 72%), 0 0 3px hsl(38 48% 68%)"
+          boxShadow: "0 0 8px rgba(184, 81, 107, 0.4), 0 0 3px rgba(232, 116, 138, 0.2)"
         }}
       />
     </div>

@@ -29,20 +29,45 @@
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-accent: hsl(var(--sidebar-accent));
   --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
-  --font-sans: var(--font-geist-sans);
+
+  /* Brand Colors */
+  --color-rose-light: #E8748A;
+  --color-rose-dark: #AA3F58;
+  --color-rose-muted: #CC6080;
+  --color-text-secondary: #7A6270;
+  --color-text-subtle: #C4A8B4;
+  --color-text-faint: #D4B8C4;
+  --color-blush-light: #FEF0F3;
+  --color-blush-end: #FCEAEF;
+  --color-confirmed-green: #34C759;
+  --color-pending-orange: #FF9F0A;
+  --color-declined-red: #FF3B30;
+
+  --font-sans: var(--font-inter);
   --font-serif: var(--font-playfair);
+  
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(180, 100, 120, 0.06);
+  --shadow-card-hover: 0 4px 16px rgba(180, 100, 120, 0.14);
+  --shadow-glass: 0 4px 20px rgba(180, 100, 120, 0.12), 0 0 0 1px rgba(210, 170, 185, 0.1);
+  --shadow-popover: 0 8px 32px rgba(180, 100, 120, 0.18), 0 0 0 1px rgba(210, 170, 185, 0.15);
+  --shadow-nav: 1px 0 0 rgba(210, 170, 185, 0.12), 4px 0 20px rgba(180, 100, 120, 0.05);
+  --shadow-toolbar: 0 1px 0 rgba(210, 170, 185, 0.12), 0 4px 16px rgba(180, 100, 120, 0.06);
+  --shadow-primary-btn: 0 2px 10px rgba(184, 81, 107, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  --shadow-mobile-drawer: 0 -8px 48px rgba(180, 100, 120, 0.18);
+
   --animate-shimmer: shimmer 2s infinite linear;
-  --animate-slide-in: slideIn 0.2s ease-out;
+  --animate-slide-in: slideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   --animate-soft-pulse: soft-pulse 2.5s ease-in-out infinite;
-  --animate-fade-in: fadeIn 0.3s ease-out both;
-  --animate-fade-in-up: fadeInUp 0.35s ease-out both;
-  --animate-fade-in-down: fadeInDown 0.25s ease-out both;
-  --animate-scale-in: scaleIn 0.2s ease-out both;
+  --animate-fade-in: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade-in-up: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade-in-down: fadeInDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-scale-in: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-gentle-float: gentleFloat 5s ease-in-out infinite;
 
   @keyframes shimmer {
@@ -123,46 +148,96 @@
 }
 
 :root {
-  /* warm white background */
-  --background: 40 33% 98%;
-  --foreground: 20 18% 18%;
+  /* Figma Background Canvas #F5EDE8 */
+  --background: 23 39% 94%;
+  /* Warm black #1A0E14 */
+  --foreground: 330 30% 8%;
 
-  --card: 40 40% 99%;
-  --card-foreground: 20 18% 18%;
+  /* Card Background - White */
+  --card: 0 0% 100%;
+  --card-foreground: 330 30% 8%;
 
-  --popover: 40 40% 99%;
-  --popover-foreground: 20 18% 18%;
+  /* Popover Background - White */
+  --popover: 0 0% 100%;
+  --popover-foreground: 330 30% 8%;
 
-  /* blush pink — primary brand */
-  --primary: 350 42% 72%;
-  --primary-foreground: 20 20% 12%;
+  /* Primary Rose #B8516B */
+  --primary: 345 42% 52%;
+  --primary-foreground: 0 0% 100%;
 
-  /* soft beige — secondary surfaces */
-  --secondary: 30 28% 92%;
-  --secondary-foreground: 20 18% 22%;
+  /* Secondary Surface #FDFAF9 */
+  --secondary: 15 50% 98.5%;
+  --secondary-foreground: 330 30% 12%;
 
-  --muted: 30 20% 94%;
-  --muted-foreground: 20 10% 45%;
+  /* Muted Surface #ececf0 */
+  --muted: 240 5% 93%;
+  --muted-foreground: 323 11% 55%;
 
-  /* champagne gold — accents */
+  /* Accent Gold (champagne gold HSL) */
   --accent: 38 48% 68%;
   --accent-foreground: 25 30% 14%;
 
-  --destructive: 0 72% 55%;
+  /* Destructive #FF3B30 */
+  --destructive: 359 100% 59%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 30 22% 88%;
-  --input: 30 22% 88%;
-  --ring: 350 42% 62%;
+  /* Rose-tinted border rgba(210,170,185,0.22) */
+  --border: 340 25% 85%;
+  --input: 340 25% 85%;
+  --ring: 345 42% 52%;
 
-  --radius: 0.875rem;
+  --radius: 0.625rem;
 
-  /* sidebar — dusty rose tint */
-  --sidebar: 350 28% 96%;
-  --sidebar-foreground: 20 18% 22%;
-  --sidebar-border: 350 20% 90%;
-  --sidebar-accent: 350 35% 91%;
-  --sidebar-accent-foreground: 20 18% 18%;
+  /* Sidebar - White */
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 330 30% 12%;
+  --sidebar-border: 340 25% 92%;
+  --sidebar-accent: 350 42% 96%;
+  --sidebar-accent-foreground: 345 42% 52%;
+
+  /* Evento Redesign System Tokens */
+  --ev-bg-canvas:      #F9F4F1;          /* canvas ivory warm */
+  --ev-bg-surface:     rgba(255,253,251,0.92); /* glassmorphism panels */
+  --ev-bg-sidebar:     rgba(255,251,249,0.96);
+  --ev-bg-card:        rgba(255,255,255,0.88);
+
+  /* Rose accent system */
+  --ev-rose-50:        #FFF0F3;
+  --ev-rose-100:       #FFE1E7;
+  --ev-rose-200:       #F9C8D3;
+  --ev-rose-300:       #F0A0B5;
+  --ev-rose-400:       #E07090;
+  --ev-rose-500:       #C84B6E;          /* primary CTA */
+  --ev-rose-600:       #A83558;
+
+  /* Text */
+  --ev-text-primary:   #2C1A22;
+  --ev-text-secondary: #7A5060;
+  --ev-text-muted:     #B89AA8;
+  --ev-text-label:     #4A3040;
+  --ev-text-strong:    #3A2030;
+
+  /* Borders */
+  --ev-border-soft:    rgba(200,155,172,0.22);
+  --ev-border-rose:    rgba(192,100,130,0.35);
+
+  /* Shadows */
+  --ev-shadow-sm:      0 1px 4px rgba(160,80,110,0.08);
+  --ev-shadow-md:      0 4px 16px rgba(160,80,110,0.12), 0 1px 4px rgba(160,80,110,0.06);
+  --ev-shadow-lg:      0 8px 32px rgba(160,80,110,0.14), 0 2px 8px rgba(160,80,110,0.08);
+  --ev-shadow-float:   0 12px 40px rgba(140,60,90,0.16), 0 2px 8px rgba(140,60,90,0.08);
+
+  /* Canvas dot grid */
+  --ev-dot-color:      rgba(200,155,172,0.18);
+  --ev-dot-size:       1.5px;
+  --ev-dot-spacing:    24px;
+
+  /* Seating object accents */
+  --ev-obj-stage:      #9A6878;
+  --ev-obj-dj:         #8A7078;
+  --ev-obj-bar:        #9A6070;
+  --ev-obj-photo:      #8A6878;
+  --ev-obj-entrance:   #34C759;
 }
 
 @layer base {
@@ -183,26 +258,81 @@
   }
 }
 
-/* Premium glass panel utility */
 @layer utilities {
   .glass-panel {
-    @apply rounded-2xl border border-white/60 bg-white/70 shadow-lg shadow-primary/5 backdrop-blur-md;
+    border-radius: var(--radius);
+    border: 1px solid rgba(210, 170, 185, 0.22);
+    background-color: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 4px 20px rgba(180, 100, 120, 0.12), 0 0 0 1px rgba(210, 170, 185, 0.1);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
 
-  .text-gradient-gold {
-    @apply bg-gradient-to-r from-[hsl(38,48%,58%)] to-[hsl(350,42%,72%)] bg-clip-text text-transparent;
+  .glass-toolbar {
+    height: 54px;
+    background-color: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 1px 0 rgba(210, 170, 185, 0.12), 0 4px 16px rgba(180, 100, 120, 0.06);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(210, 170, 185, 0.18);
+  }
+
+  .glass-nav {
+    background-color: rgba(255, 255, 255, 0.96);
+    box-shadow: 1px 0 0 rgba(210, 170, 185, 0.12), 4px 0 20px rgba(180, 100, 120, 0.05);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  .glass-popover {
+    border-radius: 18px;
+    background-color: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(210, 170, 185, 0.18);
+    box-shadow: 0 8px 32px rgba(180, 100, 120, 0.18), 0 0 0 1px rgba(210, 170, 185, 0.15);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  .blush-gradient {
+    background: linear-gradient(135deg, #FEF0F3 0%, #FCEAEF 100%);
+  }
+
+  .primary-gradient {
+    background: linear-gradient(135deg, #E8748A 0%, #B8516B 100%);
+  }
+
+  .divider-gradient {
+    background: linear-gradient(90deg, transparent 0%, rgba(210, 170, 185, 0.2) 50%, transparent 100%);
+  }
+
+  .text-gradient-rose {
+    background: linear-gradient(135deg, #E8748A 0%, #B8516B 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
   .hover-lift {
-    @apply transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/8;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(180, 100, 120, 0.14);
   }
 
   .press-scale {
-    @apply transition-transform duration-150 ease-out active:scale-[0.97];
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .press-scale:active {
+    transform: scale(0.97);
   }
 
   .focus-glow {
-    @apply transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-primary/15 focus-visible:shadow-[0_0_0_3px_hsl(350_42%_72%/0.06)];
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .focus-glow:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px #B8516B, 0 0 0 4px rgba(184, 81, 107, 0.15);
   }
 }
 
@@ -237,9 +367,6 @@ body.workspace-mode-active .sticky.top-0 {
 body.workspace-mode-active .dashboard-header {
   display: none !important;
 }
-body.workspace-mode-active .event-sub-nav {
-  display: none !important;
-}
 body.workspace-mode-active .seating-page-actions {
   display: none !important;
 }
@@ -249,14 +376,68 @@ body.workspace-mode-active .animated-page-wrapper {
   transition: none !important;
 }
 
+/* Seating planner — full-bleed workspace (Figma-style) */
+.dashboard-main-container:has(.seating-full-bleed) {
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .dashboard-main-container:has(.seating-full-bleed) {
+    height: 100dvh;
+  }
+}
+
+.dashboard-content-container:has(.seating-full-bleed) {
+  max-width: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+@media (max-width: 767px) {
+  .dashboard-content-container:has(.seating-full-bleed) {
+    min-height: calc(100dvh - 3.5rem);
+    height: calc(100dvh - 3.5rem);
+  }
+}
+
+.dashboard-content-container:has(.seating-full-bleed) .animated-page-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.seating-full-bleed {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
 /* Elegant, barely visible dot grid background for the wedding planner floor canvas */
 .canvas-grid {
-  background-color: #fafbfe;
-  background-image: radial-gradient(rgba(148, 163, 184, 0.07) 1.2px, transparent 1.2px);
-  background-size: 24px 24px;
-  border: 1px solid rgba(226, 232, 240, 0.7);
-  box-shadow: 
-    0 10px 30px -5px rgba(148, 163, 184, 0.08), 
-    0 6px 12px -3px rgba(148, 163, 184, 0.04);
-  border-radius: 16px;
+  background-color: var(--ev-bg-canvas);
+  background-image: radial-gradient(var(--ev-dot-color) var(--ev-dot-size), transparent var(--ev-dot-size));
+  background-size: var(--ev-dot-spacing) var(--ev-dot-spacing);
+  border: 1.5px dashed var(--ev-border-soft);
+  box-shadow: inset 0 0 80px rgba(200, 155, 172, 0.04);
+  border-radius: 28px;
+}
+
+@keyframes pulseRose {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

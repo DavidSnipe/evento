@@ -10,6 +10,7 @@ import { GuestCardView } from "@/components/guests/guest-card-view";
 import { GuestDetailPanel } from "@/components/guests/guest-detail-panel";
 import { ImportModal } from "@/components/guests/import-modal";
 import { RsvpPill } from "@/components/guests/rsvp-pill";
+import { Card } from "@/components/ui/card";
 import {
   bulkDeleteGuests,
 } from "@/app/(dashboard)/dashboard/events/[id]/guests/actions";
@@ -301,36 +302,36 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
       {/* ── Stats Row ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Total", value: computedStats.total, accent: "text-foreground" },
-          { label: "Confirmați", value: computedStats.accepted, accent: "text-emerald-600" },
-          { label: "În așteptare", value: computedStats.pending, accent: "text-amber-600" },
-          { label: "La masă", value: computedStats.seated, accent: "text-indigo-600" },
+          { label: "Total", value: computedStats.total, accent: "text-[#1A0E14]" },
+          { label: "Confirmați", value: computedStats.accepted, accent: "text-confirmed-green" },
+          { label: "În așteptare", value: computedStats.pending, accent: "text-pending-orange" },
+          { label: "La masă", value: computedStats.seated, accent: "text-[#B8516B]" },
         ].map((s) => (
-          <div
+          <Card
             key={s.label}
-            className="rounded-2xl bg-white/80 px-4 py-3 shadow-sm ring-1 ring-border/30 transition-all hover:shadow-md"
+            className="glass-panel border bg-white p-4 shadow-card rounded-[18px]"
           >
-            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <p className="text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
               {s.label}
             </p>
-            <p className={cn("mt-1 font-serif text-2xl font-semibold", s.accent)}>
+            <p className={cn("mt-1.5 font-sans text-2xl font-bold", s.accent)}>
               {s.value}
             </p>
-          </div>
+          </Card>
         ))}
       </div>
 
       {/* ── Smart Insights ── */}
       {insights.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 animate-fade-in">
           {insights.map((insight, i) => (
             <div
               key={i}
               className={cn(
-                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold border",
                 insight.type === "warn"
-                  ? "bg-amber-50 text-amber-700"
-                  : "bg-sky-50 text-sky-700"
+                  ? "bg-[#FF9F0A]/10 border-[#FF9F0A]/20 text-[#FF9F0A]"
+                  : "bg-[#FEF0F3] border-border-rose-18 text-[#B8516B]"
               )}
             >
               <span className="h-1 w-1 rounded-full bg-current" />
@@ -341,74 +342,74 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
       )}
 
       {/* ── Toolbar ── */}
-      <div className="rounded-2xl bg-white/80 p-3 shadow-sm ring-1 ring-border/30">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="glass-panel border bg-white/95 p-3.5 shadow-card rounded-[18px]">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-subtle" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Caută invitați..."
-              className="h-9 w-full rounded-xl bg-muted/40 pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/60 focus:bg-muted/60 focus:ring-2 focus:ring-primary/20"
+              className="h-9 w-full rounded-[10px] bg-[#F3F3F5] border border-[rgba(210,170,185,0.22)] pl-9 pr-8 text-xs text-[#1A0E14] outline-hidden placeholder:text-text-subtle focus-visible:ring-3 focus-visible:ring-[#B8516B]/10 focus-visible:border-[#B8516B]/40 focus:outline-none"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground hover:bg-muted"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-text-secondary hover:bg-slate-200 cursor-pointer"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-3 w-3" />
               </button>
             )}
           </div>
 
           {/* View Toggle */}
-          <div className="flex items-center rounded-xl bg-muted/40 p-0.5">
+          <div className="flex items-center rounded-[10px] bg-[#F3F3F5] p-0.5 h-9">
             <button
               type="button"
               onClick={() => setView("table")}
               className={cn(
-                "rounded-lg p-1.5 transition-all",
+                "rounded-lg p-1.5 transition-all cursor-pointer",
                 view === "table"
-                  ? "bg-white text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-white text-[#B8516B] shadow-sm"
+                  : "text-text-secondary hover:text-[#B8516B]"
               )}
               title="Tabel"
             >
-              <LayoutList className="h-4 w-4" />
+              <LayoutList className="h-3.5 w-3.5" />
             </button>
             <button
               type="button"
               onClick={() => setView("cards")}
               className={cn(
-                "rounded-lg p-1.5 transition-all",
+                "rounded-lg p-1.5 transition-all cursor-pointer",
                 view === "cards"
-                  ? "bg-white text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-white text-[#B8516B] shadow-sm"
+                  : "text-text-secondary hover:text-[#B8516B]"
               )}
               title="Carduri"
             >
-              <LayoutGrid className="h-4 w-4" />
+              <LayoutGrid className="h-3.5 w-3.5" />
             </button>
           </div>
 
-          {/* Filters */}
+          {/* Filters Button */}
           <button
             type="button"
             onClick={() => setShowFilters(!showFilters)}
             className={cn(
-              "flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium transition-all",
+              "flex items-center gap-1.5 rounded-[10px] border px-3 py-1.5 text-xs font-semibold transition-all h-9 cursor-pointer",
               activeFilters > 0
-                ? "bg-primary/10 text-primary"
-                : "bg-muted/40 text-muted-foreground hover:bg-muted/60"
+                ? "bg-[#FEF0F3] border-[#B8516B]/30 text-[#B8516B] shadow-xs"
+                : "bg-[#F3F3F5] border-transparent text-text-secondary hover:text-[#B8516B]"
             )}
           >
-            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showFilters && "rotate-180")} />
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", showFilters && "rotate-180")} />
             Filtre
             {activeFilters > 0 && (
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-white">
+              <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#B8516B] text-[9px] font-bold text-white ml-0.5">
                 {activeFilters}
               </span>
             )}
@@ -419,14 +420,14 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             <button
               type="button"
               onClick={() => setShowSortDropdown(!showSortDropdown)}
-              className="flex items-center gap-1.5 rounded-xl bg-muted/40 px-3 py-1.5 text-sm font-medium text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
+              className="flex items-center gap-1.5 rounded-[10px] border border-transparent bg-[#F3F3F5] px-3 py-1.5 text-xs font-semibold text-text-secondary transition-all hover:text-[#B8516B] h-9 cursor-pointer"
             >
               <ArrowUpDown className="h-3.5 w-3.5" />
               <span>Sortat: {sortLabels[sortBy]}</span>
-              <ChevronDown className={cn("h-3 w-3 transition-transform", showSortDropdown && "rotate-180")} />
+              <ChevronDown className={cn("h-3 w-3 transition-transform duration-200", showSortDropdown && "rotate-180")} />
             </button>
             {showSortDropdown && (
-              <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-xl border border-border/50 bg-white p-1 shadow-lg animate-in fade-in-0 zoom-in-95 duration-150">
+              <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-xl border border-border-rose-18 bg-white p-1 shadow-lg animate-scale-in">
                 {(Object.keys(sortLabels) as SortKey[]).map((key) => (
                   <button
                     key={key}
@@ -436,8 +437,8 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
                       setShowSortDropdown(false);
                     }}
                     className={cn(
-                      "flex w-full items-center rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left",
-                      sortBy === key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"
+                      "flex w-full items-center rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                      sortBy === key ? "bg-[#FEF0F3] text-[#B8516B]" : "text-text-secondary hover:bg-slate-50"
                     )}
                   >
                     {sortLabels[key]}
@@ -452,7 +453,7 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             <button
               type="button"
               onClick={() => setShowImport(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-muted/40 px-3 py-1.5 text-sm font-medium text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
+              className="flex items-center gap-1.5 rounded-[10px] border border-transparent bg-[#F3F3F5] px-3.5 py-1.5 text-xs font-semibold text-text-secondary transition-all hover:bg-[#FEF0F3]/50 hover:text-[#B8516B] h-9 cursor-pointer"
             >
               <Upload className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Importă</span>
@@ -460,7 +461,7 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             <button
               type="button"
               onClick={() => setShowQuickAdd(!showQuickAdd)}
-              className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98]"
+              className="flex items-center gap-1.5 rounded-[10px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] px-3.5 py-1.5 text-xs font-bold text-white shadow-primary-btn hover:opacity-95 transition-all h-9 cursor-pointer active:scale-95"
             >
               <Plus className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Adaugă</span>
@@ -470,20 +471,20 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
 
         {/* Filter Row */}
         {showFilters && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/30 pt-3">
+          <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border-rose-18 pt-3 animate-fade-in">
             {/* RSVP Filter */}
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-muted-foreground mr-1">RSVP:</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-text-subtle mr-1">RSVP:</span>
               {(["all", "pending", "accepted", "declined", "maybe"] as const).map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setRsvpFilter(s)}
                   className={cn(
-                    "rounded-full px-2.5 py-1 text-[11px] font-medium transition-all",
+                    "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-all cursor-pointer",
                     rsvpFilter === s
-                      ? "bg-primary/15 text-primary shadow-sm"
-                      : "text-muted-foreground hover:bg-muted/50"
+                      ? "bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] border-[#B8516B] text-[#B8516B] shadow-xs"
+                      : "bg-[#F3F3F5] border-transparent text-text-secondary hover:text-[#B8516B]"
                   )}
                 >
                   {s === "all" ? "Toți" : s === "pending" ? "Așteptare" : s === "accepted" ? "Confirmați" : s === "declined" ? "Refuzați" : "Poate"}
@@ -492,16 +493,16 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             </div>
 
             {/* Table Filter */}
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-muted-foreground mr-1">Masă:</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-text-subtle mr-1">Masă:</span>
               <button
                 type="button"
                 onClick={() => setTableFilter(tableFilter === "no-table" ? null : "no-table")}
                 className={cn(
-                  "rounded-full px-2.5 py-1 text-[11px] font-medium transition-all",
+                  "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-all cursor-pointer",
                   tableFilter === "no-table"
-                    ? "bg-primary/15 text-primary shadow-sm"
-                    : "text-muted-foreground hover:bg-muted/50"
+                    ? "bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] border-[#B8516B] text-[#B8516B] shadow-xs"
+                    : "bg-[#F3F3F5] border-transparent text-text-secondary hover:text-[#B8516B]"
                 )}
               >
                 Fără masă
@@ -509,18 +510,18 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             </div>
 
             {/* Tag Filters */}
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-xs text-muted-foreground mr-1">Tag:</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-text-subtle mr-1">Tag:</span>
               {GUEST_TAGS.slice(0, 5).map((t) => (
                 <button
                   key={t.value}
                   type="button"
                   onClick={() => setTagFilter(tagFilter === t.value ? null : t.value)}
                   className={cn(
-                    "rounded-full px-2.5 py-1 text-[11px] font-medium transition-all",
+                    "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-all cursor-pointer",
                     tagFilter === t.value
-                      ? "bg-primary/15 text-primary shadow-sm"
-                      : "text-muted-foreground hover:bg-muted/50"
+                      ? "bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] border-[#B8516B] text-[#B8516B] shadow-xs"
+                      : "bg-[#F3F3F5] border-transparent text-text-secondary hover:text-[#B8516B]"
                   )}
                 >
                   {t.icon} {t.label}
@@ -536,7 +537,7 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
                   setTagFilter(null);
                   setTableFilter(null);
                 }}
-                className="ml-auto rounded-full px-2.5 py-1 text-[11px] font-medium text-destructive hover:bg-destructive/10"
+                className="ml-auto rounded-full px-2.5 py-1 text-[11px] font-semibold text-destructive hover:bg-destructive/10 cursor-pointer"
               >
                 Șterge filtrele
               </button>
@@ -546,7 +547,7 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
 
         {/* Quick Add Bar */}
         {showQuickAdd && (
-          <div className="mt-3 border-t border-border/30 pt-3">
+          <div className="mt-3 border-t border-border-rose-18 pt-3 animate-fade-in">
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -562,19 +563,19 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
                   }
                 }}
                 placeholder="ex. Maria + Andrei, Familia Popescu..."
-                className="h-9 flex-1 rounded-xl bg-muted/40 px-3 text-sm outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/20"
+                className="h-9 flex-1 rounded-[10px] bg-[#F3F3F5] border border-[rgba(210,170,185,0.22)] px-3.5 text-xs text-[#1A0E14] outline-hidden placeholder:text-text-subtle focus-visible:ring-3 focus-visible:ring-[#B8516B]/10 focus-visible:border-[#B8516B]/40 focus:outline-none"
                 autoFocus
               />
               <button
                 type="button"
                 onClick={handleQuickAdd}
                 disabled={!quickAddText.trim() || isQuickAdding}
-                className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary/90 disabled:opacity-50"
+                className="rounded-[10px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] px-4.5 py-2 text-xs font-bold text-white shadow-primary-btn hover:opacity-95 transition-all disabled:opacity-50 h-9 cursor-pointer active:scale-95"
               >
                 {isQuickAdding ? "..." : "Adaugă"}
               </button>
             </div>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
+            <p className="mt-1.5 text-[10px] text-text-subtle pl-1 leading-normal">
               Scrie un nume și apasă Enter. Acceptă: &quot;Maria + Andrei&quot;, &quot;Familia Popescu - 4 persoane&quot;, &quot;Nași&quot;
             </p>
           </div>
@@ -583,24 +584,24 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
 
       {/* ── Bulk Actions Bar ── */}
       {selectedIds.size > 0 && (
-        <div className="sticky bottom-4 z-30 mx-auto w-fit animate-in slide-in-from-bottom-4 fade-in duration-200">
-          <div className="flex items-center gap-2 rounded-2xl bg-foreground/95 px-4 py-2.5 text-sm text-white shadow-xl backdrop-blur">
-            <span className="font-medium">{selectedIds.size} selectați</span>
+        <div className="sticky bottom-20 md:bottom-4 z-30 mx-auto w-fit animate-in slide-in-from-bottom-4 fade-in duration-200">
+          <div className="flex items-center gap-2 rounded-2xl bg-[#1A0E14]/95 px-4 py-2.5 text-xs text-white shadow-xl backdrop-blur-md border border-border-rose-18">
+            <span className="font-semibold">{selectedIds.size} selectați</span>
             <span className="h-4 w-px bg-white/20" />
 
             {/* RSVP dropdown */}
             <div className="relative group">
-              <button type="button" className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs hover:bg-white/10 transition-colors">
+              <button type="button" className="flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-white/10 transition-colors cursor-pointer font-medium">
                 <Users className="h-3.5 w-3.5" />
                 RSVP
               </button>
-              <div className="absolute bottom-full left-0 mb-1 hidden w-32 rounded-xl border bg-white p-1 shadow-lg group-hover:block">
+              <div className="absolute bottom-full left-0 mb-1 hidden w-32 rounded-xl border border-border-rose-18 bg-white p-1 shadow-lg group-hover:block">
                 {(["accepted", "pending", "declined", "maybe"] as RsvpStatus[]).map((s) => (
                   <button
                     key={s}
                     type="button"
                     onClick={() => handleBulkRsvpClick(s)}
-                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-foreground hover:bg-muted/50"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-50 cursor-pointer"
                   >
                     <RsvpPill status={s} readonly />
                   </button>
@@ -610,15 +611,15 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
 
             {/* Table dropdown */}
             <div className="relative group">
-              <button type="button" className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs hover:bg-white/10 transition-colors">
+              <button type="button" className="flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-white/10 transition-colors cursor-pointer font-medium">
                 <Tag className="h-3.5 w-3.5" />
                 Masă
               </button>
-              <div className="absolute bottom-full left-0 mb-1 hidden max-h-48 w-40 overflow-y-auto rounded-xl border bg-white p-1 shadow-lg group-hover:block">
+              <div className="absolute bottom-full left-0 mb-1 hidden max-h-48 w-40 overflow-y-auto rounded-xl border border-border-rose-18 bg-white p-1 shadow-lg group-hover:block">
                 <button
                   type="button"
                   onClick={() => handleBulkAssignTableClick(null)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-foreground hover:bg-muted/50"
+                  className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-xs text-text-secondary hover:bg-slate-50 cursor-pointer"
                 >
                   Fără masă
                 </button>
@@ -627,7 +628,7 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
                     key={t.id}
                     type="button"
                     onClick={() => handleBulkAssignTableClick(t.id)}
-                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-foreground hover:bg-muted/50"
+                    className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-xs text-text-secondary hover:bg-slate-50 cursor-pointer"
                   >
                     {t.name}
                   </button>
@@ -638,7 +639,7 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             <button
               type="button"
               onClick={handleBulkDeleteClick}
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-rose-300 hover:bg-white/10 transition-colors"
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-rose-300 hover:bg-white/10 transition-colors cursor-pointer font-medium"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Șterge
@@ -647,7 +648,7 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             <button
               type="button"
               onClick={() => setSelectedIds(new Set())}
-              className="ml-1 rounded-full p-1 hover:bg-white/10 transition-colors"
+              className="ml-1 rounded-full p-1 hover:bg-white/10 transition-colors cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -658,31 +659,31 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
       {/* ── Content ── */}
       {localGuests.length === 0 ? (
         /* Empty State */
-        <div className="flex flex-col items-center justify-center rounded-3xl bg-white/60 py-20 text-center shadow-sm ring-1 ring-border/20 animate-fade-in">
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 animate-gentle-float">
-            <Users className="h-10 w-10 text-primary/60" />
+        <div className="flex flex-col items-center justify-center rounded-[24px] bg-white border border-[rgba(210,170,185,0.22)] py-20 text-center shadow-card animate-fade-in">
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] border border-border-rose-18 text-[#B8516B] shadow-sm animate-gentle-float">
+            <Users className="h-7 w-7" />
           </div>
-          <h3 className="font-serif text-xl font-semibold text-foreground animate-fade-in-up" style={{ animationDelay: "50ms" }}>
+          <h3 className="font-serif text-lg font-bold text-[#1A0E14] animate-fade-in-up" style={{ animationDelay: "50ms" }}>
             Începe să construiești lista de invitați
           </h3>
-          <p className="mt-2 max-w-sm text-sm text-muted-foreground animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+          <p className="mt-1.5 max-w-xs text-xs text-text-secondary leading-relaxed animate-fade-in-up" style={{ animationDelay: "100ms" }}>
             Adaugă invitați manual sau importă-i dintr-o listă. Poți lipi text, importa CSV sau adăuga pe rând.
           </p>
           <div className="mt-6 flex gap-3 animate-fade-in-up" style={{ animationDelay: "150ms" }}>
             <button
               type="button"
               onClick={() => setShowImport(true)}
-              className="flex items-center gap-2 rounded-xl bg-muted/60 px-5 py-2.5 text-sm font-medium text-foreground transition-all hover:bg-muted hover:shadow-sm hover:scale-[1.01] active:scale-[0.98]"
+              className="flex items-center gap-2 rounded-[10px] bg-[#F3F3F5] hover:bg-[#FEF0F3]/40 border border-transparent hover:border-border-rose-22 px-5 py-2.5 text-xs font-semibold text-text-secondary transition-all cursor-pointer active:scale-95"
             >
-              <Upload className="h-4 w-4" />
+              <Upload className="h-3.5 w-3.5" />
               Importă invitați
             </button>
             <button
               type="button"
               onClick={() => setShowQuickAdd(true)}
-              className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary/90 hover:scale-[1.01] active:scale-[0.98]"
+              className="flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] px-5 py-2.5 text-xs font-bold text-white shadow-primary-btn hover:opacity-95 transition-all cursor-pointer active:scale-95"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-3.5 w-3.5" />
               Adaugă primul invitat
             </button>
           </div>

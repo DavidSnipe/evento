@@ -3,22 +3,83 @@
 import { useState } from "react";
 import {
   Heart,
-  Crown,
   Lock,
-  Music,
   Sliders,
   Mic,
   GlassWater,
-  Cake,
   Camera,
-  DoorOpen,
-  HelpCircle
+  Star
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ro } from "@/lib/i18n/ro";
 import type { TableWithGuests } from "@/lib/seating/queries";
 import type { GuestWithTable } from "@/types/guests";
 import { parseMetadata, getTableOccupancy } from "@/lib/seating/utils";
+
+/** LOD thresholds — match Figma export (SeatingCanvas.tsx) */
+const LOD = {
+  showArc: (zoom: number) => zoom >= 0.7,
+  showCount: (zoom: number) => zoom >= 0.88,
+  showSeats: (zoom: number) => zoom >= 1.1,
+  showRoomLabel: (zoom: number) => zoom >= 0.42,
+  showRoom: (zoom: number) => zoom >= 0.35,
+};
+
+/** Global visual scale vs Figma export base (user-requested 1.5x) */
+const VISUAL_SCALE = 1.5;
+const FIGMA_TABLE_SCALE = VISUAL_SCALE;
+
+/** Figma SeatingCanvas ROOM_CONFIG — exact values */
+const ROOM_CONFIG: Record<
+  string,
+  { gradient: string; border: string; color: string; Icon: React.ElementType; glow: string }
+> = {
+  stage: {
+    gradient: "linear-gradient(145deg,#FDF0F4,#F8E4EC)",
+    border: "rgba(210,155,178,0.35)",
+    color: "#9A6878",
+    Icon: Mic,
+    glow: "rgba(200,130,155,0.1)",
+  },
+  dj_booth: {
+    gradient: "linear-gradient(145deg,#F8F3F5,#F2EAEE)",
+    border: "rgba(200,170,182,0.3)",
+    color: "#8A7078",
+    Icon: Sliders,
+    glow: "rgba(180,140,158,0.08)",
+  },
+  dance_floor: {
+    gradient: "linear-gradient(145deg,#FEF2F6,#FCEAEF)",
+    border: "rgba(210,160,178,0.4)",
+    color: "#B8516B",
+    Icon: Heart,
+    glow: "rgba(184,81,107,0.12)",
+  },
+  bar: {
+    gradient: "linear-gradient(145deg,#F8F0F2,#F2E8EC)",
+    border: "rgba(200,165,178,0.3)",
+    color: "#9A6070",
+    Icon: GlassWater,
+    glow: "rgba(180,120,140,0.08)",
+  },
+  photo_booth: {
+    gradient: "linear-gradient(145deg,#F5F0F4,#EFE8EE)",
+    border: "rgba(195,165,180,0.3)",
+    color: "#8A6878",
+    Icon: Camera,
+    glow: "rgba(170,130,150,0.08)",
+  },
+  couple: {
+    gradient: "linear-gradient(145deg,#FEF0F4,#FCE8EE)",
+    border: "rgba(210,158,178,0.45)",
+    color: "#B8516B",
+    Icon: Star,
+    glow: "rgba(184,81,107,0.14)",
+  },
+};
+
+function getFigmaRoomConfig(type: string) {
+  return ROOM_CONFIG[type] ?? ROOM_CONFIG.stage;
+}
 
 type TableVisualProps = {
   table: TableWithGuests;
@@ -68,71 +129,27 @@ function getVisualGuests(table: TableWithGuests): VisualGuest[] {
   return list;
 }
 
-function getInitials(g: VisualGuest): string {
-  if ("isVirtual" in g && g.isVirtual) return "+1";
-  const f = g.first_name?.[0] ?? "";
-  const l = g.last_name?.[0] ?? "";
-  return g.last_name ? `${l}${f}`.toUpperCase() : f.toUpperCase() || "?";
-}
-
-/* ------------------------------------------------------------------ */
-/*  Seat layout generators                                            */
-/* ------------------------------------------------------------------ */
-
 type SeatInfo = { guest: VisualGuest | null; x: number; y: number };
-
-function roundSeats(table: TableWithGuests, radius: number): SeatInfo[] {
-  const visualGuests = getVisualGuests(table);
-  return Array.from({ length: table.capacity }, (_, i) => {
-    const guest = visualGuests[i] ?? null;
-    const angle = (360 / table.capacity) * i - 90;
-    const rad = (angle * Math.PI) / 180;
-    return {
-      guest,
-      x: Math.cos(rad) * radius,
-      y: Math.sin(rad) * radius,
-    };
-  });
-}
-
-function sweetheartSeats(table: TableWithGuests, radius: number): SeatInfo[] {
-  const visualGuests = getVisualGuests(table);
-  return Array.from({ length: table.capacity }, (_, i) => {
-    const guest = visualGuests[i] ?? null;
-    let angle = -90;
-    if (table.capacity > 1) {
-      const startAngle = -115;
-      const endAngle = -65;
-      angle = startAngle + ((endAngle - startAngle) / (table.capacity - 1)) * i;
-    }
-    const rad = (angle * Math.PI) / 180;
-    return {
-      guest,
-      x: Math.cos(rad) * radius,
-      y: Math.sin(rad) * radius,
-    };
-  });
-}
 
 function rectangularSeats(table: TableWithGuests): SeatInfo[] {
   const visualGuests = getVisualGuests(table);
   const half = Math.ceil(table.capacity / 2);
   const seats: SeatInfo[] = [];
 
-  // top edge (y = -50%)
+  // top edge (y = -62%)
   for (let i = 0; i < half; i++) {
     const guest = visualGuests[i] ?? null;
     const x = half === 1 ? 0 : ((i + 0.5) / half) * 90 - 45; // spread -45..45%
-    seats.push({ guest, x, y: -50 });
+    seats.push({ guest, x, y: -62 });
   }
 
-  // bottom edge (y = 50%)
+  // bottom edge (y = 62%)
   for (let i = half; i < table.capacity; i++) {
     const guest = visualGuests[i] ?? null;
     const idx = i - half;
     const bottomCount = table.capacity - half;
     const x = bottomCount === 1 ? 0 : ((idx + 0.5) / bottomCount) * 90 - 45;
-    seats.push({ guest, x, y: 50 });
+    seats.push({ guest, x, y: 62 });
   }
 
   return seats;
@@ -149,32 +166,32 @@ function squareSeats(table: TableWithGuests): SeatInfo[] {
     sides[i % 4].push(visualGuests[i] ?? null);
   }
 
-  // top side (y = -50%)
+  // top side (y = -62%)
   sides[0].forEach((guest, idx) => {
     const count = sides[0].length;
     const x = count === 1 ? 0 : ((idx + 0.5) / count) * 80 - 40;
-    seats.push({ guest, x, y: -50 });
+    seats.push({ guest, x, y: -62 });
   });
 
-  // right side (x = 50%)
+  // right side (x = 62%)
   sides[1].forEach((guest, idx) => {
     const count = sides[1].length;
     const y = count === 1 ? 0 : ((idx + 0.5) / count) * 80 - 40;
-    seats.push({ guest, x: 50, y });
+    seats.push({ guest, x: 62, y });
   });
 
-  // bottom side (y = 50%)
+  // bottom side (y = 62%)
   sides[2].forEach((guest, idx) => {
     const count = sides[2].length;
     const x = count === 1 ? 0 : ((idx + 0.5) / count) * 80 - 40;
-    seats.push({ guest, x, y: 50 });
+    seats.push({ guest, x, y: 62 });
   });
 
-  // left side (x = -50%)
+  // left side (x = -62%)
   sides[3].forEach((guest, idx) => {
     const count = sides[3].length;
     const y = count === 1 ? 0 : ((idx + 0.5) / count) * 80 - 40;
-    seats.push({ guest, x: -50, y });
+    seats.push({ guest, x: -62, y });
   });
 
   return seats;
@@ -185,12 +202,14 @@ function squareSeats(table: TableWithGuests): SeatInfo[] {
 /* ------------------------------------------------------------------ */
 
 function Seat({ guest, x, y, isPercent }: SeatInfo & { isPercent?: boolean }) {
+  const occupied = !!guest;
+  const r = 5.5 * VISUAL_SCALE;
   return (
     <div
       className="absolute flex items-center justify-center pointer-events-auto"
       style={{
-        width: 28,
-        height: 28,
+        width: r * 2 + 3,
+        height: r * 2 + 3,
         left: isPercent ? `calc(50% + ${x}%)` : "50%",
         top: isPercent ? `calc(50% + ${y}%)` : "50%",
         transform: isPercent
@@ -198,73 +217,18 @@ function Seat({ guest, x, y, isPercent }: SeatInfo & { isPercent?: boolean }) {
           : `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
       }}
     >
-      {guest ? (
-        <span
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/95 text-[10px] font-semibold text-primary-foreground shadow-md ring-2 ring-white hover:scale-115 transition-transform duration-200 cursor-help animate-in zoom-in-50 duration-300 ease-out"
-          title={guest.last_name ? `${guest.last_name} ${guest.first_name}` : guest.first_name}
-        >
-          {getInitials(guest)}
-        </span>
-      ) : (
-        <span className="h-3.5 w-3.5 rounded-full border border-muted-foreground/30 bg-white/70 shadow-sm" />
-      )}
+      <svg width={r * 2 + 3} height={r * 2 + 3} overflow="visible">
+        <circle
+          cx={(r * 2 + 3) / 2}
+          cy={(r * 2 + 3) / 2}
+          r={r}
+          fill={occupied ? "#C2556A" : "#F0D8DF"}
+          stroke="white"
+          strokeWidth={1.5}
+        />
+      </svg>
     </div>
   );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Occupancy Badge                                                   */
-/* ------------------------------------------------------------------ */
-
-function OccupancyBadge({
-  current,
-  max,
-  scale = 1.0,
-}: {
-  current: number;
-  max: number;
-  scale?: number;
-}) {
-  if (scale < 0.15) return null;
-  const isFull = current >= max;
-  const label = scale >= 0.8 ? ` ${ro.seating.tableCard.seats}` : "";
-  return (
-    <span
-      className={cn(
-        "mt-0.5 text-[10px] font-medium tracking-tight px-1.5 py-0.5 rounded-full bg-slate-50 border border-slate-100 transition-colors duration-300",
-        isFull ? "text-destructive font-semibold bg-destructive/5" : "text-muted-foreground",
-      )}
-    >
-      {current}/{max}{label}
-    </span>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Room Object Icons                                                 */
-/* ------------------------------------------------------------------ */
-
-function getObjectIcon(type: string) {
-  switch (type) {
-    case "dance_floor":
-      return Music;
-    case "dj_booth":
-      return Sliders;
-    case "stage":
-      return Mic;
-    case "bar":
-      return GlassWater;
-    case "candy_bar":
-      return Cake;
-    case "sweet_table":
-      return Cake;
-    case "photo_booth":
-      return Camera;
-    case "entrance":
-      return DoorOpen;
-    default:
-      return HelpCircle;
-  }
 }
 
 function getObjectLabel(type: string): string {
@@ -299,6 +263,189 @@ function getSimplifiedName(name: string): string {
   return match ? match[1] : name;
 }
 
+/** Round table — pixel-perfect copy of Figma SeatingCanvas TableComponent */
+function RoundFigmaTable({
+  tableId,
+  tableNumber,
+  occupied,
+  capacity,
+  zoom,
+  isSelected,
+  glowing,
+  rejected,
+}: {
+  tableId: string;
+  tableNumber: string;
+  occupied: number;
+  capacity: number;
+  zoom: number;
+  isSelected: boolean;
+  glowing: boolean;
+  rejected: boolean;
+}) {
+  const tableScale = FIGMA_TABLE_SCALE;
+  const full = occupied >= capacity;
+  const svgSize = Math.round(116 * tableScale);
+  const cx = svgSize / 2;
+  const cy = svgSize / 2;
+  const R = 33 * tableScale;
+  const R_seat = 48 * tableScale;
+  const r_seat = 5.5 * tableScale;
+
+  const baseFontSize = zoom < 0.7 ? 14 : zoom < 1 ? 17 : 20;
+  const numberFontSize = baseFontSize * tableScale;
+  const subFontSize = 9 * tableScale;
+  const showSeats = LOD.showSeats(zoom);
+  const showArc = LOD.showArc(zoom);
+  const showCount = LOD.showCount(zoom);
+
+  const seats = Array.from({ length: capacity }, (_, i) => {
+    const angle = (2 * Math.PI * i) / capacity - Math.PI / 2;
+    return {
+      x: cx + R_seat * Math.cos(angle),
+      y: cy + R_seat * Math.sin(angle),
+      filled: i < occupied,
+    };
+  });
+
+  const dashArray = 2 * Math.PI * R;
+  const dashOffset = dashArray * (1 - occupied / capacity);
+  const tableBodyColor = glowing
+    ? "#FEF0F3"
+    : full
+      ? "#FEF2F5"
+      : isSelected
+        ? "#FEF5F7"
+        : "#FDF8F9";
+
+  const boxShadow = glowing
+    ? "0 0 20px rgba(184,81,107,0.4)"
+    : rejected
+      ? "0 0 15px rgba(255,59,48,0.3)"
+      : isSelected
+        ? "0 0 15px rgba(184,81,107,0.2)"
+        : "0 4px 12px rgba(180,100,120,0.1)";
+
+  const gradId = `tg_${tableId}`;
+
+  return (
+    <div
+      style={{
+        width: svgSize,
+        height: svgSize,
+        borderRadius: "50%",
+        boxShadow,
+        transition: "box-shadow 0.28s ease, transform 0.2s ease",
+        transform: glowing ? "scale(1.1)" : undefined,
+      }}
+    >
+      <svg
+        width={svgSize}
+        height={svgSize}
+        overflow="visible"
+        shapeRendering="geometricPrecision"
+        style={{ display: "block" }}
+      >
+        <defs>
+          <radialGradient id={gradId} cx="38%" cy="32%" r="68%">
+            <stop offset="0%" stopColor="white" />
+            <stop offset="100%" stopColor={tableBodyColor} />
+          </radialGradient>
+        </defs>
+        {showSeats &&
+          seats.map((seat, i) => (
+            <circle
+              key={i}
+              cx={seat.x}
+              cy={seat.y}
+              r={r_seat}
+              fill={seat.filled ? "#C2556A" : glowing ? "#FCEAEF" : "#F0D8DF"}
+              stroke="white"
+              strokeWidth={1.5 * tableScale}
+              style={{ transition: "fill 0.3s ease" }}
+            />
+          ))}
+        <circle cx={cx} cy={cy + 1} r={R + 1} fill="rgba(180,100,120,0.06)" />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={R}
+          fill={`url(#${gradId})`}
+          stroke={
+            glowing
+              ? "#C2556A"
+              : rejected
+                ? "#FF3B30"
+                : isSelected
+                  ? "#B8516B"
+                  : "rgba(210,170,185,0.45)"
+          }
+          strokeWidth={glowing || isSelected ? 2 : 1.5}
+        />
+        {showArc && occupied > 0 && (
+          <circle
+            cx={cx}
+            cy={cy}
+            r={R - 4 * tableScale}
+            fill="none"
+            stroke={full ? "rgba(184,81,107,0.35)" : "rgba(184,81,107,0.18)"}
+            strokeWidth={2}
+            strokeDasharray={dashArray}
+            strokeDashoffset={dashOffset}
+            strokeLinecap="round"
+            transform={`rotate(-90 ${cx} ${cy})`}
+            style={{ transition: "stroke-dashoffset 0.5s ease" }}
+          />
+        )}
+        <text
+          x={cx}
+          y={showCount && occupied > 0 ? cy - 6 * tableScale : cy + 1}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={zoom >= 1.1 ? 16 * tableScale : numberFontSize}
+          fontFamily="var(--font-playfair), Playfair Display, Georgia, serif"
+          fontWeight={600}
+          fill={isSelected ? "#B8516B" : "#1A0E14"}
+          letterSpacing="-0.5"
+        >
+          {tableNumber}
+        </text>
+        {showCount && occupied > 0 && (
+          <text
+            x={cx}
+            y={cy + numberFontSize * 0.58}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={subFontSize}
+            fontFamily="Inter, sans-serif"
+            fill={full ? "#B8516B" : "#C4A8B4"}
+            fontWeight={600}
+            letterSpacing="0.02em"
+          >
+            {occupied}/{capacity}
+          </text>
+        )}
+        {glowing && (
+          <circle
+            cx={cx}
+            cy={cy}
+            r={R + 8 * tableScale}
+            fill="none"
+            stroke="#C2556A"
+            strokeWidth={1.5}
+            strokeDasharray="5 4"
+            opacity={0.6}
+            style={{
+              transformOrigin: `${cx}px ${cy}px`,
+              animation: "spin 6s linear infinite",
+            }}
+          />
+        )}
+      </svg>
+    </div>
+  );
+}
+
 export function TableVisual({
   table,
   isSelected,
@@ -323,6 +470,7 @@ export function TableVisual({
 
   const { occupied, capacity } = getTableOccupancy(table);
   const isFull = occupied >= capacity;
+  const baseFontSize = scale < 0.7 ? 14 : scale < 1 ? 17 : 20;
 
   /* ---- drag-and-drop handlers ---- */
   function handleDragOver(e: React.DragEvent) {
@@ -332,6 +480,73 @@ export function TableVisual({
     }
   }
 
+  // Handle Sweetheart / couple table (Figma couple style)
+  if (isSweetheart) {
+    const cfg = ROOM_CONFIG.couple;
+    const width = Math.round(170 * VISUAL_SCALE);
+    const height = Math.round(88 * VISUAL_SCALE);
+    const rotation = metadata.rotation || 0;
+    const showLabel = LOD.showRoomLabel(scale);
+
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") onClick();
+        }}
+        onDragOver={handleDragOver}
+        onDrop={(e) => {
+          e.preventDefault();
+          onDrop(e);
+        }}
+        className={cn(
+          "group relative flex select-none items-center justify-center",
+          isSelected && "ring-2 ring-[#B8516B]/30",
+          isLocked && "cursor-default"
+        )}
+        style={{
+          width,
+          height,
+          transform: `rotate(${rotation}deg)`,
+          borderRadius: 12,
+          background: cfg.gradient,
+          border: `1.5px solid ${cfg.border}`,
+          boxShadow: `0 2px 12px ${cfg.glow}, inset 0 1px 0 rgba(255,255,255,0.7)`,
+          gap: showLabel ? 4 : 0,
+        }}
+      >
+        {isLocked && (
+          <div className="absolute right-2 top-2 rounded-full bg-slate-200/80 p-0.5 text-slate-500 shadow-sm">
+            <Lock className="h-2.5 w-2.5" />
+          </div>
+        )}
+        <Star
+          size={Math.round((showLabel ? 13 : 11) * VISUAL_SCALE)}
+          color={cfg.color}
+          strokeWidth={1.8}
+          fill={`${cfg.color}22`}
+        />
+        {showLabel && (
+          <span
+            style={{
+              fontSize: 8.5 * VISUAL_SCALE,
+              fontWeight: 650,
+              color: cfg.color,
+              fontFamily: "Inter, sans-serif",
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              opacity: 0.85,
+            }}
+          >
+            {table.name}
+          </span>
+        )}
+      </div>
+    );
+  }
+
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     if (!isRoomObject) {
@@ -339,13 +554,19 @@ export function TableVisual({
     }
   }
 
-  // Handle Room Object visual rendering
+  // Handle Room Object visual rendering (Figma RoomObjectItem)
   if (isRoomObject) {
-    const ObjectIcon = getObjectIcon(metadata.objectType!);
-    const objectLabel = table.name || getObjectLabel(metadata.objectType!);
-    const width = metadata.width || 180;
-    const height = metadata.height || 100;
+    if (!LOD.showRoom(scale)) return null;
+
+    const objectType = metadata.objectType!;
+    const cfg = getFigmaRoomConfig(objectType);
+    const Icon = cfg.Icon;
+    const objectLabel = table.name || getObjectLabel(objectType);
+    const width = Math.round((metadata.width || 220) * VISUAL_SCALE);
+    const height = Math.round((metadata.height || 120) * VISUAL_SCALE);
     const rotation = metadata.rotation || 0;
+    const isLarge = objectType === "dance_floor";
+    const showLabel = LOD.showRoomLabel(scale);
 
     return (
       <div
@@ -356,58 +577,120 @@ export function TableVisual({
           if (e.key === "Enter" || e.key === " ") onClick();
         }}
         className={cn(
-          "group relative flex items-center justify-center transition-all duration-300 border-2 select-none",
-          "bg-gradient-to-br from-slate-50/90 to-slate-100/90 border-slate-200 shadow-md backdrop-blur-sm",
-          "hover:scale-[1.02] hover:shadow-lg hover:border-slate-300",
-          isSelected && "ring-2 ring-primary border-primary/50 scale-[1.02] shadow-lg",
-          metadata.objectType === "dance_floor" && "from-amber-50/50 to-pink-50/50 border-dashed border-pink-200 shadow-sm",
-          metadata.objectType === "stage" && "from-slate-100 to-slate-200 border-double border-slate-400",
-          metadata.objectType === "entrance" && "bg-emerald-50/70 border-emerald-200 border-dashed",
-          isLocked && "cursor-default hover:scale-100"
+          "group relative select-none",
+          isLocked && "cursor-default"
         )}
         style={{
           width,
           height,
           transform: `rotate(${rotation}deg)`,
-          borderRadius: metadata.customShape === "round" ? "9999px" : "16px"
+          background: cfg.gradient,
+          border: `1.5px solid ${cfg.border}`,
+          borderRadius: isLarge ? 18 : 12,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: showLabel ? 4 : 0,
+          boxShadow: `0 2px 12px ${cfg.glow}, inset 0 1px 0 rgba(255,255,255,0.7)`,
+          overflow: "hidden",
+          userSelect: "none",
         }}
       >
-        {/* Lock indicator */}
         {isLocked && (
           <div className="absolute right-2 top-2 rounded-full bg-slate-200/80 p-1 text-slate-500 shadow-sm">
             <Lock className="h-3 w-3" />
           </div>
         )}
-
-        <div 
-          className="flex flex-col items-center justify-center gap-1.5 p-2 text-center transition-transform duration-300 ease-out"
-          style={{
-            transform: `scale(${Math.min(3.5, Math.max(0.6, 0.9 / scale))})`,
-          }}
-        >
-          <ObjectIcon className={cn(
-            "h-6 w-6 text-slate-500/70 group-hover:text-slate-600 transition-colors",
-            metadata.objectType === "dance_floor" && "text-pink-400/90 group-hover:text-pink-500",
-            metadata.objectType === "entrance" && "text-emerald-500",
-            metadata.objectType === "stage" && "text-amber-500"
-          )} />
-          <span className="font-serif text-xs font-semibold text-slate-700 tracking-wide line-clamp-2">
+        <Icon
+          size={
+            showLabel
+              ? Math.round((isLarge ? 18 : 13) * VISUAL_SCALE)
+              : Math.round((isLarge ? 14 : 11) * VISUAL_SCALE)
+          }
+          color={cfg.color}
+          strokeWidth={isLarge ? 1.5 : 1.8}
+          fill={objectType === "dance_floor" ? `${cfg.color}22` : "none"}
+        />
+        {showLabel && (
+          <span
+            style={{
+              fontSize: (isLarge ? 10 : 8.5) * VISUAL_SCALE,
+              fontWeight: 650,
+              color: cfg.color,
+              fontFamily: "Inter, sans-serif",
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              opacity: 0.85,
+            }}
+          >
             {objectLabel}
           </span>
-        </div>
+        )}
       </div>
     );
   }
 
-  // Sizing and styling variables for tables
-  let dimensions = "h-40 w-40 rounded-full";
-  if (isSweetheart) dimensions = "h-44 w-44 rounded-full";
-  if (isRectangular) dimensions = shape === "long_banquet" ? "h-32 w-80 rounded-2xl" : "h-32 w-48 rounded-2xl";
-  if (isSquare) dimensions = "h-36 w-36 rounded-xl";
-
   const rotation = metadata.rotation || 0;
-
   const showFeedback = isHovered || (isDropTarget && isMouseHovered);
+  const glowing = showFeedback && isValidDrop;
+  const rejected = showFeedback && !isValidDrop;
+  const tableNumber = getSimplifiedName(table.name);
+
+  // Round tables — Figma TableComponent (SVG)
+  if (isRound) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") onClick();
+        }}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        onMouseEnter={() => {
+          if (isDropTarget) setIsMouseHovered(true);
+        }}
+        onMouseLeave={() => setIsMouseHovered(false)}
+        className={cn(
+          "group relative flex cursor-pointer items-center justify-center select-none",
+          isLocked && "cursor-default"
+        )}
+        style={{ transform: `rotate(${rotation}deg)` }}
+      >
+        {showFeedback && !isValidDrop && validationReason && (
+          <div
+            className="absolute -top-12 left-1/2 z-50 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-1 rounded-lg bg-rose-600 px-2.5 py-1.5 text-[11px] font-semibold whitespace-nowrap text-white shadow-lg duration-150"
+            style={{ transform: `translate(-50%, 0) rotate(${-rotation}deg)` }}
+          >
+            {validationReason}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-rose-600" />
+          </div>
+        )}
+        {isLocked && (
+          <div className="absolute right-0 top-0 z-10 rounded-full border border-slate-200/50 bg-slate-100/90 p-1 text-slate-400 shadow-sm">
+            <Lock className="h-3 w-3" />
+          </div>
+        )}
+        <RoundFigmaTable
+          tableId={table.id}
+          tableNumber={tableNumber}
+          occupied={occupied}
+          capacity={capacity}
+          zoom={scale}
+          isSelected={isSelected}
+          glowing={glowing}
+          rejected={rejected}
+        />
+      </div>
+    );
+  }
+
+  // Non-round tables (rectangular / square) — scaled to match round table footprint
+  const rectW = Math.round((shape === "long_banquet" ? 384 : 256) * VISUAL_SCALE);
+  const rectH = Math.round(160 * VISUAL_SCALE);
+  const squareSize = Math.round(176 * VISUAL_SCALE);
 
   return (
     <div
@@ -426,36 +709,23 @@ export function TableVisual({
         setIsMouseHovered(false);
       }}
       className={cn(
-        /* base */
-        "group relative flex cursor-pointer flex-col items-center justify-center transition-all duration-300 select-none",
-        dimensions,
-
-        /* glass surface */
-        "border bg-white/95 shadow-md backdrop-blur-sm border-border/80",
-
-        /* hover effect if not locked and not showing feedback */
-        !isLocked && !showFeedback && "hover:scale-[1.04] hover:shadow-lg hover:border-primary/20",
-
-        /* selected state (only if not showing active feedback) */
-        isSelected && !showFeedback && "scale-105 ring-2 ring-primary shadow-xl border-primary/50 z-20",
-
-        /* drop target guest assignment preview (only if not hovered/showing feedback) */
-        isDropTarget && !showFeedback && "ring-2 ring-accent border-dashed border-accent animate-pulse scale-[1.02]",
-
-        /* active droppable/undroppable feedback */
-        showFeedback && isValidDrop && "ring-4 ring-emerald-500 border-emerald-400 bg-emerald-50/5 hover:scale-[1.04] shadow-[0_0_20px_5px_rgba(16,185,129,0.4)] scale-105 z-20",
-        showFeedback && !isValidDrop && "ring-4 ring-rose-500 border-rose-400 bg-rose-50/5 hover:scale-[1.02] shadow-[0_0_20px_5px_rgba(244,63,94,0.4)] scale-102 z-20 cursor-not-allowed",
-
-        /* full occupancy styling */
-        isFull && !isSelected && !isDropTarget && "bg-pink-50/10 border-pink-200/50 shadow-inner",
-
-        /* sweetheart custom gold style */
-        isSweetheart && "border-amber-300/80 shadow-[0_0_24px_4px_rgba(217,179,112,0.15)] bg-gradient-to-br from-amber-50/30 via-white to-white",
-        
+        "group relative flex cursor-pointer flex-col items-center justify-center transition-all duration-300 select-none border",
         isLocked && "cursor-default hover:scale-100"
       )}
       style={{
-        transform: `rotate(${rotation}deg)`
+        width: isSquare ? squareSize : rectW,
+        height: isSquare ? squareSize : rectH,
+        transform: `rotate(${rotation}deg)`,
+        borderRadius: isRectangular ? "16px" : "12px",
+        background: isSelected
+          ? "linear-gradient(145deg, #FEF0F4, #FCE8EE)"
+          : "linear-gradient(145deg, rgba(255,255,255,0.95), rgba(252,246,249,0.90))",
+        border: isSelected
+          ? "2px solid rgba(184,81,107,0.45)"
+          : "1.5px solid rgba(210,160,178,0.30)",
+        boxShadow: isSelected
+          ? "0 0 15px rgba(184,81,107,0.2)"
+          : "0 4px 12px rgba(180,100,120,0.1)",
       }}
     >
       {/* Invalid Drop Tooltip */}
@@ -470,14 +740,6 @@ export function TableVisual({
           <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-rose-600" />
         </div>
       )}
-      {/* Crown decoration for sweetheart table */}
-      {isSweetheart && (
-        <Crown
-          className="absolute -top-4.5 left-1/2 -translate-x-1/2 text-amber-400 drop-shadow-sm animate-bounce"
-          size={20}
-          style={{ animationDuration: "3s" }}
-        />
-      )}
 
       {/* Lock indicator */}
       {isLocked && (
@@ -486,65 +748,56 @@ export function TableVisual({
         </div>
       )}
 
-      {/* Seat dots with correct coordinates and scale */}
-      <div
-        className="absolute inset-0 pointer-events-none transition-opacity duration-300 ease-in-out"
-        style={{
-          opacity: scale < 0.5 ? 0 : 1,
-          display: scale < 0.4 ? "none" : "block"
-        }}
-      >
-        {isSweetheart ? (
-          <>
-            {sweetheartSeats(table, 82).map((seat, i) => (
-              <Seat key={i} {...seat} />
-            ))}
-          </>
-        ) : isRound ? (
-          <>
-            {roundSeats(table, 74).map((seat, i) => (
-              <Seat key={i} {...seat} />
-            ))}
-          </>
-        ) : isSquare ? (
-          <>
-            {squareSeats(table).map((seat, i) => (
-              <Seat key={i} {...seat} isPercent />
-            ))}
-          </>
-        ) : (
-          <>
-            {rectangularSeats(table).map((seat, i) => (
-              <Seat key={i} {...seat} isPercent />
-            ))}
-          </>
+      {/* Seat dots — rectangular / square */}
+      {LOD.showSeats(scale) && (
+        <div className="absolute inset-0 pointer-events-none">
+          {isSquare
+            ? squareSeats(table).map((seat, i) => <Seat key={i} {...seat} isPercent />)
+            : rectangularSeats(table).map((seat, i) => <Seat key={i} {...seat} isPercent />)}
+        </div>
+      )}
+
+      {/* Center label */}
+      <div className="z-10 flex flex-col items-center gap-0.5 pointer-events-none px-3">
+        <span
+          style={{
+            fontSize: LOD.showCount(scale) ? 16 * VISUAL_SCALE : baseFontSize * VISUAL_SCALE,
+            fontWeight: 600,
+            color: isSelected ? "#B8516B" : "#1A0E14",
+            fontFamily: "var(--font-playfair), Playfair Display, Georgia, serif",
+            letterSpacing: "-0.5px",
+            lineHeight: 1,
+          }}
+        >
+          {tableNumber}
+        </span>
+        {LOD.showCount(scale) && occupied > 0 && (
+          <span
+            style={{
+              fontSize: 9 * VISUAL_SCALE,
+              fontWeight: 600,
+              color: isFull ? "#B8516B" : "#C4A8B4",
+              fontFamily: "Inter, sans-serif",
+              marginTop: 1,
+              letterSpacing: "0.02em",
+            }}
+          >
+            {occupied}/{capacity}
+          </span>
         )}
       </div>
 
-      {/* Center label */}
-      <div 
-        className="z-10 flex flex-col items-center gap-0.5 pointer-events-none px-3 transition-transform duration-300 ease-out"
-        style={{
-          transform: `scale(${Math.min(3.5, Math.max(0.6, 0.9 / scale))})`,
-        }}
-      >
-        {isSweetheart && (
-          <Heart
-            className="mb-0.5 fill-amber-300/40 text-amber-500 animate-pulse"
-            size={16}
-            style={{ animationDuration: "2s" }}
-          />
-        )}
-        <span
-          className={cn(
-            "font-serif text-sm font-semibold leading-tight text-center text-slate-800 transition-colors duration-300",
-            isSweetheart && "text-amber-700 font-bold",
-          )}
-        >
-          {scale < 0.5 ? getSimplifiedName(table.name) : table.name}
-        </span>
-        <OccupancyBadge current={occupied} max={capacity} scale={scale} />
-      </div>
+      {/* Drop hover active feedback overlay */}
+      {glowing && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          borderRadius: isRectangular ? '16px' : '12px',
+          background: 'rgba(192,100,130,0.12)',
+          border: '2px dashed rgba(192,100,130,0.55)',
+          pointerEvents: 'none',
+          animation: 'pulseRose 0.8s ease-in-out infinite',
+        }} />
+      )}
     </div>
   );
 }

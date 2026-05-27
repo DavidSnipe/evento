@@ -38,79 +38,88 @@ export default async function DashboardPage() {
       />
 
       <div className="grid gap-6 md:grid-cols-3">
-        <Card className="glass-panel border-0 animate-fade-in-up" style={{ animationDelay: "0ms" }}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-base font-medium">{ro.dashboard.eventsCount}</CardTitle>
-            <CalendarHeart className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <p className="font-serif text-3xl font-semibold">{events.length}</p>
-            <CardDescription className="mt-1">{ro.dashboard.eventsCountDesc}</CardDescription>
-          </CardContent>
+        {/* Events Count Widget */}
+        <Card className="glass-panel border-0 p-5 animate-fade-in-up" style={{ animationDelay: "0ms" }}>
+          <div className="flex items-center justify-between">
+            <span className="text-[9.5px] uppercase font-bold tracking-wider text-text-subtle">{ro.dashboard.eventsCount}</span>
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#E8748A] to-[#B8516B] text-white shadow-[0_2px_8px_rgba(184,81,107,0.2)]">
+              <CalendarHeart className="h-4 w-4 fill-white/10" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <p className="font-sans text-2xl font-bold text-[#1A0E14]">{events.length}</p>
+            <p className="text-[11.5px] text-text-secondary mt-1">{ro.dashboard.eventsCountDesc}</p>
+          </div>
         </Card>
 
-        <Card className="glass-panel border-0 animate-fade-in-up" style={{ animationDelay: "50ms" }}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-base font-medium">{ro.dashboard.daysToGo}</CardTitle>
-            <CalendarHeart className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <p className="font-serif text-3xl font-semibold">{formatDaysUntil(days)}</p>
-            <CardDescription className="mt-1">
+        {/* Days To Go Widget */}
+        <Card className="glass-panel border-0 p-5 animate-fade-in-up" style={{ animationDelay: "50ms" }}>
+          <div className="flex items-center justify-between">
+            <span className="text-[9.5px] uppercase font-bold tracking-wider text-text-subtle">{ro.dashboard.daysToGo}</span>
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#E8748A] to-[#B8516B] text-white shadow-[0_2px_8px_rgba(184,81,107,0.2)]">
+              <CalendarHeart className="h-4 w-4 fill-white/10" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <p className="font-sans text-2xl font-bold text-[#1A0E14]">{formatDaysUntil(days)}</p>
+            <p className="text-[11.5px] text-text-secondary mt-1 truncate max-w-full">
               {primaryEvent?.title ?? ro.dashboard.daysToGoDesc}
-            </CardDescription>
-          </CardContent>
+            </p>
+          </div>
         </Card>
 
-        <Card className="glass-panel border-0 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-base font-medium">{ro.dashboard.guests}</CardTitle>
-            <Users className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <p className="font-serif text-3xl font-semibold">
+        {/* Guests Stats Widget */}
+        <Card className="glass-panel border-0 p-5 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+          <div className="flex items-center justify-between">
+            <span className="text-[9.5px] uppercase font-bold tracking-wider text-text-subtle">{ro.dashboard.guests}</span>
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#E8748A] to-[#B8516B] text-white shadow-[0_2px_8px_rgba(184,81,107,0.2)]">
+              <Users className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <p className="font-sans text-2xl font-bold text-[#1A0E14]">
               {guestStats?.total ?? "—"}
             </p>
-            <CardDescription className="mt-1">
+            <p className="text-[11.5px] text-text-secondary mt-1">
               {statsEvent
                 ? `${guestStats?.accepted ?? 0} ${ro.guests.stats.accepted.toLowerCase()}`
                 : ro.dashboard.guestsDesc}
-            </CardDescription>
+            </p>
             {statsEvent ? (
-              <Button variant="link" className="mt-2 h-auto p-0" asChild>
+              <Button variant="link" className="mt-2.5 h-auto p-0 text-xs font-semibold text-[#B8516B] hover:text-[#AA3F58]" asChild>
                 <Link href={`/dashboard/events/${statsEvent.id}/guests`}>
                   {ro.dashboard.viewAll}
                 </Link>
               </Button>
             ) : null}
-          </CardContent>
+          </div>
         </Card>
       </div>
 
       <section className="mt-10">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-serif text-2xl font-semibold">{ro.dashboard.yourEvents}</h2>
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="font-serif text-xl font-bold text-[#1A0E14]">{ro.dashboard.yourEvents}</h2>
           {events.length > 0 ? (
-            <Button variant="ghost" asChild>
+            <Button variant="ghost" className="text-text-secondary hover:text-[#B8516B] text-xs font-semibold" asChild>
               <Link href="/dashboard/events">{ro.dashboard.viewAll}</Link>
             </Button>
           ) : null}
         </div>
 
         {events.length === 0 ? (
-          <Card className="border-dashed">
+          <Card className="border-dashed border-border-rose-22 bg-white/50 rounded-[18px]">
             <CardContent className="flex flex-col items-center py-12 text-center">
-              <p className="text-muted-foreground">{ro.dashboard.noEventsYet}</p>
+              <p className="text-sm text-text-secondary">{ro.dashboard.noEventsYet}</p>
               <Button asChild className="mt-4">
                 <Link href="/dashboard/events/new">
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-4 w-4 mr-1.5" />
                   {ro.dashboard.createFirst}
                 </Link>
               </Button>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {recentEvents.map((event, index) => (
               <EventCard
                 key={event.id}

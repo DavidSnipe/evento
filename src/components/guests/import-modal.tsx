@@ -415,7 +415,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
       {/* Backdrop */}
       <div
         className={cn(
-          "fixed inset-0 bg-black/40 transition-opacity duration-200",
+          "fixed inset-0 bg-[#1A0E14]/15 backdrop-blur-[2px] transition-opacity duration-200",
           isVisible ? "opacity-100" : "opacity-0"
         )}
         style={{ zIndex: 9998 }}
@@ -425,42 +425,42 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
       {/* Modal */}
       <div
         className={cn(
-          "fixed inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl md:max-h-[85vh] flex flex-col rounded-3xl bg-white shadow-2xl transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+          "fixed inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl md:max-h-[85vh] flex flex-col rounded-[22px] border border-border-rose-18 bg-white/95 shadow-popover backdrop-blur-md transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
           isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"
         )}
         style={{ zIndex: 9999 }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-4">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 shrink-0">
           <div>
-            <h2 className="font-serif text-xl font-semibold">Importă invitați</h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">
+            <h2 className="font-serif text-xl font-bold text-foreground">Importă invitați</h2>
+            <p className="mt-0.5 text-xs text-text-secondary">
               Adaugă rapid mai mulți invitați deodată
             </p>
           </div>
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-xl p-2 text-muted-foreground transition-colors hover:bg-muted/50"
+            className="rounded-lg p-2 text-text-secondary hover:text-[#B8516B] hover:bg-[#FEF0F3] transition-colors cursor-pointer shrink-0"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Success state */}
         {success !== null ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-6 pb-6">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 animate-bounce">
-              <Check className="h-8 w-8 text-emerald-600" />
+          <div className="flex flex-1 flex-col items-center justify-center px-6 pb-8 text-center animate-fade-in">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 animate-bounce mb-4">
+              <Check className="h-8 w-8 stroke-[3]" />
             </div>
-            <p className="mt-4 font-serif text-lg font-semibold">
+            <p className="font-serif text-lg font-bold text-foreground">
               {success} invitați adăugați cu succes!
             </p>
           </div>
         ) : (
           <>
             {/* Tabs */}
-            <div className="flex gap-1 px-6 border-b border-border/10 pb-3 shrink-0">
+            <div className="flex gap-1.5 px-6 border-b border-border-rose-18/30 pb-3 shrink-0">
               {([
                 { key: "paste" as Tab, label: "Lipește text", icon: FileText },
                 { key: "csv" as Tab, label: "CSV / Excel", icon: Upload },
@@ -471,20 +471,20 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                   type="button"
                   onClick={() => { setTab(t.key); setShowPreview(false); }}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 active:scale-95",
+                    "flex items-center gap-1.5 rounded-[12px] px-3.5 py-2 text-xs font-bold tracking-wide transition-all duration-200 active:scale-95 cursor-pointer",
                     tab === t.key
-                      ? "bg-primary/10 text-primary shadow-sm"
-                      : "text-muted-foreground hover:bg-muted/50"
+                      ? "bg-[#FEF0F3] text-[#B8516B] border border-[#FCEAEF] shadow-[0_2px_8px_rgba(184,81,107,0.06)]"
+                      : "text-text-secondary border border-transparent hover:bg-muted/40"
                   )}
                 >
-                  <t.icon className="h-4 w-4" />
+                  <t.icon className="h-3.5 w-3.5" />
                   {t.label}
                 </button>
               ))}
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="flex-1 overflow-y-auto px-6 py-4 scrollbar-thin">
               {/* --- TAB 1: Paste Text --- */}
               {tab === "paste" && !showPreview && (
                 <div className="space-y-4 animate-fade-in">
@@ -492,15 +492,15 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     placeholder={"Lipește lista de invitați aici...\n\nExemple:\nMaria + Andrei\nFamilia Popescu - 4 persoane\nNași - 2 persoane\nIon Ionescu"}
-                    rows={10}
-                    className="w-full rounded-2xl border border-border/40 bg-muted/20 px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 resize-none"
+                    rows={8}
+                    className="w-full rounded-[14px] border border-[#d2aaa9]/20 bg-[#F3F3F5] px-4 py-3 text-xs font-semibold text-text-secondary outline-none placeholder:text-text-subtle/50 focus:bg-[#FEF0F3]/25 focus:border-[#B8516B]/50 transition-all resize-none"
                     autoFocus
                   />
                   <button
                     type="button"
                     onClick={handleParse}
                     disabled={!text.trim()}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary/90 disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] px-4 py-3 text-xs font-bold text-white shadow-primary-btn hover:opacity-95 disabled:opacity-50 active:scale-[0.98] transition-all cursor-pointer duration-200"
                   >
                     <Sparkles className="h-4 w-4" />
                     Detectare inteligentă
@@ -511,19 +511,19 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
               {tab === "paste" && showPreview && (
                 <div className="space-y-4 animate-fade-in">
                   {parsed.length === 0 ? (
-                    <div className="py-8 text-center text-sm text-muted-foreground">
+                    <div className="py-12 text-center text-xs font-semibold text-text-subtle bg-[#F3F3F5]/40 rounded-[14px]">
                       Nu am detectat invitați. Verifică textul și încearcă din nou.
                     </div>
                   ) : (
                     <>
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">
+                        <p className="text-xs font-bold text-text-secondary">
                           {parsed.length} intrări · {totalCount} persoane detectate
                         </p>
                         <button
                           type="button"
                           onClick={() => setShowPreview(false)}
-                          className="text-xs text-primary hover:underline"
+                          className="text-xs font-bold text-[#B8516B] hover:text-[#AA3F58] hover:underline cursor-pointer"
                         >
                           ← Editează textul
                         </button>
@@ -535,28 +535,28 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                           return (
                             <div
                               key={p.id}
-                              className="flex items-center gap-3 rounded-xl bg-muted/30 px-3 py-2.5 transition-all hover:bg-muted/50"
+                              className="flex items-center gap-3 rounded-[12px] bg-white border border-border-rose-18/30 px-3 py-2.5 shadow-[0_1px_2px_rgba(180,100,120,0.02)] hover:shadow-sm transition-all duration-200"
                             >
                               <div className={cn(
-                                "flex h-8 w-8 items-center justify-center rounded-full",
-                                p.type === "couple" ? "bg-rose-100 text-rose-600" :
-                                p.type === "family" ? "bg-amber-100 text-amber-600" :
-                                p.type === "group" ? "bg-indigo-100 text-indigo-600" :
-                                "bg-sky-100 text-sky-600"
+                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]",
+                                p.type === "couple" ? "bg-[#FEF0F3] text-[#B8516B] border-[#FCEAEF]" :
+                                p.type === "family" ? "bg-[#FFF9E6] text-[#B8860B] border-[#FCE49F]" :
+                                p.type === "group" ? "bg-[#FAF3FB] text-[#7030A0] border-[#F2DDF5]" :
+                                "bg-[#EEF6FC] text-[#2B6CB0] border-[#D2E7F7]"
                               )}>
-                                <Icon className="h-4 w-4" />
+                                <Icon className="h-3.5 w-3.5" />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-medium">
+                                <p className="truncate text-xs font-bold text-foreground">
                                   {p.firstName} {p.lastName}
                                 </p>
-                                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold text-text-secondary mt-0.5">
                                   <span>{TYPE_LABELS[p.type]}</span>
                                   {p.count > 1 && <span>· {p.count} pers.</span>}
-                                  {p.plusOneName && <span>· {p.plusOneName}</span>}
+                                  {p.plusOneName && <span className="text-[#B8516B]">· +1 {p.plusOneName}</span>}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1 shrink-0">
                                 {p.tags.slice(0, 2).map((tag) => (
                                   <TagBadge key={tag} tag={tag} />
                                 ))}
@@ -564,7 +564,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                               <button
                                 type="button"
                                 onClick={() => removeParsed(p.id)}
-                                className="rounded-lg p-1 text-muted-foreground/50 hover:bg-destructive/10 hover:text-destructive"
+                                className="rounded-lg p-1 text-text-secondary hover:text-[#FF3B30] hover:bg-[#FFF0F0] cursor-pointer shrink-0 transition-colors"
                               >
                                 <X className="h-3.5 w-3.5" />
                               </button>
@@ -581,7 +581,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
               {tab === "csv" && csvStep === "upload" && (
                 <div
                   onClick={() => csvInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/40 py-16 text-center cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5 group animate-fade-in"
+                  className="flex flex-col items-center justify-center rounded-[18px] border-2 border-dashed border-[#d2aaa9]/40 bg-[#F3F3F5]/30 py-16 text-center cursor-pointer transition-all hover:border-[#B8516B]/60 hover:bg-[#FEF0F3]/40 group animate-fade-in"
                 >
                   <input
                     type="file"
@@ -590,11 +590,11 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                     accept=".csv, .xlsx, .xls"
                     className="hidden"
                   />
-                  <Upload className="mb-4 h-10 w-10 text-muted-foreground/40 transition-transform group-hover:-translate-y-1 duration-200" />
-                  <p className="text-sm font-medium text-foreground">
+                  <Upload className="mb-4 h-10 w-10 text-text-subtle transition-transform group-hover:-translate-y-1 duration-200" />
+                  <p className="text-xs font-bold text-foreground">
                     Trage fișierul aici sau apasă pentru a alege
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-[10px] font-semibold text-text-secondary">
                     Formate suportate: .csv, .xlsx, .xls
                   </p>
                 </div>
@@ -602,20 +602,20 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
 
               {tab === "csv" && csvStep === "map" && (
                 <div className="space-y-4 animate-fade-in">
-                  <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4">
-                    <h3 className="text-sm font-medium text-primary flex items-center gap-2">
+                  <div className="bg-[#FEF0F3] border border-[#FCEAEF] rounded-[14px] p-4">
+                    <h3 className="text-xs font-bold text-[#B8516B] flex items-center gap-2">
                       <Sparkles className="h-4 w-4" />
                       Potrivește coloanele din tabel
                     </h3>
-                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                    <p className="mt-1 text-[11px] font-semibold text-text-secondary leading-relaxed">
                       Am detectat {csvHeaders.length} coloane în fișier. Asociază-le cu câmpurile noastre din baza de date pentru a finaliza importul.
                     </p>
                   </div>
 
-                  <div className="space-y-3 divide-y divide-border/10">
+                  <div className="space-y-1 divide-y divide-border-rose-18/20">
                     {MAPPING_FIELDS.map((field) => (
-                      <div key={field.key} className="flex items-center justify-between py-2 gap-4">
-                        <label className="text-xs font-semibold text-muted-foreground w-1/3 shrink-0">
+                      <div key={field.key} className="flex items-center justify-between py-2.5 gap-4">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-text-subtle w-1/3 shrink-0">
                           {field.label}
                         </label>
                         <select
@@ -624,7 +624,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                             const val = parseInt(e.target.value, 10);
                             setCsvMapping((prev) => ({ ...prev, [field.key]: val }));
                           }}
-                          className="h-9 flex-1 max-w-[240px] rounded-xl border border-border/40 bg-muted/20 px-3 text-xs outline-none focus:ring-2 focus:ring-primary/20"
+                          className="h-9 flex-1 max-w-[240px] rounded-[10px] border border-[#d2aaa9]/20 bg-[#F3F3F5] px-3 text-xs font-semibold text-text-secondary outline-none focus:bg-[#FEF0F3]/20 focus:border-[#B8516B]/50 transition-all cursor-pointer"
                         >
                           <option value={-1}>Ignoră / Nu există</option>
                           {csvHeaders.map((header, idx) => (
@@ -641,7 +641,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                     <button
                       type="button"
                       onClick={() => setCsvStep("upload")}
-                      className="flex-1 rounded-xl border border-border/40 py-2.5 text-xs font-medium hover:bg-muted/50"
+                      className="flex-1 rounded-[10px] border border-[#d2aaa9]/30 py-2.5 text-xs font-bold text-text-secondary hover:bg-muted/50 transition-colors cursor-pointer"
                     >
                       Înapoi
                     </button>
@@ -649,7 +649,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                       type="button"
                       onClick={handleCsvMappingConfirm}
                       disabled={csvMapping.firstName === undefined || csvMapping.firstName === -1}
-                      className="flex-[2] flex items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-xs font-medium text-white shadow-sm hover:bg-primary/90 disabled:opacity-50"
+                      className="flex-[2] flex items-center justify-center gap-1.5 rounded-[10px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] py-2.5 text-xs font-bold text-white shadow-primary-btn hover:opacity-95 disabled:opacity-50 active:scale-[0.98] transition-all cursor-pointer"
                     >
                       Previzualizare
                       <ArrowRight className="h-3.5 w-3.5" />
@@ -661,54 +661,54 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
               {tab === "csv" && csvStep === "preview" && (
                 <div className="space-y-4 animate-fade-in">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">
+                    <p className="text-xs font-bold text-text-secondary">
                       Previzualizare: {csvParsed.length} invitați gata de import
                     </p>
                     <button
                       type="button"
                       onClick={() => setCsvStep("map")}
-                      className="text-xs text-primary hover:underline"
+                      className="text-xs text-[#B8516B] font-bold hover:text-[#AA3F58] hover:underline cursor-pointer"
                     >
                       ← Editează asocierea
                     </button>
                   </div>
 
-                  <div className="border border-border/40 rounded-2xl overflow-hidden max-h-[350px] overflow-y-auto">
+                  <div className="border border-border-rose-18/40 rounded-[18px] overflow-hidden max-h-[300px] overflow-y-auto">
                     <table className="w-full text-left border-collapse text-xs">
-                      <thead className="bg-muted/40 sticky top-0 border-b border-border/40 z-10 backdrop-blur">
+                      <thead className="bg-[#F3F3F5]/60 sticky top-0 border-b border-border-rose-18/30 z-10 backdrop-blur-[12px]">
                         <tr>
-                          <th className="px-3 py-2.5 font-semibold text-muted-foreground">Nume</th>
-                          <th className="px-3 py-2.5 font-semibold text-muted-foreground">Telefon / Email</th>
-                          <th className="px-3 py-2.5 font-semibold text-muted-foreground">RSVP</th>
-                          <th className="px-3 py-2.5 font-semibold text-muted-foreground">Status</th>
+                          <th className="px-3 py-2.5 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">Nume</th>
+                          <th className="px-3 py-2.5 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">Contact</th>
+                          <th className="px-3 py-2.5 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">RSVP</th>
+                          <th className="px-3 py-2.5 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">Status</th>
                           <th className="px-2 py-2.5 text-center"></th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-border/20">
+                      <tbody className="divide-y divide-border-rose-18/20">
                         {csvParsed.map((guest) => {
                           const dupError = checkDuplicate(guest.firstName, guest.lastName, guest.email, guest.phone);
                           return (
-                            <tr key={guest.id} className="hover:bg-muted/20">
-                              <td className="px-3 py-2 font-medium">
+                            <tr key={guest.id} className="hover:bg-[#FEF0F3]/15 transition-all">
+                              <td className="px-3 py-2 font-bold text-foreground">
                                 {guest.firstName} {guest.lastName}
                               </td>
-                              <td className="px-3 py-2 text-muted-foreground">
+                              <td className="px-3 py-2 font-semibold text-text-secondary">
                                 {guest.phone || guest.email ? (
                                   <>
                                     {guest.phone && <div>{guest.phone}</div>}
-                                    {guest.email && <div className="text-[10px]">{guest.email}</div>}
+                                    {guest.email && <div className="text-[10px] text-text-subtle">{guest.email}</div>}
                                   </>
                                 ) : (
-                                  <span className="text-muted-foreground/30 italic">fără date</span>
+                                  <span className="text-text-faint/50 italic font-medium">fără date</span>
                                 )}
                               </td>
                               <td className="px-3 py-2">
                                 <span className={cn(
-                                  "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                                  guest.rsvpStatus === "accepted" ? "bg-emerald-50 text-emerald-700" :
-                                  guest.rsvpStatus === "declined" ? "bg-rose-50 text-rose-700" :
-                                  guest.rsvpStatus === "maybe" ? "bg-indigo-50 text-indigo-700" :
-                                  "bg-amber-50 text-amber-700"
+                                  "inline-flex rounded-[7px] border px-2 py-0.5 text-[10px] font-bold shadow-[0_1px_2px_rgba(180,100,120,0.01)]",
+                                  guest.rsvpStatus === "accepted" ? "bg-[#E8F8EE] text-[#34C759] border-[#C6F1D5]" :
+                                  guest.rsvpStatus === "declined" ? "bg-[#FFF0F0] text-[#FF3B30] border-[#FFD2D2]" :
+                                  guest.rsvpStatus === "maybe" ? "bg-[#FEF7E7] text-[#B8860B] border-[#FDE68A]" :
+                                  "bg-[#FFF4E5] text-[#D97706] border-[#FFE3B9]"
                                 )}>
                                   {guest.rsvpStatus === "accepted" ? "Confirmat" :
                                    guest.rsvpStatus === "declined" ? "Refuzat" :
@@ -717,19 +717,19 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                               </td>
                               <td className="px-3 py-2">
                                 {dupError ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 rounded-full px-2 py-0.5 font-medium">
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 rounded-full px-2 py-0.5 font-bold">
                                     <AlertCircle className="h-3 w-3" />
                                     Duplicat
                                   </span>
                                 ) : (
-                                  <span className="text-emerald-600 font-medium">Valid</span>
+                                  <span className="text-emerald-600 font-bold text-[10.5px]">Valid</span>
                                 )}
                               </td>
                               <td className="px-2 py-2 text-center">
                                 <button
                                   type="button"
                                   onClick={() => removeCsvRow(guest.id)}
-                                  className="p-1 rounded-lg text-muted-foreground/50 hover:bg-destructive/10 hover:text-destructive transition-all"
+                                  className="p-1 rounded-lg text-text-secondary hover:text-[#FF3B30] hover:bg-[#FFF0F0] transition-colors cursor-pointer"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
@@ -739,7 +739,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                         })}
                         {csvParsed.length === 0 && (
                           <tr>
-                            <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                            <td colSpan={5} className="py-12 text-center text-xs font-semibold text-text-subtle">
                               Niciun invitat de afișat.
                             </td>
                           </tr>
@@ -754,7 +754,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
               {tab === "photo" && photoStep === "upload" && (
                 <div
                   onClick={() => photoInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/40 py-16 text-center cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5 group animate-fade-in"
+                  className="flex flex-col items-center justify-center rounded-[18px] border-2 border-dashed border-[#d2aaa9]/40 bg-[#F3F3F5]/30 py-16 text-center cursor-pointer transition-all hover:border-[#B8516B]/60 hover:bg-[#FEF0F3]/40 group animate-fade-in"
                 >
                   <input
                     type="file"
@@ -763,11 +763,11 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                     accept="image/*"
                     className="hidden"
                   />
-                  <Camera className="mb-4 h-10 w-10 text-muted-foreground/40 transition-transform group-hover:-translate-y-1 duration-200" />
-                  <p className="text-sm font-medium text-foreground">
+                  <Camera className="mb-4 h-10 w-10 text-text-subtle transition-transform group-hover:-translate-y-1 duration-200" />
+                  <p className="text-xs font-bold text-foreground">
                     Încarcă o fotografie cu lista de invitați
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-[10px] font-semibold text-text-secondary">
                     Acceptă imagini tipărite sau scrise de mână (liste, invitații)
                   </p>
                 </div>
@@ -775,17 +775,17 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
 
               {tab === "photo" && photoStep === "scanning" && photoImage && (
                 <div className="flex flex-col items-center py-6 space-y-4 animate-fade-in">
-                  <div className="relative overflow-hidden rounded-2xl max-h-64 max-w-sm border border-border/40 shadow-inner">
+                  <div className="relative overflow-hidden rounded-[18px] max-h-60 max-w-xs border border-border-rose-18/30 shadow-sm">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={photoImage} className="w-full h-auto object-contain opacity-70" alt="Scanned view" />
                     {/* Laser scanning line */}
-                    <div className="absolute left-0 right-0 h-1.5 bg-primary/80 shadow-[0_0_15px_#e11d48] animate-[scan_2.2s_ease-in-out_infinite]" />
+                    <div className="absolute left-0 right-0 h-1 bg-[#B8516B] shadow-[0_0_15px_#B8516B] animate-[scan_2.2s_ease-in-out_infinite]" />
                   </div>
-                  <div className="flex flex-col items-center gap-1.5">
-                    <p className="text-sm font-medium text-foreground animate-pulse">
+                  <div className="flex flex-col items-center gap-1.5 text-center">
+                    <p className="text-xs font-bold text-foreground animate-pulse">
                       Se analizează imaginea folosind AI...
                     </p>
-                    <p className="text-xs text-muted-foreground text-center max-w-xs">
+                    <p className="text-[10px] font-semibold text-text-secondary max-w-[280px]">
                       Extragem și normalizăm automat numele invitaților din imagine.
                     </p>
                   </div>
@@ -794,40 +794,40 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
 
               {tab === "photo" && photoStep === "preview" && (
                 <div className="space-y-4 animate-fade-in">
-                  <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4">
-                    <h3 className="text-sm font-medium text-primary flex items-center gap-2">
+                  <div className="bg-[#FEF0F3] border border-[#FCEAEF] rounded-[14px] p-4">
+                    <h3 className="text-xs font-bold text-[#B8516B] flex items-center gap-2">
                       <Sparkles className="h-4 w-4" />
                       Rezultate scanare AI
                     </h3>
-                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                    <p className="mt-1 text-[11px] font-semibold text-text-secondary leading-relaxed">
                       Am identificat {photoGuests.length} invitați. Corectează numele incerte (marcate în galben) înainte de a le importa.
                     </p>
                   </div>
 
-                  <div className="border border-border/40 rounded-2xl overflow-hidden overflow-y-auto max-h-[300px]">
+                  <div className="border border-border-rose-18/40 rounded-[18px] overflow-hidden overflow-y-auto max-h-[250px]">
                     <table className="w-full text-left border-collapse text-xs">
-                      <thead className="bg-muted/40 sticky top-0 border-b border-border/40 z-10 backdrop-blur">
+                      <thead className="bg-[#F3F3F5]/60 sticky top-0 border-b border-border-rose-18/30 z-10 backdrop-blur-[12px]">
                         <tr>
-                          <th className="px-3 py-2.5 font-semibold text-muted-foreground">Nume detectat</th>
-                          <th className="px-3 py-2.5 font-semibold text-muted-foreground">Încredere AI</th>
+                          <th className="px-3 py-2.5 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">Nume detectat</th>
+                          <th className="px-3 py-2.5 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">Încredere AI</th>
                           <th className="px-2 py-2.5 text-center"></th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-border/20">
+                      <tbody className="divide-y divide-border-rose-18/20">
                         {photoGuests.map((pg) => {
                           const isLowConfidence = pg.confidence < 75;
                           return (
-                            <tr key={pg.id} className="hover:bg-muted/10">
+                            <tr key={pg.id} className="hover:bg-[#FEF0F3]/15 transition-all">
                               <td className="px-3 py-2">
                                 <input
                                   type="text"
                                   value={pg.name}
                                   onChange={(e) => updatePhotoGuestName(pg.id, e.target.value)}
                                   className={cn(
-                                    "w-full h-8 px-2 border rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary/45 bg-transparent",
+                                    "w-full h-8 px-2 border rounded-lg text-xs font-bold outline-none focus:ring-1 focus:ring-[#B8516B]/30 bg-transparent transition-all",
                                     isLowConfidence
-                                      ? "border-amber-200 bg-amber-50/50 text-amber-900 focus:border-amber-300"
-                                      : "border-transparent focus:border-border"
+                                      ? "border-[#FCE49F] bg-[#FFF9E6] text-[#B8860B] focus:border-[#FCE49F]"
+                                      : "border-transparent focus:border-border-rose-18 bg-[#F3F3F5]/40"
                                   )}
                                   placeholder="Nume..."
                                 />
@@ -835,15 +835,15 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-2">
                                   <span className={cn(
-                                    "h-2 w-2 rounded-full",
+                                    "h-1.5 w-1.5 rounded-full",
                                     pg.confidence >= 90 ? "bg-emerald-500" :
-                                    pg.confidence >= 75 ? "bg-indigo-500" : "bg-amber-500"
+                                    pg.confidence >= 75 ? "bg-indigo-500" : "bg-amber-500 animate-pulse"
                                   )} />
-                                  <span className="font-semibold text-muted-foreground">
+                                  <span className="font-bold text-text-secondary text-[11px]">
                                     {pg.confidence}%
                                   </span>
                                   {isLowConfidence && (
-                                    <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-medium ml-1">
+                                    <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded ml-1">
                                       Corectează
                                     </span>
                                   )}
@@ -853,7 +853,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                                 <button
                                   type="button"
                                   onClick={() => removePhotoRow(pg.id)}
-                                  className="p-1 rounded-lg text-muted-foreground/50 hover:bg-destructive/10 hover:text-destructive transition-all"
+                                  className="p-1 rounded-lg text-text-secondary hover:text-[#FF3B30] hover:bg-[#FFF0F0] transition-colors cursor-pointer"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
@@ -863,7 +863,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                         })}
                         {photoGuests.length === 0 && (
                           <tr>
-                            <td colSpan={3} className="py-8 text-center text-muted-foreground">
+                            <td colSpan={3} className="py-12 text-center text-xs font-semibold text-text-subtle">
                               Niciun invitat de importat.
                             </td>
                           </tr>
@@ -876,7 +876,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                     <button
                       type="button"
                       onClick={() => setPhotoStep("upload")}
-                      className="flex-1 rounded-xl border border-border/40 py-2.5 text-xs font-medium hover:bg-muted/50"
+                      className="flex-1 rounded-[10px] border border-[#d2aaa9]/30 py-2.5 text-xs font-bold text-text-secondary hover:bg-muted/50 cursor-pointer transition-colors"
                     >
                       Încearcă altă poză
                     </button>
@@ -884,7 +884,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                       type="button"
                       onClick={handleConfirmPhoto}
                       disabled={isPending || photoGuests.length === 0}
-                      className="flex-[2] flex items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-xs font-medium text-white shadow-sm hover:bg-primary/90 disabled:opacity-50"
+                      className="flex-[2] flex items-center justify-center gap-1.5 rounded-[10px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] py-2.5 text-xs font-bold text-white shadow-primary-btn hover:opacity-95 disabled:opacity-50 active:scale-[0.98] transition-all cursor-pointer"
                     >
                       {isPending ? "Se adaugă..." : `Importă ${photoGuests.length} invitați`}
                     </button>
@@ -895,19 +895,19 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
 
             {/* Footer for Text Paste Preview only */}
             {tab === "paste" && showPreview && parsed.length > 0 && (
-              <div className="border-t border-border/30 px-6 py-4">
+              <div className="border-t border-border-rose-18/30 px-6 py-4 shrink-0">
                 <button
                   key="confirm-paste-btn"
                   type="button"
                   onClick={handleConfirmPaste}
                   disabled={isPending}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary/90 disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] px-4 py-3 text-xs font-bold text-white shadow-primary-btn hover:opacity-95 disabled:opacity-50 active:scale-[0.98] transition-all cursor-pointer"
                 >
                   {isPending ? (
                     <span className="animate-pulse">Se adaugă...</span>
                   ) : (
                     <>
-                      <Check className="h-4 w-4" />
+                      <Check className="h-4 w-4 stroke-[3]" />
                       Adaugă {parsed.length} invitați ({totalCount} persoane)
                     </>
                   )}
@@ -917,19 +917,19 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
 
             {/* Footer for CSV Step 3 only */}
             {tab === "csv" && csvStep === "preview" && csvParsed.length > 0 && (
-              <div className="border-t border-border/30 px-6 py-4">
+              <div className="border-t border-border-rose-18/30 px-6 py-4 shrink-0">
                 <button
                   key="confirm-csv-btn"
                   type="button"
                   onClick={handleConfirmCsv}
                   disabled={isPending}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary/90 disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] px-4 py-3 text-xs font-bold text-white shadow-primary-btn hover:opacity-95 disabled:opacity-50 active:scale-[0.98] transition-all cursor-pointer"
                 >
                   {isPending ? (
                     <span className="animate-pulse">Se adaugă...</span>
                   ) : (
                     <>
-                      <Check className="h-4 w-4" />
+                      <Check className="h-4 w-4 stroke-[3]" />
                       Importă {csvParsed.length} invitați
                     </>
                   )}

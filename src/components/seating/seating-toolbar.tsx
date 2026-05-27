@@ -10,17 +10,15 @@ import {
   ImageIcon,
   FileText,
   Printer,
-  Sparkles,
-  Layout,
-  Check,
-  ChevronDown
+  LayoutGrid,
+  List,
+  Share2,
+  Maximize2,
+  Minimize2,
+  Users,
 } from "lucide-react";
 
-import {
-  autoSeatGuestsAction
-} from "@/app/(dashboard)/dashboard/events/[id]/seating/actions";
-import { Button } from "@/components/ui/button";
-import { ro } from "@/lib/i18n/ro";
+import { autoSeatGuestsAction } from "@/app/(dashboard)/dashboard/events/[id]/seating/actions";
 import { cn } from "@/lib/utils";
 
 type SeatingToolbarProps = {
@@ -36,11 +34,13 @@ type SeatingToolbarProps = {
   globalLock: boolean;
   onToggleGlobalLock: () => void;
   onRunAutoSeat?: (strategy: "family" | "even") => Promise<void>;
-  
-  // Immersive focus mode and lifted template props
   onToggleTemplateMenu: (show: boolean) => void;
   applyingTemplate?: boolean;
   workspaceMode: boolean;
+  isFloating?: boolean;
+  viewMode?: "canvas" | "list";
+  onViewModeChange?: (mode: "canvas" | "list") => void;
+  onToggleWorkspaceMode?: () => void;
 };
 
 export function SeatingToolbar({
@@ -53,13 +53,12 @@ export function SeatingToolbar({
   onExportPdf,
   printSort,
   onTogglePrintSort,
-  globalLock,
-  onToggleGlobalLock,
   onRunAutoSeat,
-  
-  onToggleTemplateMenu,
-  applyingTemplate = false,
   workspaceMode,
+  isFloating = false,
+  viewMode = "canvas",
+  onViewModeChange,
+  onToggleWorkspaceMode,
 }: SeatingToolbarProps) {
   const router = useRouter();
   const [assigning, setAssigning] = useState(false);
@@ -83,134 +82,352 @@ export function SeatingToolbar({
     setAssigning(false);
   }
 
+  const handleShare = () => {
+    try {
+      navigator.clipboard.writeText(window.location.href);
+      alert("Link-ul pentru partajare a fost copiat în clipboard!");
+    } catch {
+      alert("Nu s-a putut copia link-ul de partajare.");
+    }
+  };
 
+  const pct = totalCapacity > 0 ? Math.round((totalSeated / totalCapacity) * 100) : 0;
+  const unassigned = totalGuests - totalSeated;
+
+  const dropdownItemStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 12px",
+    borderRadius: 8,
+    background: "transparent",
+    border: "none",
+    color: "var(--ev-text-secondary)",
+    cursor: "pointer",
+    fontSize: 12,
+    fontFamily: "Inter, sans-serif",
+    textAlign: "left",
+    width: "100%",
+  };
 
   return (
-    <div className={cn(
-      "flex flex-wrap items-center justify-between gap-4 transition-all duration-300",
-      workspaceMode
-        ? "bg-white border-b border-slate-200/80 w-full rounded-none px-6 py-3.5 shadow-sm"
-        : "bg-slate-50/50 p-2.5 rounded-2xl border border-slate-200/50 shadow-sm backdrop-blur-sm"
-    )}>
-      {/* LEFT: Stats pill */}
-      <div className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-medium shadow-sm border border-slate-100 select-none shrink-0">
-        <span className="font-semibold text-slate-800">{totalSeated}</span>
-        <span className="text-muted-foreground">{ro.seating.toolbar.stats}</span>
-        <span className="font-semibold text-slate-800">{totalCapacity}</span>
-        <div className="mx-1 h-3 w-px bg-slate-200" />
-        <span className="text-[11px] text-muted-foreground">
-          ({totalGuests} invitați)
-        </span>
+    <div
+      className={cn("print:hidden", isFloating && "absolute left-0 right-0 top-0 z-50")}
+      style={{
+        position: isFloating ? "absolute" : "relative",
+        width: "100%",
+        height: 54,
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        padding: "0 18px",
+        gap: 10,
+        fontFamily: "Inter, sans-serif",
+        background: "rgba(255,255,255,0.88)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        borderBottom: "1px solid rgba(210,170,185,0.18)",
+        boxShadow:
+          "0 1px 0 rgba(210,170,185,0.12), 0 4px 16px rgba(180,100,120,0.06)",
+      }}
+    >
+      {/* Occupancy stats */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            background: "linear-gradient(145deg, #FEF0F3, #FCEAEF)",
+            border: "1px solid rgba(210,170,185,0.3)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Users size={13} color="#B8516B" />
+        </div>
+        <div className="hidden sm:block">
+          <div style={{ lineHeight: 1, marginBottom: 2 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#1A0E14", letterSpacing: "-0.3px" }}>
+              {totalSeated}
+            </span>
+            <span style={{ fontSize: 11, color: "#C4A8B4" }}>/{totalCapacity}</span>
+          </div>
+          <div
+            style={{
+              fontSize: 9.5,
+              color: "#C4A8B4",
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              fontWeight: 500,
+            }}
+          >
+            Locuri
+          </div>
+        </div>
+        <div className="hidden md:flex flex-col gap-1">
+          <div
+            style={{
+              width: 72,
+              height: 4,
+              borderRadius: 4,
+              background: "rgba(210,170,185,0.2)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                width: `${pct}%`,
+                background: "linear-gradient(90deg, #E8748A, #B8516B)",
+                borderRadius: 4,
+              }}
+            />
+          </div>
+          <div style={{ fontSize: 9, color: "#D4B8C4", letterSpacing: "0.04em", fontWeight: 500 }}>
+            {pct}% alocat · {unassigned} liberi
+          </div>
+        </div>
       </div>
 
-      {/* CENTER: Auto Seat & Export Actions */}
-      <div className="flex items-center gap-2.5">
-        {/* Auto-seat button & strategy dropdown */}
-        <div className="relative">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={assigning}
-            onClick={() => setShowAutoSeatMenu(!showAutoSeatMenu)}
-            className="gap-2 rounded-xl h-9 text-xs font-semibold border-slate-200/80 shadow-sm hover:bg-slate-50 transition-colors"
-          >
-            <Wand2 className="h-4 w-4 text-slate-500" />
-            <span>Smart Auto-Așezare</span>
-            <ChevronDown className="h-3 w-3 text-slate-400" />
-          </Button>
+      <div style={{ width: 1, height: 22, background: "rgba(210,170,185,0.2)", flexShrink: 0 }} />
 
-          {showAutoSeatMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowAutoSeatMenu(false)} />
-              <div className="absolute left-1/2 -translate-x-1/2 lg:left-0 lg:translate-x-0 top-full z-50 mt-2 w-56 rounded-2xl border border-slate-100 bg-white p-3 shadow-xl animate-in fade-in slide-in-from-top-1 space-y-3">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
-                  Alege Strategia
-                </div>
-                <div className="space-y-1">
+      {/* Plan / Tabel */}
+      {onViewModeChange && (
+        <div
+          style={{
+            display: "flex",
+            gap: 2,
+            background: "rgba(245,240,243,0.7)",
+            border: "1px solid rgba(210,170,185,0.2)",
+            borderRadius: 12,
+            padding: 3,
+            flexShrink: 0,
+          }}
+        >
+          {[
+            { key: "canvas" as const, label: "Plan", icon: LayoutGrid },
+            { key: "list" as const, label: "Tabel", icon: List },
+          ].map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onViewModeChange(key)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "5px 10px",
+                borderRadius: 9,
+                fontSize: 12,
+                fontWeight: 500,
+                fontFamily: "Inter, sans-serif",
+                background: viewMode === key ? "#FFFFFF" : "transparent",
+                color: viewMode === key ? "#B8516B" : "#8A7080",
+                border: "none",
+                cursor: "pointer",
+                boxShadow: viewMode === key ? "0 1px 6px rgba(180,100,120,0.14)" : "none",
+              }}
+            >
+              <Icon size={13} />
+              <span className="hidden sm:inline">{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ flex: 1, minWidth: 8 }} />
+
+      {/* Center actions */}
+      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            background: "rgba(245,240,243,0.6)",
+            border: "1px solid rgba(210,170,185,0.18)",
+            borderRadius: 12,
+            padding: 3,
+          }}
+        >
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => setShowAutoSeatMenu(!showAutoSeatMenu)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "5px 12px",
+                borderRadius: 8,
+                background: "linear-gradient(135deg, #E8748A, #B8516B)",
+                color: "white",
+                border: "none",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 700,
+                fontFamily: "Inter, sans-serif",
+                boxShadow: "0 2px 10px rgba(184,81,107,0.3)",
+              }}
+            >
+              <Wand2 size={13} />
+              <span className="hidden sm:inline">Auto-Așezare</span>
+              <span className="sm:hidden">Auto</span>
+            </button>
+            {showAutoSeatMenu && (
+              <>
+                <div
+                  style={{ position: "fixed", inset: 0, zIndex: 40 }}
+                  onClick={() => setShowAutoSeatMenu(false)}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    zIndex: 50,
+                    marginTop: 8,
+                    width: 220,
+                    background: "white",
+                    borderRadius: 12,
+                    border: "1px solid rgba(210,170,185,0.25)",
+                    boxShadow: "0 8px 32px rgba(180,100,120,0.18)",
+                    padding: 12,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: "#C4A8B4",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Alege Strategia
+                  </span>
                   <button
                     type="button"
                     onClick={() => setStrategy("family")}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs text-left border transition-all duration-150",
-                      strategy === "family"
-                        ? "border-primary/30 bg-primary/5 text-primary font-semibold"
-                        : "border-transparent text-slate-650 hover:bg-slate-50"
-                    )}
+                    style={{
+                      textAlign: "left",
+                      padding: "6px 8px",
+                      borderRadius: 8,
+                      background: strategy === "family" ? "#FEF0F3" : "transparent",
+                      color: strategy === "family" ? "#B8516B" : "#8A7080",
+                      fontSize: 11.5,
+                      fontWeight: strategy === "family" ? 600 : 500,
+                      border: "none",
+                      cursor: "pointer",
+                    }}
                   >
-                    <div className="flex flex-col">
-                      <span>Prioritizează Familiile</span>
-                      <span className="text-[9px] text-slate-400 font-normal mt-0.5">Nu separă cuplurile sau grupurile</span>
-                    </div>
-                    {strategy === "family" && <Check className="h-3.5 w-3.5 text-primary" />}
+                    Prioritizează Familiile
                   </button>
                   <button
                     type="button"
                     onClick={() => setStrategy("even")}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs text-left border transition-all duration-150",
-                      strategy === "even"
-                        ? "border-primary/30 bg-primary/5 text-primary font-semibold"
-                        : "border-transparent text-slate-650 hover:bg-slate-50"
-                    )}
+                    style={{
+                      textAlign: "left",
+                      padding: "6px 8px",
+                      borderRadius: 8,
+                      background: strategy === "even" ? "#FEF0F3" : "transparent",
+                      color: strategy === "even" ? "#B8516B" : "#8A7080",
+                      fontSize: 11.5,
+                      fontWeight: strategy === "even" ? 600 : 500,
+                      border: "none",
+                      cursor: "pointer",
+                    }}
                   >
-                    <div className="flex flex-col">
-                      <span>Distribuie Egal</span>
-                      <span className="text-[9px] text-slate-400 font-normal mt-0.5">Repartizare uniformă pe locuri</span>
-                    </div>
-                    {strategy === "even" && <Check className="h-3.5 w-3.5 text-primary" />}
+                    Distribuie Egal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAutoAssign}
+                    disabled={assigning}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      background: "#B8516B",
+                      color: "white",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {assigning ? "Se așează..." : "Rulează Asistentul"}
                   </button>
                 </div>
-
-                <Button
-                  size="sm"
-                  className="w-full rounded-xl text-xs h-9 font-semibold gap-1.5 bg-slate-900 hover:bg-slate-800 text-white"
-                  onClick={handleAutoAssign}
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-pink-400 animate-pulse" />
-                  Rulează Asistentul
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Export dropdown */}
-        <div className="relative">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowExportMenu(!showExportMenu)}
-            className="gap-2 rounded-xl h-9 text-xs font-semibold border-slate-200/80 shadow-sm hover:bg-slate-50 transition-colors"
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onAddTable}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "5px 10px",
+              borderRadius: 8,
+              background: "transparent",
+              border: "none",
+              color: "#8A7080",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 500,
+              fontFamily: "Inter, sans-serif",
+            }}
           >
-            <Download className="h-4 w-4 text-slate-500" />
-            <span>{ro.seating.toolbar.export}</span>
-          </Button>
+            <Plus size={13} />
+            <span className="hidden sm:inline">Nou</span>
+          </button>
+        </div>
+      </div>
 
+      <div style={{ flex: 1, minWidth: 8 }} />
+
+      {/* Right actions */}
+      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }}>
+        <GhostBtn icon={<Share2 size={13} />} label="Partajează" onClick={handleShare} />
+        <div style={{ position: "relative" }}>
+          <GhostBtn
+            icon={<Download size={13} />}
+            label="Exportă"
+            onClick={() => setShowExportMenu(!showExportMenu)}
+          />
           {showExportMenu && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
-              <div className="absolute left-1/2 -translate-x-1/2 lg:left-0 lg:translate-x-0 top-full z-50 mt-2 w-48 rounded-xl border border-border/60 bg-white/95 p-1 shadow-lg backdrop-blur-md">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onExportPng();
-                    setShowExportMenu(false);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted/50"
-                >
-                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                  {ro.seating.toolbar.exportPng}
+              <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setShowExportMenu(false)} />
+              <div
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  right: 0,
+                  zIndex: 50,
+                  marginTop: 8,
+                  width: 180,
+                  background: "white",
+                  borderRadius: 12,
+                  border: "1px solid rgba(210,170,185,0.25)",
+                  boxShadow: "0 8px 32px rgba(180,100,120,0.18)",
+                  padding: 6,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                }}
+              >
+                <button type="button" onClick={() => { onExportPng(); setShowExportMenu(false); }} style={dropdownItemStyle}>
+                  <ImageIcon size={13} />
+                  Exportă PNG
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onExportPdf();
-                    setShowExportMenu(false);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted/50"
-                >
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  {ro.seating.toolbar.exportPdf}
+                <button type="button" onClick={() => { onExportPdf(); setShowExportMenu(false); }} style={dropdownItemStyle}>
+                  <FileText size={13} />
+                  Exportă PDF
                 </button>
                 <button
                   type="button"
@@ -218,73 +435,94 @@ export function SeatingToolbar({
                     window.print();
                     setShowExportMenu(false);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted/50"
+                  style={dropdownItemStyle}
                 >
-                  <Printer className="h-4 w-4 text-muted-foreground" />
-                  Printează (PDF)
+                  <Printer size={13} />
+                  Printează schema
                 </button>
-                <div className="my-1 border-t border-border/40" />
-                <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Sortare Listă Print
-                </div>
+                <div style={{ height: 1, background: "rgba(210,170,185,0.2)", margin: "4px 0" }} />
                 <button
                   type="button"
                   onClick={() => {
                     onTogglePrintSort();
+                    setShowExportMenu(false);
                   }}
-                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs text-foreground hover:bg-muted/50"
+                  style={{ ...dropdownItemStyle, fontSize: 11, color: "#C4A8B4" }}
                 >
-                  <span>{printSort === "alpha" ? "Alfabetic" : "Pe Mese"}</span>
-                  <span className="text-[10px] text-muted-foreground">Schimbă</span>
+                  Sortare listă: {printSort === "alpha" ? "Alfabetic" : "Pe Mese"}
                 </button>
               </div>
             </>
           )}
         </div>
-      </div>
-
-      {/* RIGHT: Lock, Templates, Workspace Mode, and Primary CTA */}
-      <div className="flex items-center gap-2.5">
-        {/* Global lock button */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onToggleGlobalLock}
-          className={cn(
-            "gap-2 rounded-xl h-9 text-xs font-semibold border-slate-200/80 shadow-sm transition-all duration-200",
-            globalLock
-              ? "bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100/60"
-              : "hover:bg-slate-50 text-slate-700"
-          )}
+        <button
+          type="button"
+          onClick={() => onToggleWorkspaceMode?.()}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "5px 10px",
+            borderRadius: 8,
+            border: workspaceMode
+              ? "1px solid rgba(184,81,107,0.35)"
+              : "1px solid rgba(210,170,185,0.25)",
+            background: workspaceMode
+              ? "linear-gradient(145deg, #FEF0F3, #FCEAEF)"
+              : "transparent",
+            color: workspaceMode ? "#B8516B" : "#8A7080",
+            cursor: "pointer",
+            fontSize: 12,
+            fontWeight: 500,
+            fontFamily: "Inter, sans-serif",
+          }}
         >
-          <span>{globalLock ? "🔐 Schemă Blocată" : "🔓 Blochează Schema"}</span>
-        </Button>
-
-        {/* Room Templates Button */}
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={applyingTemplate}
-          onClick={() => onToggleTemplateMenu(true)}
-          className="gap-2 rounded-xl h-9 text-xs font-semibold border-slate-200/80 shadow-sm hover:bg-slate-50 transition-colors"
-        >
-          <Layout className="h-4 w-4 text-slate-500" />
-          <span>Șabloane Sală</span>
-          <ChevronDown className="h-3 w-3 text-slate-400" />
-        </Button>
-
-
-
-        {/* Add Element (Primary CTA) */}
-        <Button
-          size="sm"
-          onClick={onAddTable}
-          className="gap-2 rounded-xl h-9 text-xs font-semibold bg-gradient-to-r from-primary to-pink-500 hover:from-primary/95 hover:to-pink-500/95 text-white border-none shadow-md transition-all duration-200 hover:shadow-lg active:scale-95 shrink-0"
-        >
-          <Plus className="h-4.5 w-4.5" />
-          Adaugă Element
-        </Button>
+          {workspaceMode ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          <span className="hidden sm:inline">{workspaceMode ? "Ieși" : "Focus"}</span>
+        </button>
       </div>
     </div>
+  );
+}
+
+function GhostBtn({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "5px 10px",
+        borderRadius: 8,
+        background: "transparent",
+        border: "none",
+        color: "#8A7080",
+        cursor: "pointer",
+        fontSize: 12,
+        fontWeight: 500,
+        fontFamily: "Inter, sans-serif",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "rgba(254,240,243,0.85)";
+        e.currentTarget.style.color = "#B8516B";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+        e.currentTarget.style.color = "#8A7080";
+      }}
+    >
+      {icon}
+      <span className="hidden md:inline">{label}</span>
+    </button>
   );
 }

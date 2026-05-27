@@ -13,17 +13,20 @@ type GuestCardViewProps = {
   syncingIds: Set<string>;
 };
 
-// Generate gradient avatar colors from name
-function getAvatarGradient(name: string): string {
-  const gradients = [
-    "from-rose-300 to-pink-400",
-    "from-violet-300 to-purple-400",
-    "from-sky-300 to-blue-400",
-    "from-emerald-300 to-green-400",
-    "from-amber-300 to-orange-400",
-    "from-teal-300 to-cyan-400",
-    "from-fuchsia-300 to-pink-400",
-    "from-indigo-300 to-violet-400",
+type AvatarTheme = {
+  bg: string;
+  text: string;
+};
+
+// Generate premium gradient avatar colors from name
+function getAvatarGradient(name: string): AvatarTheme {
+  const gradients: AvatarTheme[] = [
+    { bg: "from-[#FEF0F3] to-[#FCEAEF]", text: "text-[#B8516B] border border-[#FCE2E9]" }, // Blush / Rose
+    { bg: "from-[#FAF3FB] to-[#F2DDF5]", text: "text-[#7030A0] border border-[#F2DDF5]" }, // Lavender
+    { bg: "from-[#FFF9E6] to-[#FFEAA7]", text: "text-[#B8860B] border border-[#FCE49F]" }, // Gold
+    { bg: "from-[#EEF6FC] to-[#D2E7F7]", text: "text-[#2B6CB0] border border-[#D2E7F7]" }, // Soft Blue
+    { bg: "from-[#F2FAF3] to-[#D5EED8]", text: "text-[#2E7D32] border border-[#D5EED8]" }, // Soft Green
+    { bg: "from-[#EDFAF8] to-[#CEF1ED]", text: "text-[#007A78] border border-[#CEF1ED]" }, // Teal
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -46,14 +49,14 @@ export function GuestCardView({
 }: GuestCardViewProps) {
   if (guests.length === 0) {
     return (
-      <div className="py-12 text-center text-sm text-muted-foreground">
+      <div className="py-16 text-center text-xs font-semibold text-text-subtle glass-panel border-dashed border-border-rose-18 p-8 rounded-[18px] bg-white/40">
         Nu s-au găsit invitați cu filtrele selectate.
       </div>
     );
   }
 
   return (
-    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {guests.map((guest, index) => (
         <GuestCard
           key={guest.id}
@@ -80,7 +83,7 @@ type GuestCardProps = {
 const GuestCard = React.memo(
   function GuestCard({ guest, isSyncing, onRsvpChange, onSelectGuest, index }: GuestCardProps) {
     const fullName = guest.last_name ? `${guest.last_name} ${guest.first_name}` : guest.first_name;
-    const gradient = getAvatarGradient(fullName);
+    const theme = getAvatarGradient(fullName);
     const initials = getInitials(guest.first_name, guest.last_name);
 
     const isTemp = guest.id.startsWith("temp-");
@@ -98,45 +101,41 @@ const GuestCard = React.memo(
       }
     }, [isTemp, guest, onSelectGuest]);
 
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[GuestCard] Rendered guest: ${guest.first_name} ${guest.last_name || ""}`);
-    }
-
-    const shouldAnimate = index < 10;
+    const shouldAnimate = index < 12;
 
     return (
       <div
         onClick={handleCardClick}
-        style={shouldAnimate ? { animationDelay: `${index * 30}ms` } : undefined}
+        style={shouldAnimate ? { animationDelay: `${index * 25}ms` } : undefined}
         className={cn(
-          "group cursor-pointer rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-border/30 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99]",
+          "group cursor-pointer rounded-[18px] bg-white/70 p-4 border border-border-rose-18 shadow-card transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:shadow-card-hover hover:border-border-rose-30 hover:-translate-y-0.5 active:scale-[0.98] focus-within:ring-2 focus-within:ring-[#B8516B]/20",
           shouldAnimate ? "animate-fade-in-up" : "opacity-100",
-          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85",
+          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/20 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85",
           isSyncing && "animate-soft-pulse"
         )}
       >
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
             <div
               className={cn(
-                "flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-sm font-bold text-white shadow-sm",
-                gradient
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-[11px] font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]",
+                theme.bg, theme.text
               )}
             >
               {initials}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">
+              <p className="truncate text-xs font-bold text-foreground group-hover:text-[#B8516B] transition-colors duration-200">
                 {fullName}
               </p>
               {guest.plus_one && (
-                <p className="truncate text-[11px] text-muted-foreground">
-                  +1 {guest.plus_one_name ?? ""}
+                <p className="truncate text-[10px] font-medium text-text-secondary mt-0.5">
+                  +1 {guest.plus_one_name ?? "Partener"}
                 </p>
               )}
             </div>
           </div>
-          <div onClick={(e) => e.stopPropagation()}>
+          <div onClick={(e) => e.stopPropagation()} className="shrink-0">
             <RsvpPill
               status={guest.rsvp_status}
               onChange={handleRsvpChangeCallback}
@@ -156,16 +155,22 @@ const GuestCard = React.memo(
         )}
 
         {/* Bottom info */}
-        <div className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
-          {guest.seating_tables && (
-            <span className="inline-flex items-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-indigo-600">
-              {guest.seating_tables.name}
-            </span>
-          )}
-          {guest.group_name && (
-            <span className="truncate">{guest.group_name}</span>
-          )}
-        </div>
+        {(guest.seating_tables || guest.group_name) && (
+          <div className="mt-3.5 pt-3 border-t border-border-rose-18/30 flex items-center justify-between text-[9.5px] font-semibold text-text-subtle">
+            {guest.seating_tables ? (
+              <span className="inline-flex items-center rounded-[6px] bg-[#FEF0F3] px-1.5 py-0.5 text-[9px] font-bold text-[#B8516B] border border-[#FCEAEF] tracking-wide">
+                Masa {guest.seating_tables.name}
+              </span>
+            ) : (
+              <span className="text-[9px] font-medium text-text-faint">Fără masă</span>
+            )}
+            {guest.group_name && (
+              <span className="truncate max-w-[120px] font-medium hover:text-[#B8516B] transition-colors" title={guest.group_name}>
+                {guest.group_name}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     );
   },

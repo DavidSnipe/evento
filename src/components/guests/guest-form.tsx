@@ -13,7 +13,7 @@ import type { SeatingTableRow } from "@/types/guests";
 import { RSVP_STATUSES } from "@/types/guests";
 
 const selectClass =
-  "flex h-11 w-full rounded-xl border border-input bg-background/80 px-4 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "flex h-10 w-full rounded-[10px] border border-[#d2aaa9]/20 bg-[#F3F3F5] px-3.5 text-xs font-semibold text-text-secondary outline-none focus:bg-[#FEF0F3]/20 focus:border-[#B8516B]/50 transition-all cursor-pointer";
 
 type GuestFormProps = {
   eventId: string;
@@ -45,15 +45,18 @@ export function GuestForm({
   }, [state.success, onSuccess]);
 
   return (
-    <Card className="glass-panel border-0">
-      <CardHeader>
-        <CardTitle className="text-lg">{title}</CardTitle>
+    <Card className="glass-panel border-0 bg-white/70 shadow-card rounded-[18px]">
+      <CardHeader className="pb-4">
+        <CardTitle className="font-serif text-lg font-bold text-foreground">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="grid gap-4 sm:grid-cols-2">
           <input type="hidden" name="event_id" value={eventId} />
-          <div className="space-y-2 sm:col-span-1">
-            <Label htmlFor="first_name">{ro.guests.form.firstName} *</Label>
+          
+          <div className="space-y-1.5 sm:col-span-1">
+            <Label htmlFor="first_name" className="text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
+              {ro.guests.form.firstName} *
+            </Label>
             <Input
               id="first_name"
               name="first_name"
@@ -61,20 +64,32 @@ export function GuestForm({
               required
             />
           </div>
-          <div className="space-y-2 sm:col-span-1">
-            <Label htmlFor="last_name">{ro.guests.form.lastName}</Label>
+          
+          <div className="space-y-1.5 sm:col-span-1">
+            <Label htmlFor="last_name" className="text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
+              {ro.guests.form.lastName}
+            </Label>
             <Input id="last_name" name="last_name" defaultValue={guest?.last_name ?? ""} />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">{ro.guests.form.email}</Label>
+          
+          <div className="space-y-1.5">
+            <Label htmlFor="email" className="text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
+              {ro.guests.form.email}
+            </Label>
             <Input id="email" name="email" type="email" defaultValue={guest?.email ?? ""} />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="phone">{ro.guests.form.phone}</Label>
+          
+          <div className="space-y-1.5">
+            <Label htmlFor="phone" className="text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
+              {ro.guests.form.phone}
+            </Label>
             <Input id="phone" name="phone" defaultValue={guest?.phone ?? ""} />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="rsvp_status">{ro.guests.form.rsvpStatus}</Label>
+          
+          <div className="space-y-1.5">
+            <Label htmlFor="rsvp_status" className="text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
+              {ro.guests.form.rsvpStatus}
+            </Label>
             <select
               id="rsvp_status"
               name="rsvp_status"
@@ -88,8 +103,11 @@ export function GuestForm({
               ))}
             </select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="table_id">{ro.guests.form.table}</Label>
+          
+          <div className="space-y-1.5">
+            <Label htmlFor="table_id" className="text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
+              {ro.guests.form.table}
+            </Label>
             <select
               id="table_id"
               name="table_id"
@@ -104,8 +122,11 @@ export function GuestForm({
               ))}
             </select>
           </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="group_name">{ro.guests.form.group}</Label>
+          
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="group_name" className="text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
+              {ro.guests.form.group}
+            </Label>
             <Input
               id="group_name"
               name="group_name"
@@ -113,28 +134,35 @@ export function GuestForm({
               defaultValue={guest?.group_name ?? ""}
             />
           </div>
-          <div className="flex items-center gap-2 sm:col-span-2">
+          
+          <div className="flex items-center gap-2 sm:col-span-2 py-1.5">
             <input
               type="checkbox"
               id="plus_one"
               name="plus_one"
               defaultChecked={guest?.plus_one ?? false}
-              className="h-4 w-4 rounded border-input"
+              className="h-4 w-4 rounded border-[#D2AAA9]/40 text-[#B8516B] accent-[#B8516B] focus:ring-[#B8516B]/20 cursor-pointer"
             />
-            <Label htmlFor="plus_one" className="cursor-pointer font-normal">
+            <Label htmlFor="plus_one" className="cursor-pointer text-xs font-semibold text-text-secondary">
               {ro.guests.form.plusOne}
             </Label>
           </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="plus_one_name">{ro.guests.form.plusOneName}</Label>
+          
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="plus_one_name" className="text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
+              {ro.guests.form.plusOneName}
+            </Label>
             <Input
               id="plus_one_name"
               name="plus_one_name"
               defaultValue={guest?.plus_one_name ?? ""}
             />
           </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="dietary_notes">{ro.guests.form.dietary}</Label>
+          
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="dietary_notes" className="text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
+              {ro.guests.form.dietary}
+            </Label>
             <Input
               id="dietary_notes"
               name="dietary_notes"
@@ -143,13 +171,13 @@ export function GuestForm({
           </div>
 
           {state.error ? (
-            <p className="sm:col-span-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <p className="sm:col-span-2 rounded-[10px] bg-red-50 border border-red-100 px-3.5 py-2.5 text-xs font-semibold text-[#FF3B30]">
               {state.error}
             </p>
           ) : null}
 
-          <div className="sm:col-span-2">
-            <Button type="submit" disabled={pending}>
+          <div className="sm:col-span-2 mt-4">
+            <Button type="submit" disabled={pending} className="w-full sm:w-auto">
               {pending ? ro.auth.pleaseWait : isEdit ? ro.guests.form.save : ro.guests.form.add}
             </Button>
           </div>

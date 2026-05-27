@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { MoreHorizontal, Trash2, Edit3 } from "lucide-react";
+import { MoreHorizontal, Trash2, Edit3, Search } from "lucide-react";
 import { createPortal } from "react-dom";
 import { RsvpPill } from "@/components/guests/rsvp-pill";
 import { TagBadge } from "@/components/guests/tag-badge";
@@ -21,17 +21,20 @@ type GuestTableViewProps = {
   syncingIds: Set<string>;
 };
 
-// Generate gradient avatar colors from name
-function getAvatarGradient(name: string): string {
-  const gradients = [
-    "from-rose-300 to-pink-400",
-    "from-violet-300 to-purple-400",
-    "from-sky-300 to-blue-400",
-    "from-emerald-300 to-green-400",
-    "from-amber-300 to-orange-400",
-    "from-teal-300 to-cyan-400",
-    "from-fuchsia-300 to-pink-400",
-    "from-indigo-300 to-violet-400",
+type AvatarTheme = {
+  bg: string;
+  text: string;
+};
+
+// Generate premium gradient avatar colors from name
+function getAvatarGradient(name: string): AvatarTheme {
+  const gradients: AvatarTheme[] = [
+    { bg: "from-[#FEF0F3] to-[#FCEAEF]", text: "text-[#B8516B] border border-[#FCE2E9]" },
+    { bg: "from-[#FAF3FB] to-[#F2DDF5]", text: "text-[#7030A0] border border-[#F2DDF5]" },
+    { bg: "from-[#FFF9E6] to-[#FFEAA7]", text: "text-[#B8860B] border border-[#FCE49F]" },
+    { bg: "from-[#EEF6FC] to-[#D2E7F7]", text: "text-[#2B6CB0] border border-[#D2E7F7]" },
+    { bg: "from-[#F2FAF3] to-[#D5EED8]", text: "text-[#2E7D32] border border-[#D5EED8]" },
+    { bg: "from-[#EDFAF8] to-[#CEF1ED]", text: "text-[#007A78] border border-[#CEF1ED]" }
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -165,14 +168,14 @@ export function TablePicker({ selectedTableId, tables, onChange, readonly }: Tab
           }
         }}
         className={cn(
-          "inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 rounded-xl border border-border/40 px-3.5 md:px-3 py-1.5 md:py-1 text-xs font-medium transition-all duration-200",
+          "inline-flex min-h-[38px] md:min-h-[30px] items-center gap-1.5 rounded-[8px] border px-3 py-1.5 text-xs font-semibold transition-all duration-300 ease-out shadow-[0_1px_2px_rgba(180,100,120,0.02)]",
           selectedTable
-            ? "bg-indigo-50/50 text-indigo-700 hover:bg-indigo-50 border-indigo-100/50"
-            : "bg-muted/30 text-muted-foreground hover:bg-muted/50",
-          !readonly && "cursor-pointer hover:shadow-sm active:scale-95"
+            ? "bg-[#FEF0F3] text-[#B8516B] hover:bg-[#FCEAEF] border-[#FCEAEF]"
+            : "bg-[#F3F3F5] text-text-secondary border-transparent hover:bg-muted/40",
+          !readonly && "cursor-pointer hover:shadow-[0_2px_8px_rgba(180,100,120,0.04)] active:scale-95"
         )}
       >
-        <span className={cn("h-1.5 w-1.5 rounded-full", selectedTable ? "bg-indigo-500" : "bg-muted-foreground/40")} />
+        <span className={cn("h-1.5 w-1.5 rounded-full", selectedTable ? "bg-[#B8516B] animate-pulse" : "bg-[#9A8090]")} />
         {selectedTable ? selectedTable.name : "Fără masă"}
       </button>
 
@@ -186,15 +189,16 @@ export function TablePicker({ selectedTableId, tables, onChange, readonly }: Tab
             zIndex: 99999,
             transition: "none",
           }}
-          className="w-44 rounded-xl border border-border/40 bg-white/95 p-1 shadow-xl shadow-black/5 backdrop-blur-sm transition-none animate-scale-in origin-top-left"
+          className="w-44 rounded-[14px] border border-border-rose-18 bg-white/95 p-1 shadow-[0_8px_32px_rgba(180,100,120,0.12)] backdrop-blur-[12px] animate-scale-in origin-top-left"
         >
-          <div className="p-1">
+          <div className="p-1 relative">
+            <Search className="absolute left-2.5 top-2.5 h-3 w-3 text-text-subtle" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Caută masă..."
-              className="h-8 w-full rounded-lg bg-muted/50 px-2.5 text-xs outline-none focus:bg-muted/80"
+              className="h-8 w-full rounded-[8px] bg-[#f3f3f5] border border-border-rose-18/10 pl-7 pr-2.5 text-xs text-[#1A0E14] outline-none focus:border-[#B8516B]/50 transition-all font-medium"
               autoFocus
             />
           </div>
@@ -206,11 +210,11 @@ export function TablePicker({ selectedTableId, tables, onChange, readonly }: Tab
                 setIsOpen(false);
               }}
               className={cn(
-                "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
-                !selectedTableId ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50"
+                "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold transition-colors cursor-pointer",
+                !selectedTableId ? "bg-[#FEF0F3] text-[#B8516B]" : "text-text-secondary hover:bg-muted/30"
               )}
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#9A8090]" />
               Fără masă
             </button>
             {filteredTables.map((t) => (
@@ -222,16 +226,16 @@ export function TablePicker({ selectedTableId, tables, onChange, readonly }: Tab
                   setIsOpen(false);
                 }}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
-                  t.id === selectedTableId ? "bg-indigo-50 text-indigo-700" : "text-muted-foreground hover:bg-muted/50"
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold transition-colors cursor-pointer",
+                  t.id === selectedTableId ? "bg-[#FEF0F3] text-[#B8516B]" : "text-text-secondary hover:bg-[#FEF0F3]/30 hover:text-[#B8516B]"
                 )}
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                <span className="h-1.5 w-1.5 rounded-full bg-[#B8516B]" />
                 {t.name}
               </button>
             ))}
             {filteredTables.length === 0 && (
-              <div className="py-2 text-center text-[10px] text-muted-foreground">
+              <div className="py-3 text-center text-[10px] font-medium text-text-subtle">
                 Nicio masă găsită
               </div>
             )}
@@ -268,11 +272,11 @@ export function GuestTableView({
 
     const handleScroll = () => {
       if (container.scrollTop > 10) {
-        thead.classList.add("backdrop-blur-md", "bg-white/90", "shadow-sm");
+        thead.classList.add("backdrop-blur-md", "bg-white/80", "shadow-[0_4px_20px_rgba(180,100,120,0.06)]");
         thead.classList.remove("bg-white/95");
       } else {
         thead.classList.add("bg-white/95");
-        thead.classList.remove("backdrop-blur-md", "bg-white/90", "shadow-sm");
+        thead.classList.remove("backdrop-blur-md", "bg-white/80", "shadow-[0_4px_20px_rgba(180,100,120,0.06)]");
       }
     };
 
@@ -283,43 +287,43 @@ export function GuestTableView({
   return (
     <div
       ref={containerRef}
-      className="overflow-hidden rounded-2xl bg-white/80 shadow-sm ring-1 ring-border/60 max-h-[700px] overflow-y-auto"
+      className="overflow-hidden rounded-[18px] border border-border-rose-18 bg-white/70 shadow-card backdrop-blur-md max-h-[700px] overflow-y-auto"
     >
       {/* Desktop Table */}
       <div className="hidden md:block">
         <table className="w-full border-collapse">
           <thead
             ref={theadRef}
-            className="sticky top-0 z-10 bg-white/95 border-b border-border/75 transition-all duration-200"
+            className="sticky top-0 z-10 bg-white/95 border-b border-border-rose-18/60 transition-all duration-200"
           >
             <tr>
-              <th className="w-10 px-4 py-3.5 border-r border-border/75">
+              <th className="w-10 px-4 py-3.5 border-r border-border-rose-18/30 text-center">
                 <input
                   type="checkbox"
                   checked={allSelected}
                   onChange={onToggleSelectAll}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/30 cursor-pointer"
+                  className="h-4 w-4 rounded border-[#D2AAA9]/40 text-[#B8516B] accent-[#B8516B] focus:ring-[#B8516B]/20 cursor-pointer"
                 />
               </th>
-              <th className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground border-r border-border/75">
+              <th className="px-4 py-3.5 text-left text-[9.5px] font-bold uppercase tracking-wider text-text-subtle border-r border-border-rose-18/30">
                 Nume
               </th>
-              <th className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground border-r border-border/75">
+              <th className="px-4 py-3.5 text-left text-[9.5px] font-bold uppercase tracking-wider text-text-subtle border-r border-border-rose-18/30">
                 RSVP
               </th>
-              <th className="hidden lg:table-cell px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground border-r border-border/75">
+              <th className="hidden lg:table-cell px-4 py-3.5 text-left text-[9.5px] font-bold uppercase tracking-wider text-text-subtle border-r border-border-rose-18/30">
                 Tag-uri
               </th>
-              <th className="hidden lg:table-cell px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground border-r border-border/75">
+              <th className="hidden lg:table-cell px-4 py-3.5 text-left text-[9.5px] font-bold uppercase tracking-wider text-text-subtle border-r border-border-rose-18/30">
                 Masă
               </th>
-              <th className="hidden xl:table-cell px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground border-r border-border/75">
+              <th className="hidden xl:table-cell px-4 py-3.5 text-left text-[9.5px] font-bold uppercase tracking-wider text-text-subtle border-r border-border-rose-18/30">
                 Grup
               </th>
               <th className="w-10 px-4 py-3.5" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-border/65">
+          <tbody className="divide-y divide-border-rose-18/30">
             {guests.map((guest, index) => (
               <GuestRow
                 key={guest.id}
@@ -340,7 +344,7 @@ export function GuestTableView({
       </div>
 
       {/* Mobile Card List */}
-      <div className="md:hidden divide-y divide-border/20">
+      <div className="md:hidden divide-y divide-border-rose-18/30">
         {guests.map((guest, index) => (
           <MobileGuestRow
             key={guest.id}
@@ -356,7 +360,7 @@ export function GuestTableView({
       </div>
 
       {guests.length === 0 && (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-16 text-center text-xs font-semibold text-text-subtle">
           Nu s-au găsit invitați cu filtrele selectate.
         </div>
       )}
@@ -429,7 +433,7 @@ const GuestRow = React.memo(
 
     const { mainName, subtext } = formatGuestName(guest);
     const initials = getInitials(guest);
-    const gradient = getAvatarGradient(mainName);
+    const theme = getAvatarGradient(mainName);
 
     useEffect(() => {
       function handleClick(e: MouseEvent) {
@@ -469,76 +473,72 @@ const GuestRow = React.memo(
       }
     }, [isTemp, guest, onClick]);
 
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[GuestRow] Rendered guest: ${guest.first_name} ${guest.last_name || ""}`);
-    }
-
-    const shouldAnimate = index < 10;
+    const shouldAnimate = index < 12;
 
     return (
       <tr
         onClick={handleRowClick}
-        style={shouldAnimate ? { animationDelay: `${index * 30}ms` } : undefined}
+        style={shouldAnimate ? { animationDelay: `${index * 20}ms` } : undefined}
         className={cn(
-          "group cursor-pointer transition-colors duration-200 border-b border-border/10 last:border-0",
+          "group cursor-pointer transition-colors duration-200 border-b border-border-rose-18/10 last:border-0",
           shouldAnimate ? "animate-fade-in-up" : "opacity-100",
-          isSelected ? "bg-primary/5" : "even:bg-muted/5 odd:bg-transparent hover:bg-primary/[0.03]",
-          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85",
+          isSelected ? "bg-[#FEF0F3]/40" : "hover:bg-[#FEF0F3]/15",
+          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/20 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85",
           isSyncing && "animate-soft-pulse"
         ) }
       >
-        <td className="px-4 py-2.5 border-r border-border/65" onClick={(e) => e.stopPropagation()}>
+        <td className="px-4 py-3 border-r border-border-rose-18/20 text-center" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={isSelected}
             disabled={isTemp}
             onChange={handleCheckboxChange}
-            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/30 cursor-pointer disabled:opacity-50"
+            className="h-4 w-4 rounded border-[#D2AAA9]/40 text-[#B8516B] accent-[#B8516B] focus:ring-[#B8516B]/20 cursor-pointer disabled:opacity-50"
           />
         </td>
-        <td className="px-3 py-2.5 border-r border-border/65">
+        <td className="px-4 py-3 border-r border-border-rose-18/20">
           <div className="flex items-center gap-3">
             <div
               className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-[11px] font-bold text-white shadow-sm",
-                gradient
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-[10.5px] font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]",
+                theme.bg, theme.text
               )}
             >
               {initials}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">
+              <p className="truncate text-xs font-bold text-foreground group-hover:text-[#B8516B] transition-colors duration-200">
                 {mainName}
               </p>
               {subtext && (
-                <p className="truncate text-[11px] text-muted-foreground">
+                <p className="truncate text-[10px] font-medium text-text-secondary mt-0.5">
                   {subtext}
                 </p>
               )}
               {!subtext && guest.plus_one && (
-                <p className="truncate text-[11px] text-muted-foreground">
-                  +1 {guest.plus_one_name ?? ""}
+                <p className="truncate text-[10px] font-medium text-text-secondary mt-0.5">
+                  +1 {guest.plus_one_name ?? "Partener"}
                 </p>
               )}
             </div>
           </div>
         </td>
-        <td className="px-3 py-2.5 border-r border-border/65" onClick={(e) => e.stopPropagation()}>
+        <td className="px-4 py-3 border-r border-border-rose-18/20" onClick={(e) => e.stopPropagation()}>
           <RsvpPill status={guest.rsvp_status} onChange={handleRsvpPillChange} readonly={isTemp} isSyncing={isSyncing} />
         </td>
-        <td className="hidden lg:table-cell px-3 py-2.5 border-r border-border/65">
-          <div className="flex flex-wrap gap-1">
+        <td className="hidden lg:table-cell px-4 py-3 border-r border-border-rose-18/20">
+          <div className="flex flex-wrap gap-1 max-w-[200px]">
             {(guest.tags ?? []).slice(0, 3).map((tag) => (
               <TagBadge key={tag} tag={tag} />
             ))}
             {(guest.tags ?? []).length > 3 && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[9.5px] font-bold text-text-subtle ml-1 self-center bg-[#FEF0F3] px-1 rounded">
                 +{(guest.tags ?? []).length - 3}
               </span>
             )}
           </div>
         </td>
-        <td className="hidden lg:table-cell px-3 py-2.5 border-r border-border/65" onClick={(e) => e.stopPropagation()}>
+        <td className="hidden lg:table-cell px-4 py-3 border-r border-border-rose-18/20" onClick={(e) => e.stopPropagation()}>
           <TablePicker
             selectedTableId={guest.table_id}
             tables={tables}
@@ -546,11 +546,11 @@ const GuestRow = React.memo(
             readonly={isTemp}
           />
         </td>
-        <td className="hidden xl:table-cell px-3 py-2.5 text-xs text-muted-foreground border-r border-border/65">
-          {guest.group_name || "—"}
+        <td className="hidden xl:table-cell px-4 py-3 text-xs font-medium text-text-secondary border-r border-border-rose-18/20">
+          {guest.group_name || <span className="text-text-faint/60">—</span>}
         </td>
-        <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
-          <div className="relative">
+        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="relative inline-block">
             <button
               ref={triggerRef}
               type="button"
@@ -560,7 +560,7 @@ const GuestRow = React.memo(
                 if (!showMenu) updateCoords();
                 setShowMenu(!showMenu);
               }}
-              className="rounded-lg p-1.5 text-muted-foreground/60 opacity-0 transition-all group-hover:opacity-100 hover:bg-muted/50 hover:text-foreground disabled:opacity-0"
+              className="rounded-lg p-1 text-text-secondary/50 opacity-0 transition-all group-hover:opacity-100 hover:bg-[#FEF0F3] hover:text-[#B8516B] disabled:opacity-0 cursor-pointer"
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>
@@ -574,7 +574,7 @@ const GuestRow = React.memo(
                   zIndex: 99999,
                   transition: "none",
                 }}
-                className="w-36 rounded-xl border border-border/40 bg-white/95 p-1 shadow-xl shadow-black/5 backdrop-blur-sm transition-none animate-scale-in origin-top-right"
+                className="w-36 rounded-[14px] border border-border-rose-18 bg-white/95 p-1 shadow-[0_8px_32px_rgba(180,100,120,0.12)] backdrop-blur-[12px] animate-scale-in origin-top-right"
               >
                 <button
                   type="button"
@@ -583,7 +583,7 @@ const GuestRow = React.memo(
                     onClick(guest);
                     setShowMenu(false);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-foreground hover:bg-muted/50"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold text-text-secondary hover:bg-[#FEF0F3]/80 hover:text-[#B8516B] transition-colors cursor-pointer"
                 >
                   <Edit3 className="h-3.5 w-3.5" />
                   Editează
@@ -595,7 +595,7 @@ const GuestRow = React.memo(
                     onDelete(guest.id);
                     setShowMenu(false);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-destructive hover:bg-destructive/10"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold text-[#FF3B30] hover:bg-[#FFF0F0] transition-colors cursor-pointer"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Șterge
@@ -609,7 +609,6 @@ const GuestRow = React.memo(
     );
   },
   (prev, next) => {
-    // Only re-render if guest row specific fields change
     const sameSubGuests =
       (!prev.guest.subGuests && !next.guest.subGuests) ||
       (!!prev.guest.subGuests && !!next.guest.subGuests &&
@@ -656,7 +655,7 @@ const MobileGuestRow = React.memo(
   }: MobileGuestRowProps) {
     const { mainName, subtext } = formatGuestName(guest);
     const initials = getInitials(guest);
-    const gradient = getAvatarGradient(mainName);
+    const theme = getAvatarGradient(mainName);
 
     const isTemp = guest.id.startsWith("temp-");
 
@@ -677,21 +676,17 @@ const MobileGuestRow = React.memo(
       }
     }, [isTemp, guest, onClick]);
 
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[MobileGuestRow] Rendered guest: ${guest.first_name} ${guest.last_name || ""}`);
-    }
-
-    const shouldAnimate = index < 10;
+    const shouldAnimate = index < 12;
 
     return (
       <div
         onClick={handleRowClick}
-        style={shouldAnimate ? { animationDelay: `${index * 30}ms` } : undefined}
+        style={shouldAnimate ? { animationDelay: `${index * 20}ms` } : undefined}
         className={cn(
-          "flex items-center gap-3 px-4 py-3 transition-colors duration-200 active:bg-muted/30",
+          "flex items-center gap-3 px-4 py-3.5 transition-colors duration-200 active:bg-[#FEF0F3]/30",
           shouldAnimate ? "animate-fade-in-up" : "opacity-100",
-          isSelected && "bg-primary/5",
-          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/30 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85",
+          isSelected ? "bg-[#FEF0F3]/40" : "bg-transparent",
+          isTemp && "pointer-events-none bg-gradient-to-r from-gray-50 via-pink-50/20 to-gray-50 bg-[length:200%_100%] animate-shimmer opacity-85",
           isSyncing && "animate-soft-pulse"
         )}
       >
@@ -701,35 +696,35 @@ const MobileGuestRow = React.memo(
             checked={isSelected}
             disabled={isTemp}
             onChange={handleCheckboxChange}
-            className="h-4 w-4 shrink-0 rounded border-gray-300 text-primary focus:ring-primary/30 disabled:opacity-50"
+            className="h-4 w-4 rounded border-[#D2AAA9]/40 text-[#B8516B] accent-[#B8516B] focus:ring-[#B8516B]/20 cursor-pointer disabled:opacity-50"
           />
         </div>
         <div
           className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-[10px] font-bold text-white shadow-sm",
-            gradient
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-[10.5px] font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]",
+            theme.bg, theme.text
           )}
         >
           {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-foreground">{mainName}</p>
+          <p className="truncate text-xs font-bold text-foreground">{mainName}</p>
           <div className="mt-0.5 flex items-center gap-2">
             {subtext ? (
-              <span className="truncate text-[11px] text-muted-foreground">{subtext}</span>
+              <span className="truncate text-[10px] font-medium text-text-secondary">{subtext}</span>
             ) : guest.plus_one ? (
-              <span className="text-[11px] text-muted-foreground">
-                +1 {guest.plus_one_name ?? ""}
+              <span className="text-[10px] font-medium text-text-secondary">
+                +1 {guest.plus_one_name ?? "Partener"}
               </span>
             ) : null}
             {guest.seating_tables && (
-              <span className="text-[11px] text-indigo-600 font-medium">
+              <span className="text-[10px] text-[#B8516B] font-bold bg-[#FEF0F3] px-1 rounded">
                 {guest.seating_tables.name}
               </span>
             )}
           </div>
         </div>
-        <div onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()} className="shrink-0">
           <RsvpPill status={guest.rsvp_status} onChange={handleRsvpChangeCallback} readonly={isTemp} isSyncing={isSyncing} />
         </div>
       </div>

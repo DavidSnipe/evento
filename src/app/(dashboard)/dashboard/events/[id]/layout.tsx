@@ -1,5 +1,4 @@
 import { requireEvent } from "@/lib/events/verify-event";
-import { EventSubNav } from "@/components/events/event-sub-nav";
 
 type EventLayoutProps = {
   children: React.ReactNode;
@@ -10,10 +9,5 @@ export default async function EventLayout({ children, params }: EventLayoutProps
   const { id } = await params;
   await requireEvent(id);
 
-  return (
-    <>
-      <EventSubNav eventId={id} />
-      {children}
-    </>
-  );
+  return <>{children}</>;
 }

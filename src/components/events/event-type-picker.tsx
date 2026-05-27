@@ -31,16 +31,16 @@ export function EventTypePicker({
               type="button"
               onClick={() => setSelected(option.value)}
               className={cn(
-                "flex flex-col items-center gap-2 rounded-xl border p-4 text-center text-sm transition-all duration-200",
+                "flex flex-col items-center gap-2.5 rounded-[10px] border p-4 text-center text-[12.5px] font-semibold transition-all duration-200 cursor-pointer active:scale-95",
                 isSelected
-                  ? "border-primary bg-primary/15 shadow-md shadow-primary/10"
-                  : "border-border bg-background/60 hover:border-primary/40 hover:bg-primary/5"
+                  ? "border-[#B8516B] bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] text-[#B8516B] shadow-[0_2px_8px_rgba(180,100,120,0.06)]"
+                  : "border-[rgba(210,170,185,0.22)] bg-white text-text-secondary hover:border-[#B8516B]/50 hover:bg-[#FEF0F3]/30 hover:text-[#B8516B]"
               )}
             >
               <Icon
-                className={cn("h-5 w-5", isSelected ? "text-primary" : "text-muted-foreground")}
+                className={cn("h-4.5 w-4.5 transition-transform duration-200", isSelected ? "text-[#B8516B] scale-110" : "text-text-subtle")}
               />
-              <span className="font-medium leading-tight">{option.label}</span>
+              <span className="leading-tight">{option.label}</span>
             </button>
           );
         })}

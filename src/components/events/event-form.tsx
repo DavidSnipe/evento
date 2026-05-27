@@ -29,7 +29,7 @@ type EventFormProps = {
 const initialState: EventFormState = {};
 
 const textareaClassName =
-  "flex min-h-[100px] w-full rounded-xl border border-input bg-background/80 px-4 py-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
+  "flex min-h-[100px] w-full rounded-[10px] border border-[rgba(210,170,185,0.25)] bg-[#F3F3F5] px-3.5 py-2.5 text-[12.5px] transition-all duration-200 ease-out placeholder:text-text-subtle focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#B8516B]/10 focus-visible:border-[#B8516B]/40 disabled:cursor-not-allowed disabled:opacity-50 text-[#1A0E14]";
 
 export function EventForm({
   mode,
@@ -70,8 +70,8 @@ export function EventForm({
             <EventTypePicker defaultValue={event?.event_type ?? "wedding"} />
           </div>
 
-          <div className="space-y-2">
-            <Label>{ro.events.form.date}</Label>
+          <div className="space-y-2 flex flex-col">
+            <Label className="mb-2">{ro.events.form.date}</Label>
             <input 
               type="hidden" 
               name="event_date" 
@@ -82,12 +82,12 @@ export function EventForm({
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-full justify-start text-left font-normal bg-background/80",
-                    !date && "text-muted-foreground"
+                    "w-full justify-start text-left font-normal bg-[#F3F3F5] border-[rgba(210,170,185,0.25)] rounded-[10px] text-[12.5px] h-10 px-3.5 text-text-secondary hover:text-[#B8516B] active:scale-[0.99]",
+                    !date && "text-text-subtle"
                   )}
                   disabled={pending}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  <CalendarIcon className="mr-2 h-4 w-4 shrink-0 text-text-subtle" />
                   {date ? (
                     format(date, "PPP", { locale: roLocale })
                   ) : (
@@ -104,7 +104,7 @@ export function EventForm({
                 />
               </PopoverContent>
             </Popover>
-            <p className="text-xs text-muted-foreground">{ro.events.form.dateHint}</p>
+            <p className="text-[10px] text-text-subtle mt-1.5">{ro.events.form.dateHint}</p>
           </div>
 
           <div className="space-y-2">
@@ -119,13 +119,13 @@ export function EventForm({
           </div>
 
           {/* Godparents Configuration Card */}
-          <div className="space-y-4 rounded-2xl border border-border/50 bg-card/50 p-5 backdrop-blur-sm">
+          <div className="space-y-4 rounded-[18px] border border-[rgba(210,170,185,0.22)] bg-white p-5 shadow-card">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="has_godparents" className="text-base font-semibold cursor-pointer">
+                <Label htmlFor="has_godparents" className="text-sm font-bold text-[#1A0E14] cursor-pointer block">
                   Evenimentul are nași?
                 </Label>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] text-text-secondary leading-normal">
                   Activează pentru a adăuga nașii ca invitați speciali (VIP).
                 </p>
               </div>
@@ -136,12 +136,12 @@ export function EventForm({
                 checked={hasGodparents}
                 onChange={(e) => setHasGodparents(e.target.checked)}
                 disabled={pending}
-                className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary bg-background/80 accent-primary cursor-pointer"
+                className="h-4.5 w-4.5 rounded border-[rgba(210,170,185,0.4)] text-[#B8516B] focus:ring-[#B8516B] accent-[#B8516B] cursor-pointer"
               />
             </div>
 
             {hasGodparents && (
-              <div className="grid gap-4 pt-2 sm:grid-cols-2 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="grid gap-4 pt-2 sm:grid-cols-2 animate-fade-in-up duration-250">
                 <div className="space-y-2">
                   <Label htmlFor="godfather_name">Nume Naș</Label>
                   <Input
@@ -186,7 +186,7 @@ export function EventForm({
             </p>
           ) : null}
 
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex flex-col gap-3 sm:flex-row pt-2">
             <Button type="submit" disabled={pending} className="sm:flex-1">
               {pending
                 ? ro.auth.pleaseWait

@@ -3,7 +3,19 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, LogOut, Menu, X } from "lucide-react";
+import { 
+  Heart, 
+  LogOut, 
+  Menu, 
+  X, 
+  LayoutDashboard, 
+  Calendar, 
+  Users, 
+  Grid, 
+  DollarSign, 
+  Store, 
+  Image as ImageIcon 
+} from "lucide-react";
 
 import { signOut } from "@/app/(auth)/actions";
 import { getMainNav } from "@/config/navigation";
@@ -20,6 +32,7 @@ type MobileNavProps = {
 export function MobileNav({
   userEmail,
   activeEventId,
+  activeEventTitle,
 }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -51,144 +64,149 @@ export function MobileNav({
   }, [isOpen]);
 
   const close = useCallback(() => setIsOpen(false), []);
-
   const initials = userEmail?.slice(0, 2).toUpperCase() ?? "EV";
 
-  // Extract event ID from pathname if we are inside an event
-  const eventIdMatch = pathname.match(/^\/dashboard\/events\/([^/]+)/);
-  const isNewEvent = pathname === "/dashboard/events/new";
-  const contextualEventId =
-    eventIdMatch && !isNewEvent ? eventIdMatch[1] : activeEventId;
+  // Check which page is currently active
+  const isDashboardActive = pathname === "/dashboard";
+  const isEventsActive = pathname === "/dashboard/events" || pathname === "/dashboard/events/new";
+  
+  const isGuestsActive = activeEventId 
+    ? pathname.startsWith(`/dashboard/events/${activeEventId}/guests`) 
+    : pathname.includes("/guests");
+    
+  const isSeatingActive = activeEventId 
+    ? pathname.startsWith(`/dashboard/events/${activeEventId}/seating`) 
+    : pathname.includes("/seating");
 
-  const navItems = getMainNav(contextualEventId);
+  // Secondary pages helpers
+  const budgetHref = activeEventId ? `/dashboard/events/${activeEventId}/budget` : "#";
+  const vendorsHref = activeEventId ? `/dashboard/events/${activeEventId}/vendors` : "#";
+  const galleryHref = activeEventId ? `/dashboard/events/${activeEventId}/gallery` : "#";
 
-  const menuContent = (
+  const isBudgetActive = pathname.includes("/budget");
+  const isVendorsActive = pathname.includes("/vendors");
+  const isGalleryActive = pathname.includes("/gallery");
+
+  const bottomSheetContent = (
     <>
-      {/* Backdrop */}
+      {/* Backdrop with fade transition */}
       <div
         className={cn(
-          "fixed inset-0 bg-black/50 transition-opacity duration-300",
-          isOpen
-            ? "pointer-events-auto opacity-100"
-            : "pointer-events-none opacity-0"
+          "fixed inset-0 bg-[#1A0E14]/40 backdrop-blur-sm transition-opacity duration-300",
+          isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         )}
         style={{ zIndex: 9998 }}
         onClick={close}
         aria-hidden="true"
       />
 
-      {/* Full-screen Menu Panel */}
+      {/* Slide-up Bottom Sheet */}
       <div
         className={cn(
-          "fixed inset-0 flex flex-col bg-sidebar transition-transform duration-300 ease-out",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed bottom-0 left-0 right-0 rounded-t-[24px] bg-white border-t border-border-rose-22 p-6 shadow-mobile-drawer pb-10 transition-transform duration-300 ease-out flex flex-col gap-5",
+          isOpen ? "translate-y-0" : "translate-y-full"
         )}
         style={{ zIndex: 9999 }}
         role="dialog"
         aria-modal="true"
-        aria-label="Meniu navigare"
+        aria-label="Meniu suplimentar"
       >
+        {/* Drag Handle Indicator */}
+        <div className="w-10 h-1 bg-border-rose-25 rounded-full mx-auto -mt-2 mb-2" />
+
         {/* ── Header ── */}
-        <div className="flex items-center justify-between px-6 py-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/20 text-primary">
-              <Heart className="h-5 w-5 fill-primary/30" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#E8748A] to-[#AA3F58] text-white">
+              <Heart className="h-4.5 w-4.5 fill-white/20" />
             </div>
             <div>
-              <p className="font-serif text-xl font-semibold leading-tight tracking-tight">
-                Evento
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {ro.brand.tagline}
-              </p>
+              <p className="font-sans text-sm font-semibold text-[#1A0E14]">Evento Meniu</p>
+              {activeEventTitle && (
+                <p className="truncate text-[10px] text-text-subtle max-w-[200px]">{activeEventTitle}</p>
+              )}
             </div>
           </div>
           <button
             type="button"
             onClick={close}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground transition-colors active:bg-muted"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-text-secondary active:scale-95 transition-transform"
             aria-label="Închide meniul"
           >
-            <X className="h-6 w-6" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* ── Navigation Links ── */}
-        <nav className="flex-1 overflow-y-auto px-5 pb-4">
-          <div className="space-y-0.5">
-            {navItems.map((item) => {
-              const isActive =
-                item.href === "/dashboard/events"
-                  ? pathname === "/dashboard/events" ||
-                    pathname === "/dashboard/events/new"
-                  : item.href === "/dashboard"
-                    ? pathname === "/dashboard"
-                    : pathname === item.href ||
-                      pathname.startsWith(`${item.href}/`);
+        {/* ── Secondary Pages Links ── */}
+        <div className="grid grid-cols-3 gap-2">
+          <Link
+            href={budgetHref}
+            onClick={close}
+            className={cn(
+              "flex flex-col items-center justify-center p-4 rounded-2xl border transition-all text-center gap-2 active:scale-95",
+              isBudgetActive 
+                ? "bg-[#FEF0F3] border-[#B8516B] text-[#B8516B]" 
+                : "bg-white border-border-rose-18 text-text-secondary active:bg-slate-50"
+            )}
+          >
+            <div className="p-2 rounded-xl bg-slate-50 text-text-secondary">
+              <DollarSign size={18} className={cn(isBudgetActive && "text-[#B8516B]")} />
+            </div>
+            <span className="text-[11px] font-medium leading-none">Buget</span>
+          </Link>
 
-              const Icon = item.icon;
+          <Link
+            href={vendorsHref}
+            onClick={close}
+            className={cn(
+              "flex flex-col items-center justify-center p-4 rounded-2xl border transition-all text-center gap-2 active:scale-95",
+              isVendorsActive 
+                ? "bg-[#FEF0F3] border-[#B8516B] text-[#B8516B]" 
+                : "bg-white border-border-rose-18 text-text-secondary active:bg-slate-50"
+            )}
+          >
+            <div className="p-2 rounded-xl bg-slate-50 text-text-secondary">
+              <Store size={18} className={cn(isVendorsActive && "text-[#B8516B]")} />
+            </div>
+            <span className="text-[11px] font-medium leading-none">Furnizori</span>
+          </Link>
 
-              if (item.disabled) {
-                return (
-                  <span
-                    key={item.href}
-                    className="flex cursor-not-allowed items-center gap-4 rounded-2xl px-4 py-3.5 text-base text-muted-foreground/40"
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span className="flex-1">{item.title}</span>
-                    <span className="text-[10px] uppercase tracking-wider">
-                      {ro.nav.soon}
-                    </span>
-                  </span>
-                );
-              }
+          <Link
+            href={galleryHref}
+            onClick={close}
+            className={cn(
+              "flex flex-col items-center justify-center p-4 rounded-2xl border transition-all text-center gap-2 active:scale-95",
+              isGalleryActive 
+                ? "bg-[#FEF0F3] border-[#B8516B] text-[#B8516B]" 
+                : "bg-white border-border-rose-18 text-text-secondary active:bg-slate-50"
+            )}
+          >
+            <div className="p-2 rounded-xl bg-slate-50 text-text-secondary">
+              <ImageIcon size={18} className={cn(isGalleryActive && "text-[#B8516B]")} />
+            </div>
+            <span className="text-[11px] font-medium leading-none">Galerie</span>
+          </Link>
+        </div>
 
-              return (
-                <Link
-                  key={item.href + item.title}
-                  href={item.href}
-                  onClick={close}
-                  className={cn(
-                    "flex items-center gap-4 rounded-2xl px-4 py-3.5 text-base font-medium transition-all duration-150",
-                    isActive
-                      ? "bg-primary/15 text-foreground"
-                      : "text-muted-foreground active:bg-muted/60"
-                  )}
-                >
-                  <Icon
-                    className={cn(
-                      "h-5 w-5 shrink-0",
-                      isActive ? "text-primary" : "text-muted-foreground"
-                    )}
-                  />
-                  {item.title}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
-
-        {/* ── User Section ── */}
-        <div className="mt-auto border-t border-border/30 px-5 py-5 pb-8">
-          <div className="flex items-center gap-3 rounded-2xl bg-background/60 p-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+        {/* ── User & Logout ── */}
+        <div className="border-t border-border-rose-18 pt-4 flex flex-col gap-3">
+          <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-br from-[#FDFAF9] to-[#FCEAEF]/40 border border-border-rose-18 p-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] text-xs font-bold text-[#B8516B] border border-border-rose-22">
               {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-foreground">
-                {ro.nav.planner}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
+              <p className="truncate text-xs font-semibold text-text-secondary">{ro.nav.planner}</p>
+              <p className="truncate text-[10px] text-text-subtle">
                 {userEmail ?? ro.nav.guest}
               </p>
             </div>
           </div>
-          <form action={signOut} className="mt-3">
+          <form action={signOut}>
             <button
               type="submit"
-              className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-muted-foreground transition-colors active:bg-destructive/10 active:text-destructive"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-50 border border-slate-100 py-3 text-xs font-semibold text-[#7A6270] transition-colors active:bg-[#FF3B30]/10 active:text-[#FF3B30] active:border-transparent cursor-pointer"
             >
-              <LogOut className="h-5 w-5" />
+              <LogOut className="h-4 w-4" />
               {ro.nav.signOut}
             </button>
           </form>
@@ -199,18 +217,102 @@ export function MobileNav({
 
   return (
     <>
-      {/* Hamburger Button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors active:bg-primary/20 md:hidden"
-        aria-label="Deschide meniul"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
+      {/* Floating Bottom Nav Bar - Figma Style */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-6 pt-2 pointer-events-none md:print:hidden">
+        <div
+          className="flex justify-around items-center bg-white/85 backdrop-blur-[24px] border border-border-rose-25 rounded-[24px] p-2 shadow-mobile-drawer pointer-events-auto"
+          style={{ WebkitBackdropFilter: "blur(24px)" }}
+        >
+          {/* Panou */}
+          <Link
+            href="/dashboard"
+            className="relative flex flex-col items-center gap-1 p-2 flex-1 active:scale-95 transition-transform"
+          >
+            <LayoutDashboard 
+              size={20} 
+              strokeWidth={isDashboardActive ? 2.5 : 2} 
+              className={cn(isDashboardActive ? "text-[#B8516B]" : "text-text-secondary")}
+            />
+            <span className={cn("text-[9px] font-semibold uppercase tracking-wider", isDashboardActive ? "text-[#B8516B]" : "text-text-subtle")}>
+              Panou
+            </span>
+            {isDashboardActive && (
+              <span className="absolute -bottom-0.5 w-1 h-1 rounded-full bg-[#B8516B]" />
+            )}
+          </Link>
 
-      {/* Portal: render menu at document.body root level so nothing clips it */}
-      {mounted && createPortal(menuContent, document.body)}
+          {/* Mese (Seating) */}
+          <Link
+            href={activeEventId ? `/dashboard/events/${activeEventId}/seating` : "/dashboard/events"}
+            className="relative flex flex-col items-center gap-1 p-2 flex-1 active:scale-95 transition-transform"
+          >
+            <Grid 
+              size={20} 
+              strokeWidth={isSeatingActive ? 2.5 : 2} 
+              className={cn(isSeatingActive ? "text-[#B8516B]" : "text-text-secondary")}
+            />
+            <span className={cn("text-[9px] font-semibold uppercase tracking-wider", isSeatingActive ? "text-[#B8516B]" : "text-text-subtle")}>
+              Mese
+            </span>
+            {isSeatingActive && (
+              <span className="absolute -bottom-0.5 w-1 h-1 rounded-full bg-[#B8516B]" />
+            )}
+          </Link>
+
+          {/* Invitati (Guests) */}
+          <Link
+            href={activeEventId ? `/dashboard/events/${activeEventId}/guests` : "/dashboard/events"}
+            className="relative flex flex-col items-center gap-1 p-2 flex-1 active:scale-95 transition-transform"
+          >
+            <Users 
+              size={20} 
+              strokeWidth={isGuestsActive ? 2.5 : 2} 
+              className={cn(isGuestsActive ? "text-[#B8516B]" : "text-text-secondary")}
+            />
+            <span className={cn("text-[9px] font-semibold uppercase tracking-wider", isGuestsActive ? "text-[#B8516B]" : "text-text-subtle")}>
+              Invitați
+            </span>
+            {isGuestsActive && (
+              <span className="absolute -bottom-0.5 w-1 h-1 rounded-full bg-[#B8516B]" />
+            )}
+          </Link>
+
+          {/* Plan (Events list) */}
+          <Link
+            href="/dashboard/events"
+            className="relative flex flex-col items-center gap-1 p-2 flex-1 active:scale-95 transition-transform"
+          >
+            <Calendar 
+              size={20} 
+              strokeWidth={isEventsActive ? 2.5 : 2} 
+              className={cn(isEventsActive ? "text-[#B8516B]" : "text-text-secondary")}
+            />
+            <span className={cn("text-[9px] font-semibold uppercase tracking-wider", isEventsActive ? "text-[#B8516B]" : "text-text-subtle")}>
+              Plan
+            </span>
+            {isEventsActive && (
+              <span className="absolute -bottom-0.5 w-1 h-1 rounded-full bg-[#B8516B]" />
+            )}
+          </Link>
+
+          {/* Meniu (More toggle) */}
+          <button
+            onClick={() => setIsOpen(true)}
+            className="relative flex flex-col items-center gap-1 p-2 flex-1 active:scale-95 transition-transform cursor-pointer"
+          >
+            <Menu 
+              size={20} 
+              className={cn(isOpen ? "text-[#B8516B]" : "text-text-secondary")}
+            />
+            <span className={cn("text-[9px] font-semibold uppercase tracking-wider", isOpen ? "text-[#B8516B]" : "text-text-subtle")}>
+              Meniu
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Render the bottom sheet in client portal */}
+      {mounted && createPortal(bottomSheetContent, document.body)}
     </>
   );
 }

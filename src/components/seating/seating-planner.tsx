@@ -19,6 +19,7 @@ import {
 
 import {
   assignGuestFromSeating,
+  unassignGuest,
   updateTable,
   autoSeatGuestsAction,
   initializeConcentricOnboarding,
@@ -28,6 +29,7 @@ import {
 import { AddTableDialog } from "@/components/seating/add-table-dialog";
 import { GuestSidebar } from "@/components/seating/guest-sidebar";
 import { SeatingToolbar } from "@/components/seating/seating-toolbar";
+import { TableAssignView } from "@/components/seating/table-assign-view";
 import { TableDetailPanel } from "@/components/seating/table-detail-panel";
 import { TableVisual } from "@/components/seating/table-visual";
 import { Button } from "@/components/ui/button";
@@ -39,6 +41,17 @@ import { parseMetadata } from "@/lib/seating/utils";
 import { cn } from "@/lib/utils";
 
 import type { GuestWithTable } from "@/types/guests";
+
+/**
+ * Canvas zoom — relative to `base = min(viewportW/3000, viewportH/2400)`.
+ * Tables are already drawn at VISUAL_SCALE 1.5 on the 3000×2400 canvas, so fit
+ * only needs a modest bump over full-canvas fit (Figma uses ~0.94× base).
+ * Old multipliers (3.88 / 5.0) forced min zoom ~140% and blocked room overview.
+ */
+const CANVAS_FIT_MULTIPLIER = 1.45;
+const CANVAS_MIN_MULTIPLIER = 0.82;
+const CANVAS_MAX_SCALE = 2.0;
+const FIGMA_GUEST_SIDEBAR_WIDTH = 286;
 
 function canTableAccommodateGuest(
   table: TableWithGuests,
@@ -137,6 +150,7 @@ export function SeatingPlanner({
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
   const [mobileSidebar, setMobileSidebar] = useState<"guests" | null>(null);
   const [printSort, setPrintSort] = useState<"alpha" | "table">("table");
+  const [viewMode, setViewMode] = useState<"canvas" | "list">("canvas");
 
   // Lifted templates browser state
   const [applyingTemplate, setApplyingTemplate] = useState(false);
@@ -174,7 +188,7 @@ export function SeatingPlanner({
 
   // Immersive Focus Mode states
   const [workspaceMode, setWorkspaceMode] = useState(false);
-  const [guestSidebarWidth, setGuestSidebarWidth] = useState(304); // default w-76 = 304px
+  const [guestSidebarWidth, setGuestSidebarWidth] = useState(FIGMA_GUEST_SIDEBAR_WIDTH);
   const [guestSidebarCollapsed, setGuestSidebarCollapsed] = useState(false);
 
   // Smart Onboarding states
@@ -187,6 +201,12 @@ export function SeatingPlanner({
   const [panY, setPanY] = useState(0);
   const [isPanning, setIsPanning] = useState(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const isSpacePressedRef = useRef(false);
+  const isPanningRef = useRef(false);
+  const activePanPointerIdRef = useRef<number | null>(null);
+  /** Bumps once per frame when camera moves — keeps LOD/draggable in sync with DOM transform */
+  const [cameraRevision, setCameraRevision] = useState(0);
+  const cameraNotifyScheduledRef = useRef(false);
   const [globalLock, setGlobalLock] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -201,14 +221,24 @@ export function SeatingPlanner({
   const panXRef = useRef(0);
   const panYRef = useRef(0);
 
-  // Viewport dimensions ref to allow reading dimensions instantly without triggering React rerenders
+  // Viewport dimensions ref (no React state — avoids re-renders that reset camera transform)
   const viewportDimRef = useRef({ width: 1000, height: 800 });
+
+  const getViewportScaleLimits = useCallback(() => {
+    const W = viewportRef.current?.clientWidth ?? viewportDimRef.current.width;
+    const H = viewportRef.current?.clientHeight ?? viewportDimRef.current.height;
+    const base = Math.min(W / 3000, H / 2400);
+    const minScale = base * CANVAS_MIN_MULTIPLIER;
+    const fitScale = base * CANVAS_FIT_MULTIPLIER;
+    const maxScale = Math.max(CANVAS_MAX_SCALE, fitScale * 1.05);
+    return { minScale, fitScale, maxScale, W, H };
+  }, []);
 
   // DOM element refs for direct stylesheet manipulation
   const miniMapBoxRef = useRef<HTMLDivElement>(null);
   const zoomPercentTextRef = useRef<HTMLSpanElement>(null);
 
-  // Initialize targets once component is mounted
+  // Initialize camera refs + DOM transform once mounted (transform is not driven by React style)
   useEffect(() => {
     targetScaleRef.current = scale;
     targetPanXRef.current = panX;
@@ -218,6 +248,15 @@ export function SeatingPlanner({
     panYRef.current = panY;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const scheduleCameraNotify = () => {
+    if (cameraNotifyScheduledRef.current) return;
+    cameraNotifyScheduledRef.current = true;
+    requestAnimationFrame(() => {
+      cameraNotifyScheduledRef.current = false;
+      setCameraRevision((n) => n + 1);
+    });
+  };
 
   // Direct DOM transforms bypassing React render updates for 60 FPS performance
   const updateCanvasDOM = (x: number, y: number, s: number) => {
@@ -231,7 +270,7 @@ export function SeatingPlanner({
       const by = -y / s;
       const bw = W / s;
       const bh = H / s;
-      
+
       miniMapBoxRef.current.style.left = `${(bx / 3000) * 100}%`;
       miniMapBoxRef.current.style.top = `${(by / 2400) * 100}%`;
       miniMapBoxRef.current.style.width = `${(bw / 3000) * 100}%`;
@@ -240,7 +279,13 @@ export function SeatingPlanner({
     if (zoomPercentTextRef.current) {
       zoomPercentTextRef.current.innerText = `${Math.round(s * 100)}%`;
     }
+    scheduleCameraNotify();
   };
+
+  useEffect(() => {
+    updateCanvasDOM(panXRef.current, panYRef.current, scaleRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Strict boundary clamping so layout/canvas NEVER leaves the viewport
   const constrainPosition = (x: number, y: number, currentScale: number) => {
@@ -402,10 +447,10 @@ export function SeatingPlanner({
     // Smooth camera adjust once layout settled
     const timer = setTimeout(() => {
       if (viewportRef.current) {
-        setViewportDim({
+        viewportDimRef.current = {
           width: viewportRef.current.clientWidth,
-          height: viewportRef.current.clientHeight
-        });
+          height: viewportRef.current.clientHeight,
+        };
         fitAll();
       }
     }, 350); // wait for focus mode CSS transitions to finish
@@ -457,14 +502,6 @@ export function SeatingPlanner({
   const [autoSeatingSummary, setAutoSeatingSummary] = useState<{ seatedCount: number; tablesCount: number } | null>(null);
   const skipAnimationRef = useRef(false);
 
-  // Viewport dimensions state
-  const [viewportDim, setViewportDim] = useState({ width: 1000, height: 800 });
-
-  // Sync viewportDim state to its ref
-  useEffect(() => {
-    viewportDimRef.current = viewportDim;
-  }, [viewportDim]);
-
   // Mini-map drag state
   const [isMiniMapDragging, setIsMiniMapDragging] = useState(false);
 
@@ -505,42 +542,43 @@ export function SeatingPlanner({
     setIsMobile(window.matchMedia("(max-width: 1024px)").matches || "ontouchstart" in window);
   }, []);
 
-  // Viewport resize observer
+  // Viewport resize observer — ref + DOM only (no setState during pan/zoom)
   useEffect(() => {
     if (!viewportRef.current) return;
     const updateDimensions = () => {
-      if (viewportRef.current) {
-        setViewportDim({
-          width: viewportRef.current.clientWidth,
-          height: viewportRef.current.clientHeight
-        });
-      }
+      if (!viewportRef.current) return;
+      viewportDimRef.current = {
+        width: viewportRef.current.clientWidth,
+        height: viewportRef.current.clientHeight,
+      };
+      updateCanvasDOM(panXRef.current, panYRef.current, scaleRef.current);
     };
-    
+
     updateDimensions();
     window.addEventListener("resize", updateDimensions);
-    
+
     const observer = new ResizeObserver(updateDimensions);
-    if (viewportRef.current) {
-      observer.observe(viewportRef.current);
-    }
-    
+    observer.observe(viewportRef.current);
+
     return () => {
       window.removeEventListener("resize", updateDimensions);
       observer.disconnect();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode]);
 
   // Listen to Spacebar for panning shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === "Space" && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
         e.preventDefault();
+        isSpacePressedRef.current = true;
         setIsSpacePressed(true);
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.code === "Space") {
+        isSpacePressedRef.current = false;
         setIsSpacePressed(false);
       }
     };
@@ -560,7 +598,7 @@ export function SeatingPlanner({
       const centerY = H / 2;
 
       const currentScale = targetScaleRef.current;
-      const maxScale = 2.0;
+      const { maxScale } = getViewportScaleLimits();
       const nextScaleTarget = Math.min(currentScale * 1.25, maxScale);
 
       const nextPanXTarget = Math.round(centerX - (centerX - targetPanXRef.current) * (nextScaleTarget / currentScale));
@@ -583,7 +621,7 @@ export function SeatingPlanner({
       const centerX = W / 2;
       const centerY = H / 2;
 
-      const minScale = Math.min(W / 3000, H / 2400) * 0.95;
+      const { minScale } = getViewportScaleLimits();
       const currentScale = targetScaleRef.current;
       const nextScaleTarget = Math.max(currentScale / 1.25, minScale);
 
@@ -605,11 +643,12 @@ export function SeatingPlanner({
       const W = viewportRef.current.clientWidth;
       const H = viewportRef.current.clientHeight;
       
-      const fitScale = Math.min(W / 3000, H / 2400) * 0.92;
-      const targetX = Math.round((W - 3000 * fitScale) / 2);
-      const targetY = Math.round((H - 2400 * fitScale) / 2);
+      const { fitScale, maxScale } = getViewportScaleLimits();
+      const targetScale = Math.min(fitScale, maxScale);
+      const targetX = Math.round((W - 3000 * targetScale) / 2);
+      const targetY = Math.round((H - 2400 * targetScale) / 2);
 
-      targetScaleRef.current = fitScale;
+      targetScaleRef.current = targetScale;
       targetPanXRef.current = targetX;
       targetPanYRef.current = targetY;
 
@@ -858,8 +897,9 @@ export function SeatingPlanner({
       const factor = Math.pow(zoomFactor, e.deltaY < 0 ? zoomIntensity : -zoomIntensity);
       
       const rect = viewportRef.current.getBoundingClientRect();
-      const minScale = Math.min(rect.width / 3000, rect.height / 2400) * 0.95;
-      const maxScale = 2.0;
+      const base = Math.min(rect.width / 3000, rect.height / 2400);
+      const minScale = base * CANVAS_MIN_MULTIPLIER;
+      const maxScale = Math.max(CANVAS_MAX_SCALE, base * CANVAS_FIT_MULTIPLIER * 1.05);
 
       const currentScale = targetScaleRef.current;
       const nextScale = Math.min(Math.max(currentScale * factor, minScale), maxScale);
@@ -988,64 +1028,104 @@ export function SeatingPlanner({
     lastPositionsRef.current = [];
   };
 
-  // Canvas Mouse events (Panning background)
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0 && e.button !== 1) return; // Left or middle click
-    
-    if (e.button === 1) {
-      e.preventDefault(); // Prevent browser default auto-scroll
-    }
-
-    // Check if clicked target is table element or button/input
-    const target = e.target as HTMLElement;
-    if (target.closest(".draggable-table-wrapper") || target.closest("button") || target.closest("select") || target.closest("input")) {
-      return;
-    }
-
-    if (inertiaFrameRef.current !== null) {
-      cancelAnimationFrame(inertiaFrameRef.current);
-      inertiaFrameRef.current = null;
-    }
-
-    setIsPanning(true);
-    panStartRef.current = { x: e.clientX - panXRef.current, y: e.clientY - panYRef.current };
-    lastPositionsRef.current = [{ x: e.clientX, y: e.clientY, t: Date.now() }];
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isPanning) return;
-    
-    const nextX = Math.round(e.clientX - panStartRef.current.x);
-    const nextY = Math.round(e.clientY - panStartRef.current.y);
-    
-    // Apply soft edge resistance
+  const applyPanPointerMove = (clientX: number, clientY: number) => {
+    const nextX = Math.round(clientX - panStartRef.current.x);
+    const nextY = Math.round(clientY - panStartRef.current.y);
     const res = constrainPositionWithResistance(nextX, nextY, scaleRef.current);
-    
     panXRef.current = res.x;
     panYRef.current = res.y;
     updateCanvasDOM(res.x, res.y, scaleRef.current);
 
     const now = Date.now();
     const pos = lastPositionsRef.current;
-    pos.push({ x: e.clientX, y: e.clientY, t: now });
+    pos.push({ x: clientX, y: clientY, t: now });
     if (pos.length > 4) pos.shift();
   };
 
-  const handleMouseUp = () => {
-    if (isPanning) {
-      setIsPanning(false);
-      
-      const hardConstrained = constrainPosition(panXRef.current, panYRef.current, scaleRef.current);
-      if (hardConstrained.x !== panXRef.current || hardConstrained.y !== panYRef.current) {
-        // Snap back to hard bounds smoothly
-        targetScaleRef.current = scaleRef.current;
-        targetPanXRef.current = hardConstrained.x;
-        targetPanYRef.current = hardConstrained.y;
-        animateZoom();
-      } else {
-        startInertia();
-      }
+  const finishPanGesture = () => {
+    if (!isPanningRef.current) return;
+    isPanningRef.current = false;
+    activePanPointerIdRef.current = null;
+    setIsPanning(false);
+
+    const hardConstrained = constrainPosition(panXRef.current, panYRef.current, scaleRef.current);
+    if (hardConstrained.x !== panXRef.current || hardConstrained.y !== panYRef.current) {
+      targetScaleRef.current = scaleRef.current;
+      targetPanXRef.current = hardConstrained.x;
+      targetPanYRef.current = hardConstrained.y;
+      animateZoom();
+    } else {
+      startInertia();
     }
+  };
+
+  const beginPanPointer = (e: React.PointerEvent) => {
+    if (inertiaFrameRef.current !== null) {
+      cancelAnimationFrame(inertiaFrameRef.current);
+      inertiaFrameRef.current = null;
+    }
+
+    isPanningRef.current = true;
+    activePanPointerIdRef.current = e.pointerId;
+    setIsPanning(true);
+    panStartRef.current = { x: e.clientX - panXRef.current, y: e.clientY - panYRef.current };
+    lastPositionsRef.current = [{ x: e.clientX, y: e.clientY, t: Date.now() }];
+
+    try {
+      viewportRef.current?.setPointerCapture(e.pointerId);
+    } catch {
+      // ignored
+    }
+  };
+
+  // Space / middle-click pan over tables (capture, before react-draggable)
+  const handlePointerDownCapture = (e: React.PointerEvent) => {
+    const forcePan = isSpacePressedRef.current || e.button === 1;
+    if (!forcePan) return;
+    if (e.button !== 0 && e.button !== 1) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    beginPanPointer(e);
+  };
+
+  // Canvas pointer events — pan on empty background (bubble phase)
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (isSpacePressedRef.current || e.button === 1) return;
+    if (e.button !== 0) return;
+
+    const target = e.target as HTMLElement;
+    if (
+      target.closest(".draggable-table-wrapper") ||
+      target.closest("button") ||
+      target.closest("select") ||
+      target.closest("input")
+    ) {
+      return;
+    }
+
+    beginPanPointer(e);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isPanningRef.current) return;
+    if (activePanPointerIdRef.current !== null && e.pointerId !== activePanPointerIdRef.current) {
+      return;
+    }
+    applyPanPointerMove(e.clientX, e.clientY);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!isPanningRef.current) return;
+    if (activePanPointerIdRef.current !== null && e.pointerId !== activePanPointerIdRef.current) {
+      return;
+    }
+    try {
+      viewportRef.current?.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignored
+    }
+    finishPanGesture();
   };
 
   // Canvas Touch gestures (Multi-touch panning/pinching)
@@ -1116,8 +1196,9 @@ export function SeatingPlanner({
       
       if (viewportRef.current) {
         const rect = viewportRef.current.getBoundingClientRect();
-        const minScale = Math.min(rect.width / 3000, rect.height / 2400) * 0.95;
-        const maxScale = 2.0;
+        const base = Math.min(rect.width / 3000, rect.height / 2400);
+        const minScale = base * CANVAS_MIN_MULTIPLIER;
+        const maxScale = Math.max(CANVAS_MAX_SCALE, base * CANVAS_FIT_MULTIPLIER * 1.05);
         const nextScale = Math.min(Math.max(touchStartRef.current.scale * scaleRatio, minScale), maxScale);
 
         const centerX = (t1.clientX + t2.clientX) / 2;
@@ -1232,6 +1313,84 @@ export function SeatingPlanner({
     }
   };
 
+  const handleAssignGuestFromList = useCallback(
+    async (guestId: string, tableId: string) => {
+      const guest = localAllGuests.find((g) => g.id === guestId);
+      if (!guest) return;
+
+      setLocalUnassigned((prev) => prev.filter((g) => g.id !== guestId && g.parent_id !== guestId));
+      setLocalAllGuests((prev) =>
+        prev.map((g) =>
+          g.id === guestId || g.parent_id === guestId ? { ...g, table_id: tableId } : g
+        )
+      );
+      setLocalTables((prev) =>
+        prev.map((t) => {
+          const isTarget = t.id === tableId;
+          const isSource = t.id === guest.table_id;
+          let updatedGuests = t.guests;
+
+          if (isSource) {
+            updatedGuests = updatedGuests.filter((g) => g.id !== guestId && g.parent_id !== guestId);
+          }
+          if (isTarget) {
+            const related = localAllGuests.filter((g) => g.parent_id === guestId);
+            const toAdd = [guest, ...related].filter((g) => !updatedGuests.some((ex) => ex.id === g.id));
+            updatedGuests = [...updatedGuests, ...toAdd];
+          }
+
+          return { ...t, guests: updatedGuests };
+        })
+      );
+
+      const result = await assignGuestFromSeating(eventId, guestId, tableId);
+      if (result?.error) {
+        alert(result.error);
+        router.refresh();
+      }
+    },
+    [eventId, localAllGuests, router]
+  );
+
+  const handleRemoveGuestFromList = useCallback(
+    async (guestId: string) => {
+      const guest = localAllGuests.find((g) => g.id === guestId);
+      if (!guest?.table_id) return;
+
+      const sourceTableId = guest.table_id;
+      const relatedIds = new Set(
+        localAllGuests.filter((g) => g.id === guestId || g.parent_id === guestId).map((g) => g.id)
+      );
+
+      setLocalTables((prev) =>
+        prev.map((t) =>
+          t.id === sourceTableId
+            ? { ...t, guests: t.guests.filter((g) => !relatedIds.has(g.id)) }
+            : t
+        )
+      );
+      setLocalAllGuests((prev) =>
+        prev.map((g) => (relatedIds.has(g.id) ? { ...g, table_id: null } : g))
+      );
+      setLocalUnassigned((prev) => {
+        const addBack = localAllGuests.filter((g) => relatedIds.has(g.id));
+        const existing = new Set(prev.map((g) => g.id));
+        const merged = [...prev];
+        for (const g of addBack) {
+          if (!existing.has(g.id)) merged.push({ ...g, table_id: null });
+        }
+        return merged;
+      });
+
+      const result = await unassignGuest(eventId, guestId);
+      if (result?.error) {
+        alert(result.error);
+        router.refresh();
+      }
+    },
+    [eventId, localAllGuests, router]
+  );
+
   // High-Resolution Export with Layout Reset (Flicker-Free Clone Method)
   async function exportAsImage(format: "png" | "pdf") {
     if (!canvasRef.current) return;
@@ -1263,8 +1422,9 @@ export function SeatingPlanner({
       const jsPDF = jspdfModule.jsPDF;
 
       // Render clone canvas at 2x resolution
+      const canvasBg = getComputedStyle(document.documentElement).getPropertyValue("--ev-bg-canvas").trim() || "rgb(249,244,241)";
       const canvas = await html2canvas(clone, {
-        backgroundColor: "#fafbfe",
+        backgroundColor: canvasBg,
         scale: 2,
         useCORS: true,
         logging: false
@@ -1295,11 +1455,9 @@ export function SeatingPlanner({
     }
   }
 
-  // Viewport calculation for Mini-Map
-  const boxX = -panX / scale;
-  const boxY = -panY / scale;
-  const boxW = viewportDim.width / scale;
-  const boxH = viewportDim.height / scale;
+  // Subscribe children to live camera (DOM-driven); refs hold truth during pan/zoom
+  void cameraRevision;
+  const cameraScale = scaleRef.current;
 
   return (
     <>
@@ -1307,15 +1465,17 @@ export function SeatingPlanner({
         "transition-all duration-350 ease-in-out",
         workspaceMode
           ? "fixed inset-0 z-[45] bg-slate-100 flex h-screen w-screen gap-0 overflow-hidden animate-in fade-in duration-300"
-          : "flex h-[calc(100vh-14rem)] min-h-[550px] gap-4 print:h-auto print:block"
+          : "flex min-h-0 flex-1 w-full gap-0 overflow-hidden bg-[var(--ev-bg-canvas)] print:h-auto print:block"
       )}>
         {/* LEFT: Guest Sidebar (desktop) */}
         {!guestSidebarCollapsed && (
           <aside
             style={{ width: `${guestSidebarWidth}px` }}
             className={cn(
-              "hidden shrink-0 lg:block print:hidden relative h-full select-none transition-all duration-350 ease-in-out border-slate-200/60 bg-white/70",
-              workspaceMode ? "rounded-none border-none border-r border-slate-200/80 bg-white z-20 shadow-xl" : ""
+              "hidden shrink-0 lg:block print:hidden relative h-full select-none transition-all duration-350 ease-in-out",
+              workspaceMode
+                ? "rounded-none border-none border-r border-slate-200/80 bg-white z-20 shadow-xl"
+                : "border-r border-[var(--ev-border-soft)] bg-[var(--ev-bg-sidebar)]"
             )}
           >
             <GuestSidebar
@@ -1349,12 +1509,14 @@ export function SeatingPlanner({
         )}
 
         {/* CENTER: Toolbar + Canvas Viewport */}
-        <div className={cn(
-          "flex flex-1 flex-col overflow-hidden print:overflow-visible transition-all duration-350 ease-in-out",
-          workspaceMode ? "gap-0 h-full relative" : "gap-4"
-        )}>
-          {/* Toolbar */}
-          <div className={cn("print:hidden transition-all duration-350", workspaceMode && "absolute top-4 left-1/2 -translate-x-1/2 z-30 w-fit max-w-[95%] shrink-0 px-4")}>
+        <div
+          className={cn(
+            "relative flex min-h-0 flex-1 flex-col overflow-hidden print:overflow-visible transition-all duration-350 ease-in-out",
+            workspaceMode ? "h-full gap-0" : "gap-0"
+          )}
+        >
+          {/* Toolbar — full-width band (Figma TopToolbar) */}
+          <div className="print:hidden z-30 w-full shrink-0">
             <SeatingToolbar
               eventId={eventId}
               totalSeated={totalSeated}
@@ -1365,12 +1527,12 @@ export function SeatingPlanner({
               onExportPdf={() => exportAsImage("pdf")}
               printSort={printSort}
               onTogglePrintSort={() => setPrintSort(s => s === "alpha" ? "table" : "alpha")}
-              globalLock={globalLock}
-              onToggleGlobalLock={() => setGlobalLock(!globalLock)}
               onRunAutoSeat={handleRunAutoSeat}
-              onToggleTemplateMenu={setShowTemplateMenu}
-              applyingTemplate={applyingTemplate}
               workspaceMode={workspaceMode}
+              isFloating={false}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onToggleWorkspaceMode={() => setWorkspaceMode((prev) => !prev)}
             />
           </div>
 
@@ -1445,24 +1607,36 @@ export function SeatingPlanner({
           )}
 
           {/* Canvas Viewport Container */}
-          <div
-            ref={viewportRef}
-            onDoubleClick={handleDoubleClickCanvas}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            className={cn(
-              "flex-1 overflow-hidden shadow-inner relative print:border-none print:shadow-none print:bg-transparent print:p-0 print:overflow-visible transition-all duration-350 ease-in-out",
-              workspaceMode
-                ? "border-none rounded-none bg-[#f8fafc]"
-                : "rounded-3xl border border-slate-200/80 bg-[#f1f5f9]/70",
-              isSpacePressed ? (isPanning ? "cursor-grabbing" : "cursor-grab") : "cursor-default"
-            )}
-          >
+          {viewMode === "canvas" ? (
+            <div
+              ref={viewportRef}
+              onDoubleClick={handleDoubleClickCanvas}
+              onPointerDownCapture={handlePointerDownCapture}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              className={cn(
+                "flex-1 overflow-hidden shadow-inner relative print:border-none print:shadow-none print:bg-transparent print:p-0 print:overflow-visible transition-all duration-350 ease-in-out",
+                workspaceMode ? "border-none rounded-none" : "min-h-0",
+                isSpacePressed || isPanning
+                  ? isPanning
+                    ? "cursor-grabbing"
+                    : "cursor-grab"
+                  : "cursor-default"
+              )}
+              style={{ background: "var(--ev-bg-canvas)" }}
+            >
+            <div
+              className="pointer-events-none absolute inset-0 z-[1]"
+              style={{
+                background:
+                  "radial-gradient(ellipse at center, transparent 60%, rgba(200,160,170,0.08) 100%)",
+              }}
+            />
             {/* Floating Guest Sidebar Restore Button */}
             {guestSidebarCollapsed && (
               <Button
@@ -1479,11 +1653,7 @@ export function SeatingPlanner({
             {/* The Actual transformed Floor Canvas */}
             <div
               ref={canvasRef}
-              className="absolute w-[3000px] h-[2400px] bg-[#fafbfe] shadow-inner canvas-grid origin-top-left"
-              style={{
-                transform: `translate3d(${panX}px, ${panY}px, 0px) scale(${scale})`,
-                willChange: "transform"
-              }}
+              className="absolute w-[3000px] h-[2400px] shadow-inner canvas-grid origin-top-left"
             >
               {localTables.length === 0 ? (
                 /* Onboarding Wizard */
@@ -1572,7 +1742,7 @@ export function SeatingPlanner({
                       <DraggableWrapper
                         key={table.renderKey}
                         table={table}
-                        scale={scale}
+                        scale={cameraScale}
                         globalLock={globalLock}
                         isMobile={isMobile}
                         isSpacePressed={isSpacePressed}
@@ -1591,71 +1761,117 @@ export function SeatingPlanner({
             </div>
 
             {/* Canvas HUD Controls overlay */}
-            <div className="absolute bottom-4 right-4 flex items-center gap-1 bg-white/95 px-3 py-1.5 rounded-2xl shadow-lg border border-slate-100 select-none print:hidden z-30">
-              <span ref={zoomPercentTextRef} className="text-[11px] font-mono font-bold text-slate-500 mr-2 w-10 text-center">
-                {Math.round(scale * 100)}%
+            <div
+              className="absolute select-none print:hidden z-30"
+              style={{
+                position: "absolute",
+                right: 20,
+                bottom: 20,
+                zIndex: 40,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  minWidth: 42,
+                  height: 24,
+                  borderRadius: 10,
+                  border: "1px solid var(--ev-border-soft)",
+                  background: "rgba(255,253,251,0.94)",
+                  boxShadow: "var(--ev-shadow-sm)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  color: "var(--ev-text-label)",
+                  fontFamily: "Inter, sans-serif",
+                  backdropFilter: "blur(12px)",
+                }}
+              >
+                <span ref={zoomPercentTextRef}>{Math.round(cameraScale * 100)}%</span>
+              </div>
+              <div
+                style={{
+                  background: "rgba(255,253,251,0.94)",
+                  backdropFilter: "blur(16px)",
+                  borderRadius: 12,
+                  border: "1px solid var(--ev-border-soft)",
+                  boxShadow: "var(--ev-shadow-md)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 2,
+                  padding: "6px 5px",
+                }}
+              >
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-slate-650 hover:bg-slate-100" onClick={handleZoomIn} title="Zoom In">
+                  <ZoomIn className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-slate-650 hover:bg-slate-100" onClick={handleZoomOut} title="Zoom Out">
+                  <ZoomOut className="h-3.5 w-3.5" />
+                </Button>
+                <div style={{ width: 16, height: 1, background: "var(--ev-border-soft)", margin: "2px 0" }} />
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-slate-650 hover:bg-slate-100" onClick={fitAll} title="Ajustează pe ecran">
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-slate-650 hover:bg-slate-100" onClick={centerLayout} title="Centrează schema">
+                  <Move className="h-3.5 w-3.5" />
+                </Button>
+                <div style={{ width: 16, height: 1, background: "var(--ev-border-soft)", margin: "2px 0" }} />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-7 w-7 rounded-lg transition-all duration-300 ease-out press-scale",
+                    workspaceMode ? "bg-primary/10 text-primary hover:bg-primary/15" : "text-slate-650 hover:bg-slate-100"
+                  )}
+                  onClick={() => setWorkspaceMode((prev) => !prev)}
+                  title={workspaceMode ? "Ieși din Modul Focus" : "Intră în Modul Focus"}
+                >
+                  {workspaceMode ? <Minimize className="h-3.5 w-3.5 text-primary animate-pulse" /> : <Maximize className="h-3.5 w-3.5 text-slate-500" />}
+                </Button>
+              </div>
+            </div>
+
+            {/* Canvas Status Bar (bottom left) */}
+            <div
+              className="absolute print:hidden z-30"
+              style={{
+                position: "absolute",
+                bottom: 14,
+                left: 20,
+                zIndex: 40,
+                background: "rgba(255,253,251,0.92)",
+                backdropFilter: "blur(12px)",
+                borderRadius: 11,
+                border: "1px solid var(--ev-border-soft)",
+                boxShadow: "var(--ev-shadow-sm)",
+                display: "flex",
+                alignItems: "center",
+                gap: 0,
+                padding: "4px 10px",
+                height: 30,
+                fontSize: 10,
+                fontFamily: "Inter, sans-serif",
+              }}
+            >
+              <span style={{ color: "var(--ev-text-muted)", fontWeight: 500 }}>Liber</span>
+              <span style={{ margin: "0 6px", color: "var(--ev-border-rose)" }}>-</span>
+              <span style={{ color: "var(--ev-text-label)", fontWeight: 600 }}>MESE</span>
+              <span style={{ margin: "0 6px", color: "var(--ev-text-muted)" }}>-</span>
+              <span style={{ color: "var(--ev-rose-500)", fontWeight: 700 }}>
+                {totalCapacity > 0 ? Math.round((totalSeated / totalCapacity) * 100) : 0}%
               </span>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 lg:h-8 lg:w-8 rounded-xl lg:rounded-lg text-slate-650 hover:bg-slate-100"
-                onClick={handleZoomOut}
-                title="Zoom Out"
-              >
-                <ZoomOut className="h-4.5 w-4.5 lg:h-4 lg:w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 lg:h-8 lg:w-8 rounded-xl lg:rounded-lg text-slate-650 hover:bg-slate-100"
-                onClick={handleZoomIn}
-                title="Zoom In"
-              >
-                <ZoomIn className="h-4.5 w-4.5 lg:h-4 lg:w-4" />
-              </Button>
-              
-              <div className="h-4 w-px bg-slate-200 mx-1" />
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 lg:h-8 lg:w-8 rounded-xl lg:rounded-lg text-slate-650 hover:bg-slate-100"
-                onClick={fitAll}
-                title="Ajustează pe ecran"
-              >
-                <Maximize2 className="h-4.5 w-4.5 lg:h-4 lg:w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 lg:h-8 lg:w-8 rounded-xl lg:rounded-lg text-slate-650 hover:bg-slate-100"
-                onClick={centerLayout}
-                title="Centrează schema"
-              >
-                <Move className="h-4.5 w-4.5 lg:h-4 lg:w-4" />
-              </Button>
-
-              <div className="h-4 w-px bg-slate-200 mx-1" />
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "h-10 w-10 lg:h-8 lg:w-8 rounded-xl lg:rounded-lg transition-all duration-300 ease-out press-scale",
-                  workspaceMode
-                    ? "bg-primary/10 text-primary hover:bg-primary/15"
-                    : "text-slate-650 hover:bg-slate-100"
-                )}
-                onClick={() => setWorkspaceMode(prev => !prev)}
-                title={workspaceMode ? "Ieși din Modul Focus" : "Intră în Modul Focus"}
-              >
-                {workspaceMode ? (
-                  <Minimize className="h-4.5 w-4.5 lg:h-4 lg:w-4 text-primary animate-pulse" />
-                ) : (
-                  <Maximize className="h-4.5 w-4.5 lg:h-4 lg:w-4 text-slate-500" />
-                )}
-              </Button>
+              <span style={{ margin: "0 6px", color: "var(--ev-border-rose)" }}>-</span>
+              <span style={{ color: "var(--ev-text-label)", fontWeight: 600 }}>LOCURI</span>
+              <span style={{ margin: "0 6px", color: "var(--ev-text-muted)" }}>-</span>
+              <span style={{ color: "var(--ev-rose-500)", fontWeight: 700 }}>
+                {localAllGuests.length > 0 ? Math.round((totalSeated / localAllGuests.length) * 100) : 0}%
+              </span>
             </div>
 
             {/* Mini-Map HUD */}
@@ -1664,7 +1880,7 @@ export function SeatingPlanner({
               onPointerMove={handleMiniMapPointerMove}
               onPointerUp={handleMiniMapPointerUp}
               onPointerLeave={handleMiniMapPointerUp}
-              className="absolute bottom-4 left-4 w-28 h-[90px] sm:w-36 sm:h-[115px] bg-white/70 hover:bg-white/80 border border-slate-200/50 rounded-2xl shadow-lg backdrop-blur-md overflow-hidden select-none cursor-crosshair z-30 transition-colors hidden md:block"
+              className="absolute bottom-14 left-4 w-24 h-[78px] sm:w-30 sm:h-[92px] bg-white/70 hover:bg-white/80 border border-slate-200/50 rounded-xl shadow-lg backdrop-blur-md overflow-hidden select-none cursor-crosshair z-30 transition-colors hidden md:block"
             >
               <div className="relative w-full h-full text-[10px]">
                 {/* Mini Tables */}
@@ -1697,12 +1913,6 @@ export function SeatingPlanner({
                 <div
                   ref={miniMapBoxRef}
                   className="absolute border border-primary bg-primary/5 pointer-events-none rounded-md"
-                  style={{
-                    left: `${(boxX / 3000) * 100}%`,
-                    top: `${(boxY / 2400) * 100}%`,
-                    width: `${(boxW / 3000) * 100}%`,
-                    height: `${(boxH / 2400) * 100}%`,
-                  }}
                 />
               </div>
             </div>
@@ -1756,7 +1966,17 @@ export function SeatingPlanner({
                 <span>Trage cu mouse-ul pentru a muta camera</span>
               </div>
             )}
-          </div>
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <TableAssignView
+                guests={localAllGuests}
+                tables={localTables}
+                onAssignGuest={handleAssignGuestFromList}
+                onRemoveGuest={handleRemoveGuestFromList}
+              />
+            </div>
+          )}
         </div>
 
         {/* RIGHT: Table Inspector Panel (desktop) */}
@@ -1779,7 +1999,16 @@ export function SeatingPlanner({
       {/* Mobile Table Inspector bottom sheet drawer */}
       {selectedTable && (
         <div className="lg:hidden print:hidden">
-          <div className="fixed inset-x-0 bottom-0 z-40 max-h-[75vh] overflow-auto rounded-t-3xl border-t border-border bg-white/95 p-4 shadow-2xl backdrop-blur-md">
+          <div
+            className="fixed inset-x-0 bottom-0 z-40 max-h-[75vh] overflow-auto p-4"
+            style={{
+              background: "rgba(255,253,251,0.97)",
+              backdropFilter: "blur(24px)",
+              borderRadius: "20px 20px 0 0",
+              border: "1px solid var(--ev-border-soft)",
+              boxShadow: "0 -8px 32px rgba(140,60,90,0.14)",
+            }}
+          >
             <TableDetailPanel
               table={selectedTable}
               allGuests={localAllGuests}

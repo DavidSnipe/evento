@@ -5,11 +5,11 @@ import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import type { RsvpStatus } from "@/types/guests";
 
-const RSVP_CONFIG: Record<RsvpStatus, { label: string; bg: string; text: string; dot: string }> = {
-  pending: { label: "În așteptare", bg: "bg-gray-100", text: "text-gray-700", dot: "bg-gray-400" },
-  accepted: { label: "Confirmat", bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
-  declined: { label: "Refuzat", bg: "bg-rose-50", text: "text-rose-700", dot: "bg-rose-500" },
-  maybe: { label: "Poate", bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
+const RSVP_CONFIG: Record<RsvpStatus, { label: string; bg: string; text: string; border: string; dot: string }> = {
+  pending: { label: "În așteptare", bg: "bg-[#FFF4E5]", text: "text-[#D97706]", border: "border-[#FFE3B9]", dot: "bg-[#FF9F0A]" },
+  accepted: { label: "Confirmat", bg: "bg-[#E8F8EE]", text: "text-[#34C759]", border: "border-[#C6F1D5]", dot: "bg-[#34C759]" },
+  declined: { label: "Refuzat", bg: "bg-[#FFF0F0]", text: "text-[#FF3B30]", border: "border-[#FFD2D2]", dot: "bg-[#FF3B30]" },
+  maybe: { label: "Poate", bg: "bg-[#FEF7E7]", text: "text-[#B8860B]", border: "border-[#FDE68A]", dot: "bg-[#F59E0B]" },
 };
 
 type RsvpPillProps = {
@@ -83,13 +83,13 @@ export function RsvpPill({ status, onChange, readonly, isSyncing }: RsvpPillProp
           }
         }}
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all duration-300 ease-out",
-          config.bg, config.text,
-          !readonly && "cursor-pointer hover:shadow-sm active:scale-95",
+          "inline-flex items-center gap-1.5 rounded-[7px] border px-2 py-0.5 text-[10.5px] font-semibold tracking-wide transition-all duration-300 ease-out shadow-[0_1px_2px_rgba(180,100,120,0.02)]",
+          config.bg, config.text, config.border,
+          !readonly && "cursor-pointer hover:shadow-[0_2px_8px_rgba(180,100,120,0.04)] hover:scale-[1.02] active:scale-95",
           isSyncing && "animate-soft-pulse opacity-85"
         )}
       >
-        <span className={cn("h-1.5 w-1.5 rounded-full", config.dot)} />
+        <span className={cn("h-1.5 w-1.5 rounded-full animate-pulse", config.dot)} />
         {config.label}
       </button>
 
@@ -103,7 +103,7 @@ export function RsvpPill({ status, onChange, readonly, isSyncing }: RsvpPillProp
             zIndex: 99999,
             transition: "none",
           }}
-          className="w-36 rounded-xl border border-border/40 bg-white/95 p-1 shadow-xl shadow-black/5 backdrop-blur-sm transition-none animate-scale-in origin-top-left"
+          className="w-36 rounded-[14px] border border-border-rose-18 bg-white/95 p-1 shadow-[0_8px_32px_rgba(180,100,120,0.12)] backdrop-blur-[12px] animate-scale-in origin-top-left"
         >
           {(Object.keys(RSVP_CONFIG) as RsvpStatus[]).map((s) => {
             const c = RSVP_CONFIG[s];
@@ -116,8 +116,8 @@ export function RsvpPill({ status, onChange, readonly, isSyncing }: RsvpPillProp
                   setIsOpen(false);
                 }}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
-                  s === status ? cn(c.bg, c.text) : "text-muted-foreground hover:bg-muted/50"
+                  "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold transition-colors cursor-pointer",
+                  s === status ? cn(c.bg, c.text, "border border-transparent") : "text-text-secondary hover:bg-[#FEF0F3]/80 hover:text-[#B8516B]"
                 )}
               >
                 <span className={cn("h-1.5 w-1.5 rounded-full", c.dot)} />

@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Playfair_Display } from "next/font/google";
+import { Inter, Playfair_Display } from "next/font/google";
 
 import { ro } from "@/lib/i18n/ro";
 import { TopLoader } from "@/components/layout/top-loader";
 
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 const playfair = Playfair_Display({
@@ -32,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ro">
-      <body className={`${geistSans.variable} ${playfair.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${playfair.variable} font-sans antialiased`}>
         <TopLoader />
         {children}
       </body>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { QrCode, Download, Link as LinkIcon, Trash2, Camera, Loader2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -25,8 +25,13 @@ export function GalleryClient({
   const [carouselIndex, setCarouselIndex] = useState<number | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
+  const [mounted, setMounted] = useState(false);
 
-  const publicUrl = qrSlug ? `${window.location.origin}/gallery/${qrSlug}` : "";
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const publicUrl = qrSlug && typeof window !== "undefined" ? `${window.location.origin}/gallery/${qrSlug}` : "";
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -143,7 +148,7 @@ export function GalleryClient({
           )}
         </div>
 
-        {qrSlug && (
+        {qrSlug && mounted && (
           <div className="flex flex-col items-center bg-white p-4 rounded-2xl shadow-sm border border-border/50">
             <QRCodeSVG value={publicUrl} size={150} level="H" includeMargin />
             <p className="text-[10px] text-muted-foreground mt-2 uppercase tracking-widest font-medium">Scanează pentru Upload</p>

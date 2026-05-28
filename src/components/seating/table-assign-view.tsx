@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, UserPlus, UserMinus, ChevronDown, Check, X, AlertCircle } from "lucide-react";
+import { Search, UserPlus, UserMinus, ChevronDown, X, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RsvpBadge } from "@/components/guests/rsvp-badge";
 import type { TableWithGuests } from "@/lib/seating/queries";
-import type { GuestWithTable, RsvpStatus } from "@/types/guests";
+import type { GuestWithTable } from "@/types/guests";
 
 type TableAssignViewProps = {
   guests: GuestWithTable[];
@@ -219,8 +219,6 @@ function TableCard({
   }, [guests]);
 
   const isFull = tableGuests.length >= table.capacity;
-  const pct = tableGuests.length / table.capacity;
-
   const matchingUnassigned = useMemo(() => {
     if (!addSearch.trim()) return unassignedGuests.slice(0, 5);
     const q = addSearch.toLowerCase();

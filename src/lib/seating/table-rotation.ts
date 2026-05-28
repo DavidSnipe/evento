@@ -35,7 +35,8 @@ export function normalizeTableRotation(
 ): TableMetadata {
   if (!tableAllowsRotation(meta, tableShape)) {
     if (meta.rotation === 0 || meta.rotation == null) return meta;
-    const { rotation: _r, ...rest } = meta;
+    const { rotation, ...rest } = meta;
+    void rotation;
     return rest;
   }
   if (usesRectangularOrientationToggle(meta, tableShape)) {

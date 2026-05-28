@@ -7,7 +7,7 @@ import { DeleteEventButton } from "@/components/events/delete-event-button";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { AnimatedPage } from "@/components/layout/animated-page";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { getActiveEventId } from "@/lib/events/active-event";
 import { getEventTypeLabel } from "@/lib/events/config";
 import { getEventById } from "@/lib/events/queries";

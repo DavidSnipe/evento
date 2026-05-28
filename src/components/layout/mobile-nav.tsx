@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 
 import { signOut } from "@/app/(auth)/actions";
-import { getMainNav } from "@/config/navigation";
 import { ro } from "@/lib/i18n/ro";
 import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";

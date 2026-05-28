@@ -54,12 +54,10 @@ import { usePlannerTables } from "@/components/seating/use-planner-tables";
 import {
   CANVAS_HEIGHT_PX,
   CANVAS_WIDTH_PX,
-  canvasPxToStoredPx,
   clientPointToCanvasPx,
   GRID_CELL_PX,
   PIXELS_PER_METER,
   snapPointPx,
-  storedPxToCanvasPx,
   WORKSPACE_PAD_PX,
 } from "@/lib/seating/spatial";
 import {
@@ -199,7 +197,7 @@ export function SeatingPlanner({
   const [viewMode, setViewMode] = useState<"canvas" | "list">("canvas");
 
   // Lifted templates browser state
-  const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const [, setApplyingTemplate] = useState(false);
   const [selectedCounts, setSelectedCounts] = useState<Record<string, number>>({
     ballroom: 8,
     barn: 8,
@@ -325,11 +323,12 @@ export function SeatingPlanner({
   }, []);
 
   useEffect(() => {
+    const overlay = assistOverlayRef.current;
     return () => {
       if (assistRafRef.current !== null) {
         cancelAnimationFrame(assistRafRef.current);
       }
-      assistOverlayRef.current?.clear();
+      overlay?.clear();
     };
   }, []);
   const [isMobile, setIsMobile] = useState(false);
@@ -2755,7 +2754,7 @@ function DraggableWrapper({
       if (dist > threshold) {
         const finalPos = livePosRef.current;
         const node = nodeRef.current;
-        onStop(table.renderKey, ev, {
+        onStop(table.id, ev, {
           node: node ?? document.body,
           x: finalPos.x,
           y: finalPos.y,

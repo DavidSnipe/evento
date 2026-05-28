@@ -5,7 +5,7 @@ import { EventCard } from "@/components/events/event-card";
 import { AnimatedPage } from "@/components/layout/animated-page";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { getActiveEventId } from "@/lib/events/active-event";
 import { getPrimaryEvent, getUserEvents } from "@/lib/events/queries";
 import { formatDaysUntil, getDaysUntil } from "@/lib/events/utils";

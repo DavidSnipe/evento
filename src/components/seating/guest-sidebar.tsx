@@ -4,21 +4,11 @@ import { useState, useMemo } from "react";
 import {
   Search,
   Users,
-  CheckCircle,
-  XCircle,
-  HelpCircle,
-  ChevronDown,
-  ChevronUp,
-  ArrowUpDown,
   CornerDownRight,
-  Filter
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ro } from "@/lib/i18n/ro";
 import { cn } from "@/lib/utils";
-import type { GuestWithTable, RsvpStatus } from "@/types/guests";
-import { GUEST_TAGS } from "@/types/guests";
+import type { GuestWithTable } from "@/types/guests";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -52,17 +42,6 @@ function getInitials(g: GuestWithTable): string {
   return g.last_name ? `${l}${f}`.toUpperCase() : f.toUpperCase() || "?";
 }
 
-function getRsvpIcon(status: RsvpStatus) {
-  switch (status) {
-    case "accepted":
-      return <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />;
-    case "declined":
-      return <XCircle className="h-3.5 w-3.5 text-rose-500" />;
-    default:
-      return <HelpCircle className="h-3.5 w-3.5 text-amber-500" />;
-  }
-}
-
 function coupleNames(primary: GuestWithTable, partner: GuestWithTable) {
   const pLast = primary.last_name?.trim();
   const partnerLast = partner.last_name?.trim();
@@ -88,11 +67,8 @@ export function GuestSidebar({
   const [search, setSearch] = useState("");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [rsvpFilter, setRsvpFilter] = useState<string>("all");
-  const [selectedTag, setSelectedTag] = useState<string>("all");
+  const [selectedTag] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("family");
-  
-  // Collapse filter settings accordion
-  const [showFilters, setShowFilters] = useState(false);
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
 

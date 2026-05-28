@@ -362,6 +362,9 @@ export const ro = {
       guestsAtTable: "Invitați la masă",
       noGuests: "Niciun invitat la această masă.",
       capacity: "Capacitate",
+      removeGuest: "Elimină invitatul de la masă",
+      notes: "Note",
+      notesPlaceholder: "Note despre această masă…",
     },
     warnings: {
       overCapacity: "Masa depășește capacitatea!",

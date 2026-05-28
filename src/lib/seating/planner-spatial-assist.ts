@@ -290,14 +290,14 @@ function computeAlignmentGuides(
     if (gapRightLeft > 0 && gapRightLeft < threshold * 4) {
       for (const third of others) {
         if (third.id === other.id) continue;
-        const gap2 = third.left - o.right;
+        const gap2 = third.rect.left - o.right;
         if (gap2 > 0 && near(gapRightLeft, gap2, threshold)) {
           mergeGuideSpan(
             guides,
             "horizontal",
             moving.centerY,
             moving.right,
-            third.left,
+            third.rect.left,
             "spacing"
           );
         }
@@ -306,13 +306,13 @@ function computeAlignmentGuides(
     if (gapLeftRight > 0 && gapLeftRight < threshold * 4) {
       for (const third of others) {
         if (third.id === other.id) continue;
-        const gap2 = moving.left - third.right;
+        const gap2 = moving.left - third.rect.right;
         if (gap2 > 0 && near(gapLeftRight, gap2, threshold)) {
           mergeGuideSpan(
             guides,
             "horizontal",
             moving.centerY,
-            third.right,
+            third.rect.right,
             moving.left,
             "spacing"
           );

@@ -4,8 +4,15 @@ export interface TableMetadata {
   isLocked?: boolean;
   customShape?: "round" | "rectangular" | "square" | "long_banquet" | "sweetheart";
   objectType?: "dance_floor" | "dj_booth" | "stage" | "candy_bar" | "photo_booth" | "bar" | "entrance" | "sweet_table";
+  /** Legacy pixel dimensions (kept in sync when saving meter fields) */
   width?: number;
   height?: number;
+  /** Logical planner footprint in meters (incl. chair clearance for tables) */
+  widthM?: number;
+  heightM?: number;
+  /** @deprecated Removed on save; use TABLE_FOOTPRINT_SPECS via resolveFootprintMeters */
+  diameterM?: number;
+  clearanceM?: number;
   rotation?: number; // 0, 90, 180, 270 deg
   userNotes?: string;
   notesText?: string;

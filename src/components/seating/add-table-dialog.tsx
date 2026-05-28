@@ -25,6 +25,15 @@ import { ro } from "@/lib/i18n/ro";
 import { cn } from "@/lib/utils";
 import type { TableShape } from "@/types/guests";
 import type { TableWithGuests } from "@/lib/seating/queries";
+import {
+  defaultObjectMetadata,
+  defaultTableMetadataForShape,
+  OBJECT_PRESETS_M,
+  patchMeterDimensions,
+  serializeTableMetadata,
+} from "@/lib/seating/table-spatial";
+import { snapMeters } from "@/lib/seating/spatial";
+import type { TableMetadata } from "@/lib/seating/utils";
 
 type AddTableDialogProps = {
   eventId: string;
@@ -49,19 +58,17 @@ type ObjectTypePreset = {
   value: string;
   label: string;
   icon: LucideIcon;
-  defaultWidth: number;
-  defaultHeight: number;
   defaultShape: "round" | "rectangular";
 };
 
 const objectTypes: ObjectTypePreset[] = [
-  { value: "dance_floor", label: "Ring de Dans", icon: Music, defaultWidth: 320, defaultHeight: 320, defaultShape: "round" },
-  { value: "stage", label: "Scenă", icon: Mic, defaultWidth: 320, defaultHeight: 120, defaultShape: "rectangular" },
-  { value: "dj_booth", label: "DJ Booth", icon: Sliders, defaultWidth: 160, defaultHeight: 80, defaultShape: "rectangular" },
-  { value: "bar", label: "Cocktail Bar", icon: GlassWater, defaultWidth: 180, defaultHeight: 96, defaultShape: "rectangular" },
-  { value: "candy_bar", label: "Candy Bar", icon: Cake, defaultWidth: 180, defaultHeight: 96, defaultShape: "rectangular" },
-  { value: "photo_booth", label: "Cabina Foto", icon: Camera, defaultWidth: 160, defaultHeight: 96, defaultShape: "rectangular" },
-  { value: "entrance", label: "Intrare", icon: DoorOpen, defaultWidth: 160, defaultHeight: 48, defaultShape: "rectangular" },
+  { value: "dance_floor", label: "Ring de Dans", icon: Music, defaultShape: "round" },
+  { value: "stage", label: "Scenă", icon: Mic, defaultShape: "rectangular" },
+  { value: "dj_booth", label: "DJ Booth", icon: Sliders, defaultShape: "rectangular" },
+  { value: "bar", label: "Cocktail Bar", icon: GlassWater, defaultShape: "rectangular" },
+  { value: "candy_bar", label: "Candy Bar", icon: Cake, defaultShape: "rectangular" },
+  { value: "photo_booth", label: "Cabina Foto", icon: Camera, defaultShape: "rectangular" },
+  { value: "entrance", label: "Intrare", icon: DoorOpen, defaultShape: "rectangular" },
 ];
 
 export function AddTableDialog({ eventId, open, tables, onClose, onAddOptimistic }: AddTableDialogProps) {
@@ -104,42 +111,45 @@ export function AddTableDialog({ eventId, open, tables, onClose, onAddOptimistic
   // Object state
   const [selectedObjectType, setSelectedObjectType] = useState("dance_floor");
   const [objectName, setObjectName] = useState("Ring de Dans");
-  const [objectWidth, setObjectWidth] = useState(320);
-  const [objectHeight, setObjectHeight] = useState(320);
+  const [objectWidthM, setObjectWidthM] = useState(
+    () => OBJECT_PRESETS_M.dance_floor.widthM
+  );
+  const [objectHeightM, setObjectHeightM] = useState(
+    () => OBJECT_PRESETS_M.dance_floor.heightM
+  );
   const [objectShape, setObjectShape] = useState<"round" | "rectangular">("round");
 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+
+  function applyObjectPreset(typeVal: string) {
+    const preset = objectTypes.find((o) => o.value === typeVal);
+    const sizes = OBJECT_PRESETS_M[typeVal] ?? { widthM: 2, heightM: 1 };
+    if (!preset) return;
+    setSelectedObjectType(typeVal);
+    setObjectName(preset.label);
+    setObjectWidthM(sizes.widthM);
+    setObjectHeightM(sizes.heightM);
+    setObjectShape(preset.defaultShape);
+  }
+
+  function buildTableNotesMeta(shape: CustomTableShape): TableMetadata {
+    return defaultTableMetadataForShape(shape, { isLocked: false });
+  }
 
   // Sync initial object type when dialog opens and dance floor exists
   useEffect(() => {
     if (open) {
       if (hasDanceFloor) {
         if (!hasStage) {
-          setSelectedObjectType("stage");
-          setObjectName("Scenă");
-          setObjectWidth(320);
-          setObjectHeight(120);
-          setObjectShape("rectangular");
+          applyObjectPreset("stage");
         } else if (!hasDjBooth) {
-          setSelectedObjectType("dj_booth");
-          setObjectName("DJ Booth");
-          setObjectWidth(160);
-          setObjectHeight(80);
-          setObjectShape("rectangular");
+          applyObjectPreset("dj_booth");
         } else {
-          setSelectedObjectType("bar");
-          setObjectName("Cocktail Bar");
-          setObjectWidth(180);
-          setObjectHeight(96);
-          setObjectShape("rectangular");
+          applyObjectPreset("bar");
         }
       } else {
-        setSelectedObjectType("dance_floor");
-        setObjectName("Ring de Dans");
-        setObjectWidth(320);
-        setObjectHeight(320);
-        setObjectShape("round");
+        applyObjectPreset("dance_floor");
       }
       setTableShape("round");
       setQuantity(1);
@@ -166,14 +176,7 @@ export function AddTableDialog({ eventId, open, tables, onClose, onAddOptimistic
 
   // Sync object type presets
   const handleObjectTypeSelect = (typeVal: string) => {
-    setSelectedObjectType(typeVal);
-    const preset = objectTypes.find(o => o.value === typeVal);
-    if (preset) {
-      setObjectName(preset.label);
-      setObjectWidth(preset.defaultWidth);
-      setObjectHeight(preset.defaultHeight);
-      setObjectShape(preset.defaultShape);
-    }
+    applyObjectPreset(typeVal);
   };
 
   async function handleSubmit(formData: FormData) {
@@ -195,7 +198,7 @@ export function AddTableDialog({ eventId, open, tables, onClose, onAddOptimistic
           shape: tableShape === "sweetheart" ? "sweetheart" : tableShape === "round" ? "round" : "rectangular",
           pos_x: 350 + (i % 4) * 240,
           pos_y: 250 + Math.floor(i / 4) * 200,
-          notes: JSON.stringify({ customShape: tableShape, isLocked: false }),
+          notes: serializeTableMetadata(buildTableNotesMeta(tableShape), tableShape),
           sort_order: (tables[tables.length - 1]?.sort_order ?? 0) + 1 + i,
           guests: [],
           created_at: new Date().toISOString(),
@@ -206,8 +209,19 @@ export function AddTableDialog({ eventId, open, tables, onClose, onAddOptimistic
       formData.set("objectType", selectedObjectType);
       formData.set("name", objectName);
       formData.set("shape", objectShape);
-      formData.set("width", String(objectWidth));
-      formData.set("height", String(objectHeight));
+      formData.set("widthM", String(objectWidthM));
+      formData.set("heightM", String(objectHeightM));
+
+      const objectMeta = patchMeterDimensions(
+        {
+          ...defaultObjectMetadata(selectedObjectType),
+          objectType: selectedObjectType as TableMetadata["objectType"],
+          customShape: objectShape,
+          rotation: 0,
+          isLocked: false,
+        },
+        { widthM: objectWidthM, heightM: objectHeightM }
+      );
 
       tempTables.push({
         id: `temp-${now}-0`,
@@ -217,14 +231,7 @@ export function AddTableDialog({ eventId, open, tables, onClose, onAddOptimistic
         shape: objectShape === "round" ? "round" : "rectangular",
         pos_x: 200,
         pos_y: 200,
-        notes: JSON.stringify({
-          objectType: selectedObjectType,
-          customShape: objectShape,
-          width: objectWidth,
-          height: objectHeight,
-          rotation: 0,
-          isLocked: false
-        }),
+        notes: JSON.stringify(objectMeta),
         sort_order: (tables[tables.length - 1]?.sort_order ?? 0) + 1,
         guests: [],
         created_at: new Date().toISOString(),
@@ -232,19 +239,27 @@ export function AddTableDialog({ eventId, open, tables, onClose, onAddOptimistic
       });
     }
 
-    setPending(true);
     const promise = createTable(eventId, formData);
     if (onAddOptimistic) {
       onAddOptimistic(tempTables, promise);
-    } else {
-      const result = await promise;
       setPending(false);
-      if (result.error) {
-        setError(result.error);
-      } else {
-        onClose();
-      }
+      setError("");
+      return;
     }
+
+    setPending(true);
+    const result = await promise;
+    setPending(false);
+    if (result.error) {
+      setError(result.error);
+    } else {
+      onClose();
+    }
+  }
+
+  function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    void handleSubmit(new FormData(e.currentTarget));
   }
 
   return (
@@ -287,7 +302,7 @@ export function AddTableDialog({ eventId, open, tables, onClose, onAddOptimistic
           </button>
         </div>
 
-        <form action={handleSubmit} className="space-y-5">
+        <form onSubmit={handleFormSubmit} className="space-y-5">
           {activeTab === "tables" ? (
             /* Tables Section */
             <>
@@ -417,28 +432,34 @@ export function AddTableDialog({ eventId, open, tables, onClose, onAddOptimistic
               <div className="grid grid-cols-3 gap-2">
                 {/* Object Width */}
                 <div className="space-y-1">
-                  <Label htmlFor="object-width" className="text-xs text-slate-700">Lățime (px)</Label>
+                  <Label htmlFor="object-width" className="text-xs text-slate-700">Lățime (m)</Label>
                   <Input
                     id="object-width"
                     type="number"
-                    min={40}
-                    max={600}
-                    value={objectWidth}
-                    onChange={(e) => setObjectWidth(parseInt(e.target.value, 10) || 100)}
+                    min={0.5}
+                    max={12}
+                    step={0.5}
+                    value={objectWidthM}
+                    onChange={(e) =>
+                      setObjectWidthM(snapMeters(parseFloat(e.target.value) || 1))
+                    }
                     required
                   />
                 </div>
 
                 {/* Object Height */}
                 <div className="space-y-1">
-                  <Label htmlFor="object-height" className="text-xs text-slate-700">Înălțime (px)</Label>
+                  <Label htmlFor="object-height" className="text-xs text-slate-700">Înălțime (m)</Label>
                   <Input
                     id="object-height"
                     type="number"
-                    min={40}
-                    max={600}
-                    value={objectHeight}
-                    onChange={(e) => setObjectHeight(parseInt(e.target.value, 10) || 100)}
+                    min={0.5}
+                    max={12}
+                    step={0.5}
+                    value={objectHeightM}
+                    onChange={(e) =>
+                      setObjectHeightM(snapMeters(parseFloat(e.target.value) || 1))
+                    }
                     required
                   />
                 </div>

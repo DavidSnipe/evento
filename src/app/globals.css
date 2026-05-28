@@ -422,6 +422,36 @@ body.workspace-mode-active .animated-page-wrapper {
   width: 100%;
 }
 
+/* Seating planner — disable native text/image drag and selection while panning */
+.seating-planner-viewport,
+.seating-planner-viewport .seating-canvas-surface {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.seating-planner-viewport .seating-canvas-surface {
+  cursor: grab;
+}
+
+.seating-planner-viewport img,
+.seating-planner-viewport svg {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
+.seating-planner-viewport.is-panning,
+.seating-planner-viewport.is-panning * {
+  cursor: grabbing !important;
+}
+
+/* Snap grid: cell size from --planner-grid-px (0.5 m at current PIXELS_PER_METER) */
+.canvas-meter-grid {
+  background-image:
+    linear-gradient(to right, rgba(184, 81, 107, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(184, 81, 107, 0.07) 1px, transparent 1px);
+  background-size: var(--planner-grid-px, 32.5px) var(--planner-grid-px, 32.5px);
+}
+
 /* Elegant, barely visible dot grid background for the wedding planner floor canvas */
 .canvas-grid {
   background-color: var(--ev-bg-canvas);
@@ -435,6 +465,45 @@ body.workspace-mode-active .animated-page-wrapper {
 @keyframes pulseRose {
   0%, 100% { opacity: 0.7; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.03); }
+}
+
+/* Planner drag assist — layout feedback (imperative classes + hover) */
+.draggable-table-wrapper.planner-table-hover {
+  filter: drop-shadow(0 4px 14px rgba(184, 81, 107, 0.22));
+}
+
+.draggable-table-wrapper.planner-table-dragging {
+  z-index: 50;
+  filter: drop-shadow(0 6px 16px rgba(184, 81, 107, 0.2));
+}
+
+.draggable-table-wrapper.planner-table-collision {
+  filter: none;
+}
+
+/* Integrated collision tint on table visuals (imperative + drag state) */
+.table-visual-collision-host[data-collision-visual] .planner-table-figma-root,
+.table-visual-collision-host.table-visual-collision-active .planner-table-figma-root {
+  box-shadow: 0 0 14px rgba(194, 88, 108, 0.18) !important;
+}
+
+.table-visual-collision-host[data-collision-visual] .planner-table-surface,
+.table-visual-collision-host.table-visual-collision-active .planner-table-surface {
+  stroke: rgba(194, 85, 105, 0.52) !important;
+  stroke-width: 1.75 !important;
+}
+
+.table-visual-collision-host[data-collision-visual] .planner-table-seat-empty,
+.table-visual-collision-host.table-visual-collision-active .planner-table-seat-empty {
+  fill: #edd0d8 !important;
+}
+
+.draggable-table-wrapper.planner-table-nearby {
+  filter: drop-shadow(0 1px 6px rgba(184, 81, 107, 0.08));
+}
+
+.planner-assist-overlay line {
+  shape-rendering: crispEdges;
 }
 
 @keyframes spin {

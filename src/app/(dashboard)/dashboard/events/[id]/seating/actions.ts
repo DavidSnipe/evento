@@ -7,6 +7,13 @@ import { requireEvent } from "@/lib/events/verify-event";
 import { ro } from "@/lib/i18n/ro";
 import { createClient } from "@/lib/supabase/server";
 import type { TableShape } from "@/types/guests";
+import type { TableMetadata } from "@/lib/seating/utils";
+import {
+  defaultObjectMetadata,
+  defaultTableMetadataForShape,
+  patchMeterDimensions,
+  serializeTableMetadata,
+} from "@/lib/seating/table-spatial";
 
 export type TableFormState = { error?: string; success?: string; tables?: unknown[] };
 
@@ -32,8 +39,8 @@ export async function createTable(
     if (!name) return { error: ro.seating.errors.nameRequired };
 
     const shape = (formData.get("shape") as string) || "rectangular";
-    const width = Number(formData.get("width")) || (objectType === "dance_floor" ? 280 : 160);
-    const height = Number(formData.get("height")) || (objectType === "dance_floor" ? 200 : 96);
+    const widthM = Number(formData.get("widthM")) || undefined;
+    const heightM = Number(formData.get("heightM")) || undefined;
 
     const { data: existing } = await supabase
       .from("seating_tables")
@@ -44,14 +51,19 @@ export async function createTable(
 
     const sort_order = (existing?.[0]?.sort_order ?? 0) + 1;
 
-    const metadata = {
-      objectType,
-      customShape: shape,
-      width,
-      height,
-      rotation: 0,
-      isLocked: false
-    };
+    const metadata = patchMeterDimensions(
+      {
+        ...defaultObjectMetadata(objectType),
+        objectType: objectType as TableMetadata["objectType"],
+        customShape: shape as TableMetadata["customShape"],
+        rotation: 0,
+        isLocked: false,
+      },
+      {
+        ...(widthM != null && !Number.isNaN(widthM) ? { widthM } : {}),
+        ...(heightM != null && !Number.isNaN(heightM) ? { heightM } : {}),
+      }
+    );
 
     const { data: insertedObj, error } = await supabase
       .from("seating_tables")
@@ -130,17 +142,14 @@ export async function createTable(
     const pos_x = 350 + (i % 4) * 240;
     const pos_y = 250 + Math.floor(i / 4) * 200;
 
-    const metadata = {
-      customShape: shape,
-      isLocked: false
-    };
+    const tableMeta = defaultTableMetadataForShape(shape, { isLocked: false });
 
     inserts.push({
       event_id: eventId,
       name,
       capacity,
       shape: dbShape,
-      notes: JSON.stringify(metadata),
+      notes: serializeTableMetadata(tableMeta, shape),
       sort_order: currentSortOrder,
       pos_x,
       pos_y
@@ -544,7 +553,7 @@ export async function applyRoomTemplate(
     shape: "sweetheart",
     pos_x: 1400,
     pos_y: 80,
-    notes: JSON.stringify({ customShape: "sweetheart", isLocked: true }),
+    notes: serializeTableMetadata({ customShape: "sweetheart", isLocked: true }, "sweetheart"),
     sort_order: 1
   });
 
@@ -556,7 +565,10 @@ export async function applyRoomTemplate(
     shape: "rectangular",
     pos_x: 1340,
     pos_y: 200,
-    notes: JSON.stringify({ objectType: "stage", customShape: "rectangular", width: 320, height: 120, rotation: 0, isLocked: true }),
+    notes: serializeTableMetadata(
+      { objectType: "stage", customShape: "rectangular", rotation: 0, isLocked: true },
+      "rectangular"
+    ),
     sort_order: 2
   });
 
@@ -568,7 +580,10 @@ export async function applyRoomTemplate(
     shape: "rectangular",
     pos_x: 1700,
     pos_y: 220,
-    notes: JSON.stringify({ objectType: "dj_booth", customShape: "rectangular", width: 160, height: 80, rotation: 0, isLocked: true }),
+    notes: serializeTableMetadata(
+      { objectType: "dj_booth", customShape: "rectangular", rotation: 0, isLocked: true },
+      "rectangular"
+    ),
     sort_order: 3
   });
 
@@ -581,14 +596,28 @@ export async function applyRoomTemplate(
     shape: isRoundDanceFloor ? "round" : "rectangular",
     pos_x: 1340,
     pos_y: 940,
-    notes: JSON.stringify({
-      objectType: "dance_floor",
-      customShape: isRoundDanceFloor ? "round" : "rectangular",
-      width: isRoundDanceFloor ? 320 : 400,
-      height: isRoundDanceFloor ? 320 : 240,
-      rotation: 0,
-      isLocked: true
-    }),
+    notes: isRoundDanceFloor
+      ? serializeTableMetadata(
+          {
+            ...defaultObjectMetadata("dance_floor"),
+            objectType: "dance_floor",
+            customShape: "round",
+            rotation: 0,
+            isLocked: true,
+          },
+          "round"
+        )
+      : serializeTableMetadata(
+          {
+            objectType: "dance_floor",
+            customShape: "rectangular",
+            widthM: 4,
+            heightM: 2.4,
+            rotation: 0,
+            isLocked: true,
+          },
+          "rectangular"
+        ),
     sort_order: 4
   });
 
@@ -630,7 +659,7 @@ export async function applyRoomTemplate(
         shape: "round",
         pos_x: x,
         pos_y: y,
-        notes: JSON.stringify({ customShape: "round", isLocked: false }),
+        notes: serializeTableMetadata({ customShape: "round", isLocked: false }, "round"),
         sort_order: 10 + i
       });
     }
@@ -657,7 +686,7 @@ export async function applyRoomTemplate(
         shape: "rectangular",
         pos_x: x,
         pos_y: y,
-        notes: JSON.stringify({ customShape: "long_banquet", isLocked: false }),
+        notes: serializeTableMetadata({ customShape: "long_banquet", isLocked: false }, "long_banquet"),
         sort_order: 10 + i
       });
     }
@@ -680,7 +709,7 @@ export async function applyRoomTemplate(
           shape: "round",
           pos_x: x - 80,
           pos_y: y - 80,
-          notes: JSON.stringify({ customShape: "round", isLocked: false }),
+          notes: serializeTableMetadata({ customShape: "round", isLocked: false }, "round"),
           sort_order: 10 + count
         });
         count++;
@@ -707,7 +736,10 @@ export async function applyRoomTemplate(
           shape: "rectangular",
           pos_x: x - (isSquare ? 80 : 96),
           pos_y: y - (isSquare ? 80 : 64),
-          notes: JSON.stringify({ customShape: isSquare ? "square" : "rectangular", isLocked: false }),
+          notes: serializeTableMetadata(
+            { customShape: isSquare ? "square" : "rectangular", isLocked: false },
+            isSquare ? "square" : "rectangular"
+          ),
           sort_order: 10 + count
         });
         count++;
@@ -729,7 +761,7 @@ export async function applyRoomTemplate(
         shape: "rectangular",
         pos_x: x,
         pos_y: y,
-        notes: JSON.stringify({ customShape: "long_banquet", isLocked: false }),
+        notes: serializeTableMetadata({ customShape: "long_banquet", isLocked: false }, "long_banquet"),
         sort_order: 10 + i
       });
     }
@@ -792,7 +824,7 @@ export async function initializeConcentricOnboarding(
     shape: "sweetheart",
     pos_x: 1400,
     pos_y: 80,
-    notes: JSON.stringify({ customShape: "sweetheart", isLocked: true }),
+    notes: serializeTableMetadata({ customShape: "sweetheart", isLocked: true }, "sweetheart"),
     sort_order: 1
   });
 
@@ -804,7 +836,10 @@ export async function initializeConcentricOnboarding(
     shape: "rectangular",
     pos_x: 1340,
     pos_y: 200,
-    notes: JSON.stringify({ objectType: "stage", customShape: "rectangular", width: 320, height: 120, rotation: 0, isLocked: true }),
+    notes: serializeTableMetadata(
+      { objectType: "stage", customShape: "rectangular", rotation: 0, isLocked: true },
+      "rectangular"
+    ),
     sort_order: 2
   });
 
@@ -816,7 +851,10 @@ export async function initializeConcentricOnboarding(
     shape: "rectangular",
     pos_x: 1700,
     pos_y: 220,
-    notes: JSON.stringify({ objectType: "dj_booth", customShape: "rectangular", width: 160, height: 80, rotation: 0, isLocked: true }),
+    notes: serializeTableMetadata(
+      { objectType: "dj_booth", customShape: "rectangular", rotation: 0, isLocked: true },
+      "rectangular"
+    ),
     sort_order: 3
   });
 
@@ -828,14 +866,16 @@ export async function initializeConcentricOnboarding(
     shape: "round",
     pos_x: 1340,
     pos_y: 940,
-    notes: JSON.stringify({
-      objectType: "dance_floor",
-      customShape: "round",
-      width: 320,
-      height: 320,
-      rotation: 0,
-      isLocked: true
-    }),
+    notes: serializeTableMetadata(
+      {
+        ...defaultObjectMetadata("dance_floor"),
+        objectType: "dance_floor",
+        customShape: "round",
+        rotation: 0,
+        isLocked: true,
+      },
+      "round"
+    ),
     sort_order: 4
   });
 
@@ -868,7 +908,7 @@ export async function initializeConcentricOnboarding(
         shape: "round",
         pos_x: x,
         pos_y: y,
-        notes: JSON.stringify({ customShape: "round", isLocked: false }),
+        notes: serializeTableMetadata({ customShape: "round", isLocked: false }, "round"),
         sort_order: 10 + tableIndex
       });
       tableIndex++;

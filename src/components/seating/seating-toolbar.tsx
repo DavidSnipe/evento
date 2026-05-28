@@ -16,6 +16,8 @@ import {
   Maximize2,
   Minimize2,
   Users,
+  Lock,
+  Unlock,
 } from "lucide-react";
 
 import { autoSeatGuestsAction } from "@/app/(dashboard)/dashboard/events/[id]/seating/actions";
@@ -53,6 +55,8 @@ export function SeatingToolbar({
   onExportPdf,
   printSort,
   onTogglePrintSort,
+  globalLock,
+  onToggleGlobalLock,
   onRunAutoSeat,
   workspaceMode,
   isFloating = false,
@@ -238,6 +242,42 @@ export function SeatingToolbar({
       )}
 
       <div style={{ flex: 1, minWidth: 8 }} />
+
+      <button
+        type="button"
+        onClick={onToggleGlobalLock}
+        title={
+          globalLock
+            ? "Deblochează editarea layout-ului"
+            : "Blochează mutarea/redimensionarea meselor"
+        }
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "6px 12px",
+          borderRadius: 10,
+          fontSize: 12,
+          fontWeight: 600,
+          fontFamily: "Inter, sans-serif",
+          border: globalLock
+            ? "1px solid rgba(184,81,107,0.45)"
+            : "1px solid rgba(210,170,185,0.25)",
+          background: globalLock
+            ? "linear-gradient(145deg, #FEF0F3, #FCE8EE)"
+            : "rgba(255,255,255,0.7)",
+          color: globalLock ? "#B8516B" : "#8A7080",
+          cursor: "pointer",
+          flexShrink: 0,
+        }}
+      >
+        {globalLock ? <Lock size={14} /> : <Unlock size={14} />}
+        <span className="hidden sm:inline">
+          {globalLock ? "Plan blocat" : "Blochează plan"}
+        </span>
+      </button>
+
+      <div style={{ width: 1, height: 22, background: "rgba(210,170,185,0.2)", flexShrink: 0 }} />
 
       {/* Center actions */}
       <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>

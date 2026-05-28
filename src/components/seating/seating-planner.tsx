@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState, useEffect } from "react";
+import { useCallback, useRef, useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   Users,
   X,
+  Grid3X3,
   ZoomIn,
   ZoomOut,
   Maximize2,
@@ -14,13 +15,13 @@ import {
   ChevronLeft,
   Check,
   Maximize,
-  Minimize
+  Minimize,
+  Lock,
 } from "lucide-react";
 
 import {
   assignGuestFromSeating,
   unassignGuest,
-  updateTable,
   autoSeatGuestsAction,
   initializeConcentricOnboarding,
   applyRoomTemplate,
@@ -30,20 +31,60 @@ import { AddTableDialog } from "@/components/seating/add-table-dialog";
 import { GuestSidebar } from "@/components/seating/guest-sidebar";
 import { SeatingToolbar } from "@/components/seating/seating-toolbar";
 import { TableAssignView } from "@/components/seating/table-assign-view";
-import { TableDetailPanel } from "@/components/seating/table-detail-panel";
+import {
+  TableDetailPanel,
+  type PlannerTableActions,
+} from "@/components/seating/table-detail-panel";
 import { TableVisual } from "@/components/seating/table-visual";
+import {
+  PlannerAssistOverlay,
+  type PlannerAssistOverlayHandle,
+} from "@/components/seating/planner-assist-overlay";
+import { buildPlannerSpatialItems } from "@/lib/seating/build-planner-spatial-items";
+import {
+  computeDragAssist,
+  hasFootprintCollisionAt,
+  SpatialHashGrid,
+  type PlannerSpatialItem,
+} from "@/lib/seating/planner-spatial-assist";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { TableWithGuests } from "@/lib/seating/queries";
-import Draggable, { type DraggableData, type DraggableEvent } from "react-draggable";
+import { usePlannerTables } from "@/components/seating/use-planner-tables";
+import {
+  CANVAS_HEIGHT_PX,
+  CANVAS_WIDTH_PX,
+  canvasPxToStoredPx,
+  clientPointToCanvasPx,
+  GRID_CELL_PX,
+  PIXELS_PER_METER,
+  snapPointPx,
+  storedPxToCanvasPx,
+  WORKSPACE_PAD_PX,
+} from "@/lib/seating/spatial";
+import {
+  getTableFootprintPx,
+  ROUND_TABLE_FOOTPRINT_M,
+} from "@/lib/seating/table-spatial";
+import { canAssignGuestToTable, canMoveTable } from "@/lib/seating/planner-lock";
+import { getNotesText, parseMetadata } from "@/lib/seating/utils";
+import { toggleRectangularOrientation } from "@/lib/seating/table-rotation";
 import { ro } from "@/lib/i18n/ro";
-import { parseMetadata } from "@/lib/seating/utils";
 import { cn } from "@/lib/utils";
-
 import type { GuestWithTable } from "@/types/guests";
 
+type TableDragStopData = {
+  node: HTMLElement;
+  x: number;
+  y: number;
+  deltaX: number;
+  deltaY: number;
+  lastX: number;
+  lastY: number;
+};
+
 /**
- * Canvas zoom — relative to `base = min(viewportW/3000, viewportH/2400)`.
+ * Canvas zoom — relative to viewport vs CANVAS_WIDTH_PX × CANVAS_HEIGHT_PX.
  * Tables are already drawn at VISUAL_SCALE 1.5 on the 3000×2400 canvas, so fit
  * only needs a modest bump over full-canvas fit (Figma uses ~0.94× base).
  * Old multipliers (3.88 / 5.0) forced min zoom ~140% and blocked room overview.
@@ -52,6 +93,12 @@ const CANVAS_FIT_MULTIPLIER = 1.45;
 const CANVAS_MIN_MULTIPLIER = 0.82;
 const CANVAS_MAX_SCALE = 2.0;
 const FIGMA_GUEST_SIDEBAR_WIDTH = 286;
+/** Min strip of workspace that must stay visible at viewport edge */
+const PAN_EDGE_MARGIN = 48;
+
+const preventNativeDrag = (e: React.SyntheticEvent) => {
+  e.preventDefault();
+};
 
 function canTableAccommodateGuest(
   table: TableWithGuests,
@@ -59,11 +106,11 @@ function canTableAccommodateGuest(
   allGuests: GuestWithTable[]
 ): { allowed: boolean; reason?: string } {
   const metadata = parseMetadata(table.notes);
-  if (metadata.objectType) {
-    return { allowed: false, reason: "Acesta este un obiect decorativ, nu o masă." };
-  }
-  if (metadata.isLocked) {
-    return { allowed: false, reason: "Masa este blocată." };
+  if (!canAssignGuestToTable(metadata)) {
+    return {
+      allowed: false,
+      reason: "Acesta este un obiect decorativ, nu o masă.",
+    };
   }
   const guest = allGuests.find((g) => g.id === guestId);
   if (!guest) return { allowed: false, reason: "Invitatul nu a fost găsit." };
@@ -121,26 +168,25 @@ export function SeatingPlanner({
   allGuests,
 }: SeatingPlannerProps) {
   const router = useRouter();
+
+  const {
+    localTables,
+    setLocalTables,
+    localAllGuests,
+    setLocalAllGuests,
+    localUnassigned,
+    setLocalUnassigned,
+    addTablesOptimistic,
+    updateTableName,
+    updateTableNotes,
+    moveTableOnCanvas,
+    deleteTableOptimistic,
+    resolveMutationTarget,
+  } = usePlannerTables(eventId, tables, allGuests, unassigned);
   
   // Viewport and Canvas references
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
-
-  // Synchronized local state
-  const [localTables, setLocalTables] = useState<(TableWithGuests & { renderKey: string })[]>(() =>
-    tables.map(t => ({ ...t, renderKey: t.id }))
-  );
-  const [localAllGuests, setLocalAllGuests] = useState(allGuests);
-  const [localUnassigned, setLocalUnassigned] = useState(unassigned);
-
-  useEffect(() => {
-    setLocalTables(prev => tables.map(t => {
-      const existing = prev.find(lt => lt.id === t.id);
-      return { ...t, renderKey: existing?.renderKey ?? t.id };
-    }));
-    setLocalAllGuests(allGuests);
-    setLocalUnassigned(unassigned);
-  }, [tables, allGuests, unassigned]);
 
   // Selected states
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -208,7 +254,86 @@ export function SeatingPlanner({
   const [cameraRevision, setCameraRevision] = useState(0);
   const cameraNotifyScheduledRef = useRef(false);
   const [globalLock, setGlobalLock] = useState(false);
+
+  const spatialItems = useMemo(
+    () => buildPlannerSpatialItems(localTables),
+    [localTables]
+  );
+  const spatialGridRef = useRef(new SpatialHashGrid<PlannerSpatialItem>());
+  const spatialItemByIdRef = useRef<Map<string, PlannerSpatialItem>>(new Map());
+  const assistOverlayRef = useRef<PlannerAssistOverlayHandle>(null);
+  const assistRafRef = useRef<number | null>(null);
+  const draggingTableIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const grid = spatialGridRef.current;
+    grid.build(spatialItems);
+    const byId = new Map<string, PlannerSpatialItem>();
+    for (const item of spatialItems) {
+      byId.set(item.id, item);
+    }
+    spatialItemByIdRef.current = byId;
+  }, [spatialItems]);
+
+  const handleDragAssistMove = useCallback(
+    (tableId: string, x: number, y: number) => {
+      const item = spatialItemByIdRef.current.get(tableId);
+      if (!item) return { selfColliding: false };
+
+      const assist = computeDragAssist(
+        tableId,
+        x,
+        y,
+        item.rect.width,
+        item.rect.height,
+        spatialGridRef.current
+      );
+
+      if (assistRafRef.current !== null) {
+        cancelAnimationFrame(assistRafRef.current);
+      }
+      assistRafRef.current = requestAnimationFrame(() => {
+        assistRafRef.current = null;
+        assistOverlayRef.current?.update(assist, tableId);
+      });
+
+      return { selfColliding: assist.collisionIds.length > 0 };
+    },
+    []
+  );
+
+  const checkTableDragCollision = useCallback((tableId: string, x: number, y: number) => {
+    const item = spatialItemByIdRef.current.get(tableId);
+    if (!item) return false;
+    return hasFootprintCollisionAt(
+      tableId,
+      x,
+      y,
+      item.rect.width,
+      item.rect.height,
+      spatialGridRef.current
+    );
+  }, []);
+
+  const clearDragAssist = useCallback(() => {
+    if (assistRafRef.current !== null) {
+      cancelAnimationFrame(assistRafRef.current);
+      assistRafRef.current = null;
+    }
+    draggingTableIdRef.current = null;
+    assistOverlayRef.current?.clear();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (assistRafRef.current !== null) {
+        cancelAnimationFrame(assistRafRef.current);
+      }
+      assistOverlayRef.current?.clear();
+    };
+  }, []);
   const [isMobile, setIsMobile] = useState(false);
+  const [showMeterGrid, setShowMeterGrid] = useState(true);
 
   // Zoom & Pan target refs for smooth interpolation
   const targetScaleRef = useRef(1.0);
@@ -227,7 +352,7 @@ export function SeatingPlanner({
   const getViewportScaleLimits = useCallback(() => {
     const W = viewportRef.current?.clientWidth ?? viewportDimRef.current.width;
     const H = viewportRef.current?.clientHeight ?? viewportDimRef.current.height;
-    const base = Math.min(W / 3000, H / 2400);
+    const base = Math.min(W / CANVAS_WIDTH_PX, H / CANVAS_HEIGHT_PX);
     const minScale = base * CANVAS_MIN_MULTIPLIER;
     const fitScale = base * CANVAS_FIT_MULTIPLIER;
     const maxScale = Math.max(CANVAS_MAX_SCALE, fitScale * 1.05);
@@ -271,10 +396,10 @@ export function SeatingPlanner({
       const bw = W / s;
       const bh = H / s;
 
-      miniMapBoxRef.current.style.left = `${(bx / 3000) * 100}%`;
-      miniMapBoxRef.current.style.top = `${(by / 2400) * 100}%`;
-      miniMapBoxRef.current.style.width = `${(bw / 3000) * 100}%`;
-      miniMapBoxRef.current.style.height = `${(bh / 2400) * 100}%`;
+      miniMapBoxRef.current.style.left = `${(bx / CANVAS_WIDTH_PX) * 100}%`;
+      miniMapBoxRef.current.style.top = `${(by / CANVAS_HEIGHT_PX) * 100}%`;
+      miniMapBoxRef.current.style.width = `${(bw / CANVAS_WIDTH_PX) * 100}%`;
+      miniMapBoxRef.current.style.height = `${(bh / CANVAS_HEIGHT_PX) * 100}%`;
     }
     if (zoomPercentTextRef.current) {
       zoomPercentTextRef.current.innerText = `${Math.round(s * 100)}%`;
@@ -287,95 +412,46 @@ export function SeatingPlanner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Strict boundary clamping so layout/canvas NEVER leaves the viewport
-  const constrainPosition = (x: number, y: number, currentScale: number) => {
+  /**
+   * Bounded workspace pan — generous margin beyond the room, scales with zoom.
+   * Never forces center (min/max form a wide range, not a single point).
+   */
+  const clampPanPosition = (x: number, y: number, currentScale: number) => {
     const W = viewportRef.current?.clientWidth ?? 1000;
     const H = viewportRef.current?.clientHeight ?? 800;
+    const canvasW = CANVAS_WIDTH_PX * currentScale;
+    const canvasH = CANVAS_HEIGHT_PX * currentScale;
+    const pad = WORKSPACE_PAD_PX * currentScale;
+    const m = PAN_EDGE_MARGIN;
 
-    const canvasW = 3000 * currentScale;
-    const canvasH = 2400 * currentScale;
-
-    let minX = 0;
-    let maxX = 0;
-    if (canvasW > W) {
-      minX = W - canvasW;
-      maxX = 0;
-    } else {
-      // Centered if canvas fits screen
-      minX = (W - canvasW) / 2;
-      maxX = minX;
-    }
-
-    const topPadding = workspaceMode ? 140 : 40;
-    const bottomPadding = 100;
-
-    let minY = 0;
-    let maxY = 0;
-    if (canvasH > H) {
-      minY = H - canvasH - bottomPadding;
-      maxY = topPadding;
-    } else {
-      // Centered if canvas fits screen, but with pan nudge allowance
-      const centerY = (H - canvasH) / 2;
-      minY = centerY - bottomPadding;
-      maxY = centerY + topPadding;
-    }
+    const minX = W - canvasW - pad - m;
+    const maxX = pad + m;
+    const minY = H - canvasH - pad - m;
+    const maxY = pad + m;
 
     return {
       x: Math.min(Math.max(x, minX), maxX),
-      y: Math.min(Math.max(y, minY), maxY)
+      y: Math.min(Math.max(y, minY), maxY),
     };
   };
 
-  // Edge resistance clamping (elastic pull past edges - restrained to a subtle 15% factor)
-  const constrainPositionWithResistance = (x: number, y: number, currentScale: number) => {
-    const W = viewportRef.current?.clientWidth ?? 1000;
-    const H = viewportRef.current?.clientHeight ?? 800;
+  const isPanBlockedTarget = (target: HTMLElement) =>
+    !!target.closest(
+      ".draggable-table-wrapper, .seating-canvas-hud, .seating-canvas-overlay, button, select, input, textarea, a[href]"
+    );
 
-    const canvasW = 3000 * currentScale;
-    const canvasH = 2400 * currentScale;
-
-    let minX = 0;
-    let maxX = 0;
-    if (canvasW > W) {
-      minX = W - canvasW;
-      maxX = 0;
-    } else {
-      minX = (W - canvasW) / 2;
-      maxX = minX;
+  const cancelZoomAnimation = () => {
+    if (zoomAnimationRef.current !== null) {
+      cancelAnimationFrame(zoomAnimationRef.current);
+      zoomAnimationRef.current = null;
     }
+  };
 
-    const topPadding = workspaceMode ? 140 : 40;
-    const bottomPadding = 100;
-
-    let minY = 0;
-    let maxY = 0;
-    if (canvasH > H) {
-      minY = H - canvasH - bottomPadding;
-      maxY = topPadding;
-    } else {
-      const centerY = (H - canvasH) / 2;
-      minY = centerY - bottomPadding;
-      maxY = centerY + topPadding;
-    }
-
-    let rx = x;
-    let ry = y;
-
-    // Apply restrained 15% edge resistance
-    if (x > maxX) {
-      rx = maxX + (x - maxX) * 0.15;
-    } else if (x < minX) {
-      rx = minX - (minX - x) * 0.15;
-    }
-
-    if (y > maxY) {
-      ry = maxY + (y - maxY) * 0.15;
-    } else if (y < minY) {
-      ry = minY - (minY - y) * 0.15;
-    }
-
-    return { x: rx, y: ry };
+  /** Keep animation targets aligned with live refs so a running animateZoom cannot pull pan back */
+  const syncCameraTargetsFromRefs = () => {
+    targetScaleRef.current = scaleRef.current;
+    targetPanXRef.current = panXRef.current;
+    targetPanYRef.current = panYRef.current;
   };
 
   // Smooth camera zoom/pan interpolation with zero per-frame React rerenders
@@ -385,6 +461,12 @@ export function SeatingPlanner({
     };
 
     const step = () => {
+      // User panning — do not overwrite pan refs (root cause of recenter snap during drag)
+      if (isPanningRef.current) {
+        zoomAnimationRef.current = null;
+        return;
+      }
+
       let isDone = true;
       
       const currentScale = scaleRef.current;
@@ -434,9 +516,7 @@ export function SeatingPlanner({
       }
     };
 
-    if (zoomAnimationRef.current !== null) {
-      cancelAnimationFrame(zoomAnimationRef.current);
-    }
+    cancelZoomAnimation();
     zoomAnimationRef.current = requestAnimationFrame(step);
   };
 
@@ -519,7 +599,27 @@ export function SeatingPlanner({
     };
   }, []);
 
-  const selectedTable = localTables.find((t) => t.id === selectedTableId) ?? null;
+  const selectedTable =
+    localTables.find(
+      (t) => t.id === selectedTableId || t.renderKey === selectedTableId
+    ) ?? null;
+
+  useEffect(() => {
+    if (!selectedTableId || !selectedTable) return;
+    if (selectedTable.id !== selectedTableId) {
+      setSelectedTableId(selectedTable.id);
+    }
+  }, [selectedTable, selectedTableId]);
+
+  function reportTableMutationError(result: {
+    ok: boolean;
+    error?: string;
+    skipped?: boolean;
+  }) {
+    if (!result.ok && result.error) {
+      alert(result.error);
+    }
+  }
 
   // Stats
   const totalSeated = localAllGuests.filter((g) => g.table_id).length;
@@ -529,13 +629,17 @@ export function SeatingPlanner({
   }, 0);
 
   // Sort tables: Sweetheart tables first, then by sort_order
-  const sortedTables = [...localTables].sort((a, b) => {
+  const sortedTables = useMemo(
+    () =>
+      [...localTables].sort((a, b) => {
     const metaA = parseMetadata(a.notes);
     const metaB = parseMetadata(b.notes);
     if (metaA.customShape === "sweetheart" && metaB.customShape !== "sweetheart") return -1;
     if (metaB.customShape === "sweetheart" && metaA.customShape !== "sweetheart") return 1;
     return a.sort_order - b.sort_order;
-  });
+      }),
+    [localTables]
+  );
 
   // Client-side mobile detection
   useEffect(() => {
@@ -604,7 +708,7 @@ export function SeatingPlanner({
       const nextPanXTarget = Math.round(centerX - (centerX - targetPanXRef.current) * (nextScaleTarget / currentScale));
       const nextPanYTarget = Math.round(centerY - (centerY - targetPanYRef.current) * (nextScaleTarget / currentScale));
 
-      const constrained = constrainPosition(nextPanXTarget, nextPanYTarget, nextScaleTarget);
+      const constrained = clampPanPosition(nextPanXTarget, nextPanYTarget, nextScaleTarget);
 
       targetScaleRef.current = nextScaleTarget;
       targetPanXRef.current = constrained.x;
@@ -628,7 +732,7 @@ export function SeatingPlanner({
       const nextPanXTarget = Math.round(centerX - (centerX - targetPanXRef.current) * (nextScaleTarget / currentScale));
       const nextPanYTarget = Math.round(centerY - (centerY - targetPanYRef.current) * (nextScaleTarget / currentScale));
 
-      const constrained = constrainPosition(nextPanXTarget, nextPanYTarget, nextScaleTarget);
+      const constrained = clampPanPosition(nextPanXTarget, nextPanYTarget, nextScaleTarget);
 
       targetScaleRef.current = nextScaleTarget;
       targetPanXRef.current = constrained.x;
@@ -645,8 +749,8 @@ export function SeatingPlanner({
       
       const { fitScale, maxScale } = getViewportScaleLimits();
       const targetScale = Math.min(fitScale, maxScale);
-      const targetX = Math.round((W - 3000 * targetScale) / 2);
-      const targetY = Math.round((H - 2400 * targetScale) / 2);
+      const targetX = Math.round((W - CANVAS_WIDTH_PX * targetScale) / 2);
+      const targetY = Math.round((H - CANVAS_HEIGHT_PX * targetScale) / 2);
 
       targetScaleRef.current = targetScale;
       targetPanXRef.current = targetX;
@@ -660,15 +764,17 @@ export function SeatingPlanner({
     fitAll();
   };
 
-  // Run fitAll once on layout load
+  // Run fitAll once on initial layout — never when table count changes (e.g. delete)
+  const hasInitialFitRef = useRef(false);
   useEffect(() => {
-    // Wait for elements to layout on screen
+    if (hasInitialFitRef.current) return;
     const timer = setTimeout(() => {
       fitAll();
+      hasInitialFitRef.current = true;
     }, 100);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tables.length]);
+  }, []);
 
   const handleRunAutoSeat = async (strategy: "family" | "even") => {
     skipAnimationRef.current = false;
@@ -793,8 +899,8 @@ export function SeatingPlanner({
     const mx = Math.max(0, Math.min(rect.width, clientX - rect.left));
     const my = Math.max(0, Math.min(rect.height, clientY - rect.top));
     
-    const cx = (mx / rect.width) * 3000;
-    const cy = (my / rect.height) * 2400;
+    const cx = (mx / rect.width) * CANVAS_WIDTH_PX;
+    const cy = (my / rect.height) * CANVAS_HEIGHT_PX;
     
     const VW = viewportRef.current.clientWidth;
     const VH = viewportRef.current.clientHeight;
@@ -802,7 +908,7 @@ export function SeatingPlanner({
     const nextPanX = Math.round(VW / 2 - cx * scaleRef.current);
     const nextPanY = Math.round(VH / 2 - cy * scaleRef.current);
 
-    const constrained = constrainPosition(nextPanX, nextPanY, scaleRef.current);
+    const constrained = clampPanPosition(nextPanX, nextPanY, scaleRef.current);
     
     panXRef.current = constrained.x;
     panYRef.current = constrained.y;
@@ -844,40 +950,8 @@ export function SeatingPlanner({
     tempTables: TableWithGuests[],
     promise: Promise<TableFormState>
   ) => {
-    // Set renderKeys for temps
-    const tempsWithKeys = tempTables.map(t => ({ ...t, renderKey: t.id }));
-    setLocalTables(prev => [...prev, ...tempsWithKeys]);
+    addTablesOptimistic(tempTables, promise);
     setShowAddDialog(false);
-
-    promise.then((result) => {
-      if (result.error) {
-        alert(result.error);
-        // Rollback
-        setLocalTables(prev => prev.filter(t => !tempTables.some(temp => temp.id === t.id)));
-      } else if (result.tables && result.tables.length > 0) {
-        // Swap temp ids with real DB rows, keeping renderKey stable
-        setLocalTables(prev => {
-          return prev.map(t => {
-            const idx = tempTables.findIndex(temp => temp.id === t.id);
-            if (idx !== -1 && result.tables![idx]) {
-              const realTable = result.tables![idx] as TableWithGuests;
-              return {
-                ...realTable,
-                renderKey: t.renderKey,
-                guests: t.guests
-              };
-            }
-            return t;
-          });
-        });
-      }
-      router.refresh();
-    }).catch((err) => {
-      console.error("Failed to insert tables:", err);
-      // Rollback
-      setLocalTables(prev => prev.filter(t => !tempTables.some(temp => temp.id === t.id)));
-      router.refresh();
-    });
   };
 
   // Scroll wheel zoom
@@ -897,7 +971,7 @@ export function SeatingPlanner({
       const factor = Math.pow(zoomFactor, e.deltaY < 0 ? zoomIntensity : -zoomIntensity);
       
       const rect = viewportRef.current.getBoundingClientRect();
-      const base = Math.min(rect.width / 3000, rect.height / 2400);
+      const base = Math.min(rect.width / CANVAS_WIDTH_PX, rect.height / CANVAS_HEIGHT_PX);
       const minScale = base * CANVAS_MIN_MULTIPLIER;
       const maxScale = Math.max(CANVAS_MAX_SCALE, base * CANVAS_FIT_MULTIPLIER * 1.05);
 
@@ -913,7 +987,7 @@ export function SeatingPlanner({
       const nextPanX = Math.round(mouseX - (mouseX - currentPanX) * (nextScale / currentScale));
       const nextPanY = Math.round(mouseY - (mouseY - currentPanY) * (nextScale / currentScale));
 
-      const constrained = constrainPosition(nextPanX, nextPanY, nextScale);
+      const constrained = clampPanPosition(nextPanX, nextPanY, nextScale);
 
       targetScaleRef.current = nextScale;
       targetPanXRef.current = constrained.x;
@@ -993,7 +1067,7 @@ export function SeatingPlanner({
         const nextY = panYRef.current + vy * step;
         
         // Constrain to standard hard boundaries
-        const constrained = constrainPosition(nextX, nextY, scaleRef.current);
+        const constrained = clampPanPosition(nextX, nextY, scaleRef.current);
         
         // If we hit boundaries, stop velocity in that direction
         if (constrained.x !== nextX) vx = 0;
@@ -1029,12 +1103,14 @@ export function SeatingPlanner({
   };
 
   const applyPanPointerMove = (clientX: number, clientY: number) => {
-    const nextX = Math.round(clientX - panStartRef.current.x);
-    const nextY = Math.round(clientY - panStartRef.current.y);
-    const res = constrainPositionWithResistance(nextX, nextY, scaleRef.current);
-    panXRef.current = res.x;
-    panYRef.current = res.y;
-    updateCanvasDOM(res.x, res.y, scaleRef.current);
+    const rawX = Math.round(clientX - panStartRef.current.x);
+    const rawY = Math.round(clientY - panStartRef.current.y);
+    const clamped = clampPanPosition(rawX, rawY, scaleRef.current);
+    panXRef.current = clamped.x;
+    panYRef.current = clamped.y;
+    targetPanXRef.current = clamped.x;
+    targetPanYRef.current = clamped.y;
+    updateCanvasDOM(clamped.x, clamped.y, scaleRef.current);
 
     const now = Date.now();
     const pos = lastPositionsRef.current;
@@ -1047,16 +1123,7 @@ export function SeatingPlanner({
     isPanningRef.current = false;
     activePanPointerIdRef.current = null;
     setIsPanning(false);
-
-    const hardConstrained = constrainPosition(panXRef.current, panYRef.current, scaleRef.current);
-    if (hardConstrained.x !== panXRef.current || hardConstrained.y !== panYRef.current) {
-      targetScaleRef.current = scaleRef.current;
-      targetPanXRef.current = hardConstrained.x;
-      targetPanYRef.current = hardConstrained.y;
-      animateZoom();
-    } else {
-      startInertia();
-    }
+    startInertia();
   };
 
   const beginPanPointer = (e: React.PointerEvent) => {
@@ -1064,6 +1131,8 @@ export function SeatingPlanner({
       cancelAnimationFrame(inertiaFrameRef.current);
       inertiaFrameRef.current = null;
     }
+    cancelZoomAnimation();
+    syncCameraTargetsFromRefs();
 
     isPanningRef.current = true;
     activePanPointerIdRef.current = e.pointerId;
@@ -1078,30 +1147,22 @@ export function SeatingPlanner({
     }
   };
 
-  // Space / middle-click pan over tables (capture, before react-draggable)
-  const handlePointerDownCapture = (e: React.PointerEvent) => {
-    const forcePan = isSpacePressedRef.current || e.button === 1;
-    if (!forcePan) return;
+  /**
+   * Viewport capture: pan before table pointer handlers (bubble phase).
+   * Bubble-phase handlers lose to table wrappers; capture fixes empty-canvas pan.
+   */
+  const handleViewportPointerDownCapture = (e: React.PointerEvent) => {
     if (e.button !== 0 && e.button !== 1) return;
 
-    e.preventDefault();
-    e.stopPropagation();
-    beginPanPointer(e);
-  };
-
-  // Canvas pointer events — pan on empty background (bubble phase)
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if (isSpacePressedRef.current || e.button === 1) return;
-    if (e.button !== 0) return;
-
     const target = e.target as HTMLElement;
-    if (
-      target.closest(".draggable-table-wrapper") ||
-      target.closest("button") ||
-      target.closest("select") ||
-      target.closest("input")
-    ) {
-      return;
+    const forcePan = isSpacePressedRef.current || e.button === 1;
+
+    if (!forcePan && isPanBlockedTarget(target)) return;
+
+    e.preventDefault();
+
+    if (forcePan) {
+      e.stopPropagation();
     }
 
     beginPanPointer(e);
@@ -1131,7 +1192,7 @@ export function SeatingPlanner({
   // Canvas Touch gestures (Multi-touch panning/pinching)
   const handleTouchStart = (e: React.TouchEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest(".draggable-table-wrapper") || target.closest("button") || target.closest("select") || target.closest("input")) {
+    if (isPanBlockedTarget(target)) {
       return;
     }
 
@@ -1139,10 +1200,13 @@ export function SeatingPlanner({
       cancelAnimationFrame(inertiaFrameRef.current);
       inertiaFrameRef.current = null;
     }
+    cancelZoomAnimation();
+    syncCameraTargetsFromRefs();
 
     if (e.touches.length === 1) {
       // Single touch pan
       const touch = e.touches[0];
+      isPanningRef.current = true;
       setIsPanning(true);
       panStartRef.current = { x: touch.clientX - panXRef.current, y: touch.clientY - panYRef.current };
       lastPositionsRef.current = [{ x: touch.clientX, y: touch.clientY, t: Date.now() }];
@@ -1170,17 +1234,18 @@ export function SeatingPlanner({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length === 1 && isPanning) {
+    if (e.touches.length === 1 && isPanningRef.current) {
       const touch = e.touches[0];
       const nextX = Math.round(touch.clientX - panStartRef.current.x);
       const nextY = Math.round(touch.clientY - panStartRef.current.y);
-      
-      const res = constrainPositionWithResistance(nextX, nextY, scaleRef.current);
-      
-      panXRef.current = res.x;
-      panYRef.current = res.y;
-      updateCanvasDOM(res.x, res.y, scaleRef.current);
-      
+
+      const clamped = clampPanPosition(nextX, nextY, scaleRef.current);
+      panXRef.current = clamped.x;
+      panYRef.current = clamped.y;
+      targetPanXRef.current = clamped.x;
+      targetPanYRef.current = clamped.y;
+      updateCanvasDOM(clamped.x, clamped.y, scaleRef.current);
+
       const now = Date.now();
       const pos = lastPositionsRef.current;
       pos.push({ x: touch.clientX, y: touch.clientY, t: now });
@@ -1196,7 +1261,7 @@ export function SeatingPlanner({
       
       if (viewportRef.current) {
         const rect = viewportRef.current.getBoundingClientRect();
-        const base = Math.min(rect.width / 3000, rect.height / 2400);
+        const base = Math.min(rect.width / CANVAS_WIDTH_PX, rect.height / CANVAS_HEIGHT_PX);
         const minScale = base * CANVAS_MIN_MULTIPLIER;
         const maxScale = Math.max(CANVAS_MAX_SCALE, base * CANVAS_FIT_MULTIPLIER * 1.05);
         const nextScale = Math.min(Math.max(touchStartRef.current.scale * scaleRatio, minScale), maxScale);
@@ -1210,42 +1275,25 @@ export function SeatingPlanner({
         const nextPanX = Math.round(relativeX - (relativeX - touchStartRef.current.panX) * (nextScale / touchStartRef.current.scale));
         const nextPanY = Math.round(relativeY - (relativeY - touchStartRef.current.panY) * (nextScale / touchStartRef.current.scale));
 
-        const res = constrainPositionWithResistance(nextPanX, nextPanY, nextScale);
+        const clamped = clampPanPosition(nextPanX, nextPanY, nextScale);
 
         scaleRef.current = nextScale;
-        panXRef.current = res.x;
-        panYRef.current = res.y;
-        updateCanvasDOM(res.x, res.y, nextScale);
+        panXRef.current = clamped.x;
+        panYRef.current = clamped.y;
+        updateCanvasDOM(clamped.x, clamped.y, nextScale);
       }
     }
   };
 
   const handleTouchEnd = () => {
-    if (isPanning) {
+    if (isPanningRef.current) {
+      isPanningRef.current = false;
       setIsPanning(false);
-      
-      const hardConstrained = constrainPosition(panXRef.current, panYRef.current, scaleRef.current);
-      if (hardConstrained.x !== panXRef.current || hardConstrained.y !== panYRef.current) {
-        targetScaleRef.current = scaleRef.current;
-        targetPanXRef.current = hardConstrained.x;
-        targetPanYRef.current = hardConstrained.y;
-        animateZoom();
-      } else {
-        startInertia();
-      }
+      startInertia();
     } else {
-      const hardConstrained = constrainPosition(panXRef.current, panYRef.current, scaleRef.current);
-      if (hardConstrained.x !== panXRef.current || hardConstrained.y !== panYRef.current) {
-        targetScaleRef.current = scaleRef.current;
-        targetPanXRef.current = hardConstrained.x;
-        targetPanYRef.current = hardConstrained.y;
-        animateZoom();
-      } else {
-        // Sync state immediately if no snap back zoom
-        setScale(scaleRef.current);
-        setPanX(panXRef.current);
-        setPanY(panYRef.current);
-      }
+      setScale(scaleRef.current);
+      setPanX(panXRef.current);
+      setPanY(panYRef.current);
     }
     touchStartRef.current = null;
   };
@@ -1290,27 +1338,41 @@ export function SeatingPlanner({
         const result = await assignGuestFromSeating(eventId, targetGuestId, tableId);
         if (result?.error) {
           alert(result.error);
-          router.refresh();
+          setLocalAllGuests(allGuests);
+          setLocalUnassigned(unassigned);
+          setLocalTables((prev) =>
+            prev.map((t) => {
+              const server = tables.find((st) => st.id === t.id);
+              return server
+                ? { ...t, guests: server.guests }
+                : t;
+            })
+          );
         }
       } else {
         setSelectedTableId((prev) => (prev === tableId ? null : tableId));
       }
     },
-    [selectedGuestId, eventId, router, localAllGuests]
+    [selectedGuestId, eventId, localAllGuests, allGuests, unassigned, tables, setLocalAllGuests, setLocalUnassigned, setLocalTables]
   );
 
-  const handleTableDragStop = async (tableId: string, e: DraggableEvent, data: DraggableData) => {
-    const nextX = Math.round(data.x);
-    const nextY = Math.round(data.y);
+  const handleTableDragStop = async (
+    idOrKey: string,
+    _e: unknown,
+    data: TableDragStopData
+  ) => {
+    const { x: nextX, y: nextY } = snapPointPx(data.x, data.y);
 
-    // Optimistic coordinates update
-    setLocalTables(prev => prev.map(t => t.id === tableId ? { ...t, pos_x: nextX, pos_y: nextY } : t));
+    setLocalTables((prev) =>
+      prev.map((t) =>
+        t.id === idOrKey || t.renderKey === idOrKey
+          ? { ...t, pos_x: nextX, pos_y: nextY }
+          : t
+      )
+    );
 
-    const result = await updateTable(eventId, tableId, { pos_x: nextX, pos_y: nextY });
-    if (result?.error) {
-      alert(result.error);
-      router.refresh();
-    }
+    const result = await moveTableOnCanvas(idOrKey, nextX, nextY);
+    reportTableMutationError(result);
   };
 
   const handleAssignGuestFromList = useCallback(
@@ -1346,10 +1408,17 @@ export function SeatingPlanner({
       const result = await assignGuestFromSeating(eventId, guestId, tableId);
       if (result?.error) {
         alert(result.error);
-        router.refresh();
+        setLocalAllGuests(allGuests);
+        setLocalUnassigned(unassigned);
+        setLocalTables((prev) =>
+          prev.map((t) => {
+            const server = tables.find((st) => st.id === t.id);
+            return server ? { ...t, guests: server.guests } : t;
+          })
+        );
       }
     },
-    [eventId, localAllGuests, router]
+    [eventId, localAllGuests, allGuests, unassigned, tables, setLocalAllGuests, setLocalUnassigned, setLocalTables]
   );
 
   const handleRemoveGuestFromList = useCallback(
@@ -1385,11 +1454,78 @@ export function SeatingPlanner({
       const result = await unassignGuest(eventId, guestId);
       if (result?.error) {
         alert(result.error);
-        router.refresh();
+        setLocalAllGuests(allGuests);
+        setLocalUnassigned(unassigned);
+        setLocalTables((prev) =>
+          prev.map((t) => {
+            const server = tables.find((st) => st.id === t.id);
+            return server ? { ...t, guests: server.guests } : t;
+          })
+        );
       }
     },
-    [eventId, localAllGuests, router]
+    [eventId, localAllGuests, allGuests, unassigned, tables, setLocalAllGuests, setLocalUnassigned, setLocalTables]
   );
+
+  const selectedTableActions = useMemo<PlannerTableActions | null>(() => {
+    if (!selectedTable) return null;
+    const mutationKey = selectedTable.renderKey;
+    const shape = selectedTable.shape;
+
+    return {
+      onSaveName: async (name) => {
+        const result = await updateTableName(mutationKey, name);
+        reportTableMutationError(result);
+      },
+      onSaveNotes: async (notesText) => {
+        const row = resolveMutationTarget(mutationKey);
+        const result = await updateTableNotes(
+          mutationKey,
+          notesText,
+          {},
+          row?.shape ?? shape
+        );
+        reportTableMutationError(result);
+      },
+      onPatchMetadata: async (patch) => {
+        const row = resolveMutationTarget(mutationKey);
+        const notesText = getNotesText(row?.notes ?? selectedTable.notes);
+        const result = await updateTableNotes(
+          mutationKey,
+          notesText,
+          patch,
+          row?.shape ?? shape
+        );
+        reportTableMutationError(result);
+      },
+      onToggleRectOrientation: async () => {
+        const row = resolveMutationTarget(mutationKey);
+        const meta = parseMetadata(row?.notes ?? selectedTable.notes);
+        const toggled = toggleRectangularOrientation(meta, row?.shape ?? shape);
+        const notesText = getNotesText(row?.notes ?? selectedTable.notes);
+        const result = await updateTableNotes(
+          mutationKey,
+          notesText,
+          toggled,
+          row?.shape ?? shape
+        );
+        reportTableMutationError(result);
+      },
+      onDelete: async () => {
+        const result = await deleteTableOptimistic(mutationKey);
+        reportTableMutationError(result);
+        setSelectedTableId(null);
+      },
+      onUnassignGuest: handleRemoveGuestFromList,
+    };
+  }, [
+    selectedTable,
+    resolveMutationTarget,
+    updateTableName,
+    updateTableNotes,
+    deleteTableOptimistic,
+    handleRemoveGuestFromList,
+  ]);
 
   // High-Resolution Export with Layout Reset (Flicker-Free Clone Method)
   async function exportAsImage(format: "png" | "pdf") {
@@ -1407,8 +1543,8 @@ export function SeatingPlanner({
     container.style.position = "absolute";
     container.style.left = "-9999px";
     container.style.top = "-9999px";
-    container.style.width = "3000px";
-    container.style.height = "2400px";
+    container.style.width = `${CANVAS_WIDTH_PX}px`;
+    container.style.height = `${CANVAS_HEIGHT_PX}px`;
     container.style.overflow = "hidden";
     container.appendChild(clone);
     document.body.appendChild(container);
@@ -1458,6 +1594,16 @@ export function SeatingPlanner({
   // Subscribe children to live camera (DOM-driven); refs hold truth during pan/zoom
   void cameraRevision;
   const cameraScale = scaleRef.current;
+
+  const readCameraForDrag = useCallback(() => {
+    const rect = viewportRef.current?.getBoundingClientRect();
+    return {
+      viewportRect: rect ?? null,
+      panX: panXRef.current,
+      panY: panYRef.current,
+      scale: scaleRef.current,
+    };
+  }, []);
 
   return (
     <>
@@ -1527,6 +1673,8 @@ export function SeatingPlanner({
               onExportPdf={() => exportAsImage("pdf")}
               printSort={printSort}
               onTogglePrintSort={() => setPrintSort(s => s === "alpha" ? "table" : "alpha")}
+              globalLock={globalLock}
+              onToggleGlobalLock={() => setGlobalLock((v) => !v)}
               onRunAutoSeat={handleRunAutoSeat}
               workspaceMode={workspaceMode}
               isFloating={false}
@@ -1611,22 +1759,23 @@ export function SeatingPlanner({
             <div
               ref={viewportRef}
               onDoubleClick={handleDoubleClickCanvas}
-              onPointerDownCapture={handlePointerDownCapture}
-              onPointerDown={handlePointerDown}
+              onPointerDownCapture={handleViewportPointerDownCapture}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
+              onDragStart={preventNativeDrag}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
               className={cn(
-                "flex-1 overflow-hidden shadow-inner relative print:border-none print:shadow-none print:bg-transparent print:p-0 print:overflow-visible transition-all duration-350 ease-in-out",
+                "seating-planner-viewport flex-1 overflow-hidden shadow-inner relative select-none touch-none print:border-none print:shadow-none print:bg-transparent print:p-0 print:overflow-visible transition-all duration-350 ease-in-out",
                 workspaceMode ? "border-none rounded-none" : "min-h-0",
                 isSpacePressed || isPanning
                   ? isPanning
                     ? "cursor-grabbing"
                     : "cursor-grab"
-                  : "cursor-default"
+                  : "cursor-default",
+                isPanning && "is-panning"
               )}
               style={{ background: "var(--ev-bg-canvas)" }}
             >
@@ -1637,13 +1786,21 @@ export function SeatingPlanner({
                   "radial-gradient(ellipse at center, transparent 60%, rgba(200,160,170,0.08) 100%)",
               }}
             />
+            {globalLock && (
+              <div className="pointer-events-none absolute left-1/2 top-3 z-[25] -translate-x-1/2 print:hidden">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200/80 bg-white/90 px-3 py-1 text-[11px] font-semibold text-rose-700 shadow-sm backdrop-blur-sm">
+                  <Lock className="h-3 w-3" />
+                  Plan blocat — doar editarea layout-ului
+                </span>
+              </div>
+            )}
             {/* Floating Guest Sidebar Restore Button */}
             {guestSidebarCollapsed && (
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => setGuestSidebarCollapsed(false)}
-                className="absolute left-4 top-4 z-30 h-10 w-10 rounded-full bg-white shadow-lg border border-slate-200 hover:bg-slate-50 text-slate-700 animate-in fade-in zoom-in-75 duration-200"
+                className="seating-canvas-hud absolute left-4 top-4 z-30 h-10 w-10 rounded-full bg-white shadow-lg border border-slate-200 hover:bg-slate-50 text-slate-700 animate-in fade-in zoom-in-75 duration-200"
                 title="Afișează lista de invitați"
               >
                 <Users className="h-4.5 w-4.5 text-primary" />
@@ -1653,11 +1810,22 @@ export function SeatingPlanner({
             {/* The Actual transformed Floor Canvas */}
             <div
               ref={canvasRef}
-              className="absolute w-[3000px] h-[2400px] shadow-inner canvas-grid origin-top-left"
+              className={cn(
+                "seating-canvas-surface absolute shadow-inner canvas-grid origin-top-left select-none",
+                showMeterGrid && "canvas-meter-grid"
+              )}
+              style={{
+                width: CANVAS_WIDTH_PX,
+                height: CANVAS_HEIGHT_PX,
+                ["--planner-grid-px" as string]: `${GRID_CELL_PX}px`,
+                ["--planner-meter-px" as string]: `${PIXELS_PER_METER}px`,
+              }}
+              onDragStart={preventNativeDrag}
             >
+              <PlannerAssistOverlay ref={assistOverlayRef} />
               {localTables.length === 0 ? (
                 /* Onboarding Wizard */
-                <div className="absolute inset-0 flex items-center justify-center p-4 bg-slate-500/5 backdrop-blur-xs print:hidden z-10 select-none">
+                <div className="seating-canvas-overlay absolute inset-0 flex items-center justify-center p-4 bg-slate-500/5 backdrop-blur-xs print:hidden z-10 select-none">
                   <div className="max-w-md w-full bg-white/95 backdrop-blur-md rounded-3xl border border-slate-150 p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-300">
                     <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
                       <Sparkles className="h-6 w-6 text-primary animate-pulse" />
@@ -1742,7 +1910,8 @@ export function SeatingPlanner({
                       <DraggableWrapper
                         key={table.renderKey}
                         table={table}
-                        scale={cameraScale}
+                        readCamera={readCameraForDrag}
+                        lodScale={cameraScale}
                         globalLock={globalLock}
                         isMobile={isMobile}
                         isSpacePressed={isSpacePressed}
@@ -1753,6 +1922,12 @@ export function SeatingPlanner({
                         onClick={() => handleTableClick(table.id)}
                         onDrop={(e) => handleTableClick(table.id, e)}
                         onStop={handleTableDragStop}
+                        onDragAssistStart={(id) => {
+                          draggingTableIdRef.current = id;
+                        }}
+                        onDragAssistMove={handleDragAssistMove}
+                        onCheckDragCollision={checkTableDragCollision}
+                        onDragAssistEnd={clearDragAssist}
                       />
                     );
                   })}
@@ -1762,7 +1937,7 @@ export function SeatingPlanner({
 
             {/* Canvas HUD Controls overlay */}
             <div
-              className="absolute select-none print:hidden z-30"
+              className="seating-canvas-hud absolute select-none print:hidden z-30"
               style={{
                 position: "absolute",
                 right: 20,
@@ -1808,6 +1983,22 @@ export function SeatingPlanner({
                   padding: "6px 5px",
                 }}
               >
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-7 w-7 rounded-lg transition-colors",
+                    showMeterGrid
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "text-slate-650 hover:bg-slate-100"
+                  )}
+                  onClick={() => setShowMeterGrid((v) => !v)}
+                  title={
+                    showMeterGrid ? "Ascunde grila (0,5 m)" : "Afișează grila (0,5 m)"
+                  }
+                >
+                  <Grid3X3 className="h-3.5 w-3.5" />
+                </Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-slate-650 hover:bg-slate-100" onClick={handleZoomIn} title="Zoom In">
                   <ZoomIn className="h-3.5 w-3.5" />
                 </Button>
@@ -1839,7 +2030,7 @@ export function SeatingPlanner({
 
             {/* Canvas Status Bar (bottom left) */}
             <div
-              className="absolute print:hidden z-30"
+              className="seating-canvas-hud absolute print:hidden z-30"
               style={{
                 position: "absolute",
                 bottom: 14,
@@ -1880,17 +2071,18 @@ export function SeatingPlanner({
               onPointerMove={handleMiniMapPointerMove}
               onPointerUp={handleMiniMapPointerUp}
               onPointerLeave={handleMiniMapPointerUp}
-              className="absolute bottom-14 left-4 w-24 h-[78px] sm:w-30 sm:h-[92px] bg-white/70 hover:bg-white/80 border border-slate-200/50 rounded-xl shadow-lg backdrop-blur-md overflow-hidden select-none cursor-crosshair z-30 transition-colors hidden md:block"
+              className="seating-canvas-hud absolute bottom-14 left-4 w-24 h-[78px] sm:w-30 sm:h-[92px] bg-white/70 hover:bg-white/80 border border-slate-200/50 rounded-xl shadow-lg backdrop-blur-md overflow-hidden select-none cursor-crosshair z-30 transition-colors hidden md:block"
             >
               <div className="relative w-full h-full text-[10px]">
                 {/* Mini Tables */}
                 {localTables.map((t) => {
                   const meta = parseMetadata(t.notes);
                   const isObj = !!meta.objectType;
-                  const tx = ((t.pos_x ?? 0) / 3000) * 100;
-                  const ty = ((t.pos_y ?? 0) / 2400) * 100;
-                  const tw = (meta.width || (meta.customShape === "long_banquet" ? 320 : 192)) / 3000 * 100;
-                  const th = (meta.height || 160) / 2400 * 100;
+                  const fp = getTableFootprintPx(meta, t.shape);
+                  const tx = ((t.pos_x ?? 0) / CANVAS_WIDTH_PX) * 100;
+                  const ty = ((t.pos_y ?? 0) / CANVAS_HEIGHT_PX) * 100;
+                  const tw = (fp.footprintWidthPx / CANVAS_WIDTH_PX) * 100;
+                  const th = (fp.footprintHeightPx / CANVAS_HEIGHT_PX) * 100;
                   
                   return (
                     <div
@@ -1988,7 +2180,8 @@ export function SeatingPlanner({
             <TableDetailPanel
               table={selectedTable}
               allGuests={localAllGuests}
-              eventId={eventId}
+              actions={selectedTableActions!}
+              globalLock={globalLock}
               onClose={() => setSelectedTableId(null)}
               className={cn("h-full transition-all duration-300", workspaceMode && "rounded-none border-none")}
             />
@@ -2012,7 +2205,8 @@ export function SeatingPlanner({
             <TableDetailPanel
               table={selectedTable}
               allGuests={localAllGuests}
-              eventId={eventId}
+              actions={selectedTableActions!}
+              globalLock={globalLock}
               onClose={() => setSelectedTableId(null)}
             />
           </div>
@@ -2029,10 +2223,7 @@ export function SeatingPlanner({
           eventId={eventId}
           open={showAddDialog}
           tables={localTables}
-          onClose={() => {
-            setShowAddDialog(false);
-            router.refresh();
-          }}
+          onClose={() => setShowAddDialog(false)}
           onAddOptimistic={handleAddOptimistic}
         />
       </div>
@@ -2340,9 +2531,17 @@ export function SeatingPlanner({
   );
 }
 
+type DragCameraSnapshot = {
+  viewportRect: DOMRect | null;
+  panX: number;
+  panY: number;
+  scale: number;
+};
+
 type DraggableWrapperProps = {
   table: TableWithGuests;
-  scale: number;
+  readCamera: () => DragCameraSnapshot;
+  lodScale: number;
   globalLock: boolean;
   isMobile: boolean;
   isSpacePressed: boolean;
@@ -2352,13 +2551,69 @@ type DraggableWrapperProps = {
   validationReason?: string;
   onClick: () => void;
   onDrop: (e: React.DragEvent) => void;
-  onStop: (tableId: string, e: DraggableEvent, data: DraggableData) => void;
+  onStop: (tableId: string, e: unknown, data: TableDragStopData) => void;
+  onDragAssistStart?: (tableId: string) => void;
+  onDragAssistMove?: (
+    tableId: string,
+    x: number,
+    y: number
+  ) => { selfColliding: boolean };
+  onCheckDragCollision?: (tableId: string, x: number, y: number) => boolean;
+  onDragAssistEnd?: () => void;
 };
 
-// Extracted Draggable table component to encapsulate drag-displacement logic
+const TABLE_DRAG_MAX_X =
+  CANVAS_WIDTH_PX - Math.round(ROUND_TABLE_FOOTPRINT_M * PIXELS_PER_METER);
+const TABLE_DRAG_MAX_Y =
+  CANVAS_HEIGHT_PX - Math.round(ROUND_TABLE_FOOTPRINT_M * PIXELS_PER_METER);
+
+const TABLE_DRAG_BOUNDS = {
+  left: 0,
+  top: 0,
+  right: TABLE_DRAG_MAX_X,
+  bottom: TABLE_DRAG_MAX_Y,
+} as const;
+
+function clampTableDragPosition(x: number, y: number) {
+  return {
+    x: Math.min(Math.max(x, TABLE_DRAG_BOUNDS.left), TABLE_DRAG_BOUNDS.right),
+    y: Math.min(Math.max(y, TABLE_DRAG_BOUNDS.top), TABLE_DRAG_BOUNDS.bottom),
+  };
+}
+
+/** Snap to GRID_METERS (0.5 m) then clamp — used on every pointer move */
+function resolveSnappedTableDragPosition(
+  canvasPt: { x: number; y: number },
+  grabOffset: { x: number; y: number }
+) {
+  const snapped = snapPointPx(
+    canvasPt.x - grabOffset.x,
+    canvasPt.y - grabOffset.y
+  );
+  return clampTableDragPosition(snapped.x, snapped.y);
+}
+
+function canvasPointFromClient(
+  clientX: number,
+  clientY: number,
+  camera: DragCameraSnapshot
+) {
+  if (!camera.viewportRect) return null;
+  return clientPointToCanvasPx(
+    clientX,
+    clientY,
+    camera.viewportRect,
+    camera.panX,
+    camera.panY,
+    camera.scale
+  );
+}
+
+/** Pointer drag with correct viewport pan/zoom inverse (react-draggable scale is wrong inside scaled canvas) */
 function DraggableWrapper({
   table,
-  scale,
+  readCamera,
+  lodScale,
   globalLock,
   isMobile,
   isSpacePressed,
@@ -2369,124 +2624,223 @@ function DraggableWrapper({
   onClick,
   onDrop,
   onStop,
+  onDragAssistStart,
+  onDragAssistMove,
+  onCheckDragCollision,
+  onDragAssistEnd,
 }: DraggableWrapperProps) {
   const nodeRef = useRef<HTMLDivElement>(null);
-  
+
   const metadata = parseMetadata(table.notes);
-  const isTableLocked = metadata.isLocked === true;
-  
-  // Disable dragging if table or layout is locked, or if space bar panning is active
-  const isDragDisabled = isTableLocked || globalLock || isSpacePressed;
+  const isDragDisabled =
+    !canMoveTable(globalLock, metadata) || isSpacePressed;
+  const canAcceptGuestDrop = canAssignGuestToTable(metadata);
 
-  const dragStartPos = useRef({ x: 0, y: 0 });
-  const [dragged, setDragged] = useState(false);
+  const baseX = table.pos_x ?? 0;
+  const baseY = table.pos_y ?? 0;
 
+  const isDraggingRef = useRef(false);
+  const grabOffsetRef = useRef({ x: 0, y: 0 });
+  const pointerStartRef = useRef({ x: 0, y: 0 });
+  const livePosRef = useRef({ x: baseX, y: baseY });
+  const draggedRef = useRef(false);
   const [dragEnterCount, setDragEnterCount] = useState(0);
+  const [pointerHover, setPointerHover] = useState(false);
+  const [selfCollision, setSelfCollision] = useState(false);
   const isHovered = dragEnterCount > 0;
 
-  const handleStart = (e: DraggableEvent, data: DraggableData) => {
-    dragStartPos.current = { x: data.x, y: data.y };
-    setDragged(false);
-  };
-
-  const handleDrag = (e: DraggableEvent, data: DraggableData) => {
-    const dx = data.x - dragStartPos.current.x;
-    const dy = data.y - dragStartPos.current.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    
-    const threshold = isMobile ? 8 : 4;
-    if (dist > threshold) {
-      setDragged(true);
+  const applyTransform = useCallback((x: number, y: number) => {
+    if (nodeRef.current) {
+      nodeRef.current.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
     }
-  };
+  }, []);
 
-  const handleDragStop = (e: DraggableEvent, data: DraggableData) => {
-    const dx = data.x - dragStartPos.current.x;
-    const dy = data.y - dragStartPos.current.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    
-    const threshold = isMobile ? 8 : 4;
-    
-    // Only update position if actual drag displacement exceeded threshold
-    if (dist > threshold) {
-      onStop(table.id, e, data);
+  useEffect(() => {
+    if (!isDraggingRef.current) {
+      const snapped = snapPointPx(baseX, baseY);
+      const aligned = clampTableDragPosition(snapped.x, snapped.y);
+      livePosRef.current = aligned;
+      applyTransform(aligned.x, aligned.y);
     }
-  };
+  }, [baseX, baseY, applyTransform]);
 
   const handleWrapperClick = (e: React.MouseEvent) => {
-    // If it was dragged, ignore click event to avoid opening details panel
-    if (dragged) {
+    if (draggedRef.current) {
       e.preventDefault();
       e.stopPropagation();
+      draggedRef.current = false;
       return;
     }
-    
-    // Otherwise, trigger details panel open
     onClick();
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (isDragDisabled || e.button !== 0) return;
+
+    e.stopPropagation();
+    e.preventDefault();
+
+    const camera = readCamera();
+    const canvasPt = canvasPointFromClient(e.clientX, e.clientY, camera);
+    if (!canvasPt) return;
+
+    const snappedStart = snapPointPx(livePosRef.current.x, livePosRef.current.y);
+    const startPos = clampTableDragPosition(snappedStart.x, snappedStart.y);
+    livePosRef.current = startPos;
+    applyTransform(startPos.x, startPos.y);
+
+    grabOffsetRef.current = {
+      x: canvasPt.x - startPos.x,
+      y: canvasPt.y - startPos.y,
+    };
+    pointerStartRef.current = { x: e.clientX, y: e.clientY };
+    isDraggingRef.current = true;
+    draggedRef.current = false;
+    onDragAssistStart?.(table.id);
+
+    const threshold = isMobile ? 8 : 4;
+
+    const onPointerMove = (ev: PointerEvent) => {
+      const cam = readCamera();
+      const pt = canvasPointFromClient(ev.clientX, ev.clientY, cam);
+      if (!pt) return;
+
+      const dist = Math.hypot(
+        ev.clientX - pointerStartRef.current.x,
+        ev.clientY - pointerStartRef.current.y
+      );
+      if (dist > threshold) {
+        draggedRef.current = true;
+      }
+
+      const next = resolveSnappedTableDragPosition(pt, grabOffsetRef.current);
+      const wouldCollide =
+        onCheckDragCollision?.(table.id, next.x, next.y) ?? false;
+
+      const assist = onDragAssistMove?.(table.id, next.x, next.y);
+      if (assist) setSelfCollision(wouldCollide || assist.selfColliding);
+
+      if (wouldCollide) {
+        return;
+      }
+
+      if (next.x === livePosRef.current.x && next.y === livePosRef.current.y) {
+        return;
+      }
+      livePosRef.current = next;
+      applyTransform(next.x, next.y);
+    };
+
+    const onPointerUp = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+
+      isDraggingRef.current = false;
+      setSelfCollision(false);
+      onDragAssistEnd?.();
+
+      try {
+        nodeRef.current?.releasePointerCapture(ev.pointerId);
+      } catch {
+        // ignored
+      }
+
+      const dist = Math.hypot(
+        ev.clientX - pointerStartRef.current.x,
+        ev.clientY - pointerStartRef.current.y
+      );
+
+      if (dist > threshold) {
+        const finalPos = livePosRef.current;
+        const node = nodeRef.current;
+        onStop(table.renderKey, ev, {
+          node: node ?? document.body,
+          x: finalPos.x,
+          y: finalPos.y,
+          deltaX: finalPos.x - baseX,
+          deltaY: finalPos.y - baseY,
+          lastX: baseX,
+          lastY: baseY,
+        });
+      } else {
+        applyTransform(baseX, baseY);
+        livePosRef.current = { x: baseX, y: baseY };
+      }
+    };
+
+    try {
+      nodeRef.current?.setPointerCapture(e.pointerId);
+    } catch {
+      // ignored
+    }
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
   };
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
-    if (isTableLocked || metadata.objectType) return;
-    setDragEnterCount(prev => prev + 1);
+    if (!canAcceptGuestDrop) return;
+    setDragEnterCount((prev) => prev + 1);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    if (isTableLocked || metadata.objectType) return;
-    setDragEnterCount(prev => Math.max(0, prev - 1));
+    if (!canAcceptGuestDrop) return;
+    setDragEnterCount((prev) => Math.max(0, prev - 1));
   };
 
   const handleDropWrapper = (e: React.DragEvent) => {
     e.preventDefault();
     setDragEnterCount(0);
-    if (!isTableLocked && !metadata.objectType && isValidDrop) {
+    if (canAcceptGuestDrop && isValidDrop) {
       onDrop(e);
     }
   };
 
   return (
-    <Draggable
-      nodeRef={nodeRef}
-      scale={scale}
-      disabled={isDragDisabled}
-      defaultPosition={{ x: table.pos_x ?? 0, y: table.pos_y ?? 0 }}
-      bounds={{ left: 0, top: 0, right: 3000 - 150, bottom: 2400 - 150 }} // canvas boundary clamping
-      onStart={handleStart}
-      onDrag={handleDrag}
-      onStop={handleDragStop}
+    <div
+      ref={nodeRef}
+      data-planner-table-id={table.id}
+      onPointerDown={handlePointerDown}
+      onClick={handleWrapperClick}
+      onPointerEnter={() => {
+        if (!isDragDisabled) setPointerHover(true);
+      }}
+      onPointerLeave={() => setPointerHover(false)}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (canAcceptGuestDrop) {
+          e.dataTransfer.dropEffect = isValidDrop ? "move" : "none";
+        }
+      }}
+      onDrop={handleDropWrapper}
+      onDragStart={preventNativeDrag}
+      className={cn(
+        "absolute draggable-table-wrapper select-none touch-none",
+        isDragDisabled ? "cursor-default" : "cursor-move",
+        pointerHover && !isDragDisabled && "planner-table-hover",
+        table.id.startsWith("temp-") && "animate-in fade-in zoom-in-90 duration-350 ease-out"
+      )}
+      style={{ transform: `translate3d(${baseX}px, ${baseY}px, 0)` }}
     >
-      <div
-        ref={nodeRef}
-        onClick={handleWrapperClick}
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={(e) => {
-          e.preventDefault();
-          if (!isTableLocked && !metadata.objectType) {
-            e.dataTransfer.dropEffect = isValidDrop ? "move" : "none";
-          }
-        }}
-        onDrop={handleDropWrapper}
-        className={cn(
-          "absolute draggable-table-wrapper select-none",
-          isDragDisabled ? "cursor-default" : "cursor-move",
-          table.id.startsWith("temp-") && "animate-in fade-in zoom-in-90 duration-350 ease-out"
-        )}
-      >
-        <TableVisual
-          table={table}
-          isSelected={isSelected}
-          isDropTarget={isDropTarget}
-          isHovered={isHovered}
-          isValidDrop={isValidDrop}
-          validationReason={validationReason}
-          onClick={() => {}} // Handled via wrapper onClick
-          onDrop={() => {}} // Handled via wrapper onDrop
-          scale={scale}
-        />
-      </div>
-    </Draggable>
+      <TableVisual
+        table={table}
+        isSelected={isSelected}
+        isDropTarget={isDropTarget}
+        isHovered={isHovered}
+        isValidDrop={isValidDrop}
+        validationReason={validationReason}
+        collisionWarning={selfCollision}
+        onClick={() => {}}
+        onDrop={() => {}}
+        scale={lodScale}
+      />
+    </div>
   );
 }
 

@@ -1676,6 +1676,7 @@ export function SeatingPlanner({
               globalLock={globalLock}
               onToggleGlobalLock={() => setGlobalLock((v) => !v)}
               onRunAutoSeat={handleRunAutoSeat}
+              onToggleTemplateMenu={setShowTemplateMenu}
               workspaceMode={workspaceMode}
               isFloating={false}
               viewMode={viewMode}

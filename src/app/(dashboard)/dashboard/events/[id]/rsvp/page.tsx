@@ -6,6 +6,7 @@ import { getRsvpOverviewStats } from "@/lib/rsvp/public-queries";
 import { getHouseholdBundlesByEvent } from "@/lib/rsvp/queries";
 import { createClient } from "@/lib/supabase/server";
 import { ro } from "@/lib/i18n/ro";
+import type { InvitationHouseholdBundle } from "@/types/rsvp";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,10 @@ export default async function RsvpPage({ params }: RsvpPageProps) {
   const migrationReady = await rsvpReady();
   const rsvpSlug = event.rsvp_slug ?? null;
 
-  const [stats, households] = migrationReady
+  const [stats, households]: [
+    Awaited<ReturnType<typeof getRsvpOverviewStats>>,
+    InvitationHouseholdBundle[],
+  ] = migrationReady
     ? await Promise.all([
         getRsvpOverviewStats(id),
         getHouseholdBundlesByEvent(id),
@@ -50,7 +54,7 @@ export default async function RsvpPage({ params }: RsvpPageProps) {
           partialHouseholds: 0,
         },
         [],
-      ] as const;
+      ];
 
   return (
     <AnimatedPage className="space-y-6">

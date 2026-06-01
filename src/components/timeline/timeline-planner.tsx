@@ -29,7 +29,6 @@ import type {
   TimelineEventSegment,
   TimelineMilestoneRow,
   TimelineTaskPriority,
-  TimelineTaskStatus,
   TimelineTaskWithRelations,
 } from "@/types/timeline";
 

@@ -1,5 +1,3 @@
-import { notFound } from "next/navigation";
-
 import { updateEvent } from "@/app/(dashboard)/dashboard/events/actions";
 import { EventForm } from "@/components/events/event-form";
 import { DashboardHeader } from "@/components/layout/dashboard-header";

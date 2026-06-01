@@ -5,7 +5,13 @@ import { denyUnlessEventAccess } from "@/lib/events/assert-event-access";
 import { createClient } from "@/lib/supabase/server";
 import crypto from "crypto";
 
-export async function generateQrSlug(eventId: string) {
+export type GalleryActionResult = {
+  success?: boolean;
+  error?: string;
+  slug?: string;
+};
+
+export async function generateQrSlug(eventId: string): Promise<GalleryActionResult> {
   const accessDenied = await denyUnlessEventAccess(eventId);
   if (accessDenied) return accessDenied;
 
@@ -27,7 +33,10 @@ export async function generateQrSlug(eventId: string) {
   return { success: true, slug };
 }
 
-export async function deleteMedia(eventId: string, mediaId: string) {
+export async function deleteMedia(
+  eventId: string,
+  mediaId: string
+): Promise<GalleryActionResult> {
   const accessDenied = await denyUnlessEventAccess(eventId);
   if (accessDenied) return accessDenied;
 

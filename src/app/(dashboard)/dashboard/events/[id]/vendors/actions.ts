@@ -4,11 +4,16 @@ import { revalidatePath } from "next/cache";
 import { denyUnlessEventPermission } from "@/lib/events/assert-event-access";
 import { createClient } from "@/lib/supabase/server";
 
+export type VendorActionResult = { success?: boolean; error?: string };
+
 async function requireVendorEdit(eventId: string) {
   return denyUnlessEventPermission(eventId, (p) => p.canEditVendors, "canEditVendors");
 }
 
-export async function createVendor(eventId: string, formData: FormData) {
+export async function createVendor(
+  eventId: string,
+  formData: FormData
+): Promise<VendorActionResult> {
   const accessDenied = await requireVendorEdit(eventId);
   if (accessDenied) return accessDenied;
 
@@ -32,7 +37,7 @@ export async function createVendor(eventId: string, formData: FormData) {
     contact_person,
     phone,
     email,
-    status: status || 'contactat',
+    status: status || "contactat",
   });
 
   if (error) {
@@ -44,7 +49,10 @@ export async function createVendor(eventId: string, formData: FormData) {
   return { success: true };
 }
 
-export async function deleteVendor(eventId: string, vendorId: string) {
+export async function deleteVendor(
+  eventId: string,
+  vendorId: string
+): Promise<VendorActionResult> {
   const accessDenied = await requireVendorEdit(eventId);
   if (accessDenied) return accessDenied;
 

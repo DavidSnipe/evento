@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   inviteCollaborator,
@@ -13,10 +13,6 @@ import type {
   EventMemberView,
 } from "@/types/collaboration";
 
-type PendingUpdate = {
-  fields: Partial<EventCollaboratorRow>;
-};
-
 export function useCollaboratorsOptimistic(
   eventId: string,
   initialMembers: EventMemberView[]
@@ -28,7 +24,6 @@ export function useCollaboratorsOptimistic(
 
   const [localCollaborators, setLocalCollaborators] = useState(collaborators);
   const [syncingCounts, setSyncingCounts] = useState<Record<string, number>>({});
-  const pendingUpdates = useRef<Map<string, PendingUpdate>>(new Map());
 
   useEffect(() => {
     setLocalCollaborators(
@@ -42,7 +37,8 @@ export function useCollaboratorsOptimistic(
     setSyncingCounts((prev) => {
       const next = (prev[id] ?? 0) + delta;
       if (next <= 0) {
-        const { [id]: _, ...rest } = prev;
+        const rest = { ...prev };
+        delete rest[id];
         return rest;
       }
       return { ...prev, [id]: next };

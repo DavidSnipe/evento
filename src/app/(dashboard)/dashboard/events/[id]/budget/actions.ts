@@ -9,7 +9,12 @@ async function requireBudgetEdit(eventId: string) {
   return denyUnlessEventPermission(eventId, (p) => p.canEditBudget, "canEditBudget");
 }
 
-export async function createBudgetItem(eventId: string, formData: FormData) {
+export type BudgetActionResult = { success?: boolean; error?: string };
+
+export async function createBudgetItem(
+  eventId: string,
+  formData: FormData
+): Promise<BudgetActionResult> {
   const accessDenied = await requireBudgetEdit(eventId);
   if (accessDenied) return accessDenied;
 
@@ -45,7 +50,11 @@ export async function createBudgetItem(eventId: string, formData: FormData) {
   return { success: true };
 }
 
-export async function updateBudgetItem(eventId: string, itemId: string, formData: FormData) {
+export async function updateBudgetItem(
+  eventId: string,
+  itemId: string,
+  formData: FormData
+): Promise<BudgetActionResult> {
   const accessDenied = await requireBudgetEdit(eventId);
   if (accessDenied) return accessDenied;
 
@@ -80,7 +89,10 @@ export async function updateBudgetItem(eventId: string, itemId: string, formData
   return { success: true };
 }
 
-export async function deleteBudgetItem(eventId: string, itemId: string) {
+export async function deleteBudgetItem(
+  eventId: string,
+  itemId: string
+): Promise<BudgetActionResult> {
   const accessDenied = await requireBudgetEdit(eventId);
   if (accessDenied) return accessDenied;
 

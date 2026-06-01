@@ -6,7 +6,7 @@ import type { PublicInvitationView } from "@/lib/invitation/resolve-invitation";
 import type { InvitationHouseholdBundle } from "@/types/rsvp";
 import type { EventType } from "@/types";
 
-export type { PublicInvitationView as PublicInvitationContent };
+export type { PublicInvitationView };
 
 export type PublicRsvpEvent = {
   id: string;

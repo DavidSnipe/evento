@@ -66,7 +66,8 @@ export function useTimelineOptimistic(
     setSyncingIds((prev) => {
       const next = (prev[taskId] ?? 0) + delta;
       if (next <= 0) {
-        const { [taskId]: _, ...rest } = prev;
+        const rest = { ...prev };
+        delete rest[taskId];
         return rest;
       }
       return { ...prev, [taskId]: next };

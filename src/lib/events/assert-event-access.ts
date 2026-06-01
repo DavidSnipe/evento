@@ -128,3 +128,18 @@ export async function denyUnlessEventPermission(
   if (!result.ok) return { error: result.error };
   return null;
 }
+
+/** Map access denial to `{ success: false, error }` for actions that require `success`. */
+export function deniedAsSuccess(
+  denied: { error: string } | null
+): { success: false; error: string } | null {
+  if (!denied) return null;
+  return { success: false, error: denied.error };
+}
+
+export function deniedAsSuccessWithCount(
+  denied: { error: string } | null
+): { success: false; count: number; error: string } | null {
+  if (!denied) return null;
+  return { success: false, count: 0, error: denied.error };
+}

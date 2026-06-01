@@ -18,7 +18,6 @@ import type {
   TimelineMilestoneRow,
   TimelineTaskPriority,
   TimelineTaskStatus,
-  TimelineTaskWithRelations,
 } from "@/types/timeline";
 
 type TimelineMilestoneViewProps = {

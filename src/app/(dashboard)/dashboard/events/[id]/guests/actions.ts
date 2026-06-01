@@ -186,9 +186,9 @@ export async function updateGuest(
   return { success: "ok" };
 }
 
-export async function deleteGuest(eventId: string, guestId: string) {
+export async function deleteGuest(eventId: string, guestId: string): Promise<void> {
   const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
-  if (accessDenied) return accessDenied;
+  if (accessDenied) return;
   const supabase = await createClient();
   await supabase.from("guests").delete().eq("id", guestId).eq("event_id", eventId);
   revalidateGuestPages(eventId);
@@ -210,11 +210,13 @@ export async function updateGuestRsvp(
   revalidateGuestPages(eventId);
 }
 
+export type GuestTableActionResult = { success?: boolean; error?: string };
+
 export async function assignGuestToTable(
   eventId: string,
   guestId: string,
   tableId: string | null
-) {
+): Promise<GuestTableActionResult> {
   const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
   if (accessDenied) return accessDenied;
   const supabase = await createClient();

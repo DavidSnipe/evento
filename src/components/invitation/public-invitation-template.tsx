@@ -240,7 +240,7 @@ export function PublicInvitationTemplate({
 
         {invitation.galleryImageUrls.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
-            {invitation.galleryImageUrls.slice(0, 6).map((url, i) => (
+            {invitation.galleryImageUrls.slice(0, 6).map((url) => (
               <div key={url} className="relative aspect-square overflow-hidden rounded-xl">
                 <Image src={url} alt="" fill className="object-cover" sizes="120px" />
               </div>

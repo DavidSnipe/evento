@@ -2,9 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 
+import { denyUnlessEventPermission } from "@/lib/events/assert-event-access";
 import { createClient } from "@/lib/supabase/server";
 
+async function requireBudgetEdit(eventId: string) {
+  return denyUnlessEventPermission(eventId, (p) => p.canEditBudget, "canEditBudget");
+}
+
 export async function createBudgetItem(eventId: string, formData: FormData) {
+  const accessDenied = await requireBudgetEdit(eventId);
+  if (accessDenied) return accessDenied;
+
   const title = formData.get("title") as string;
   const category = formData.get("category") as string;
   const estimatedCost = parseFloat(formData.get("estimated_cost") as string) || 0;
@@ -38,6 +46,9 @@ export async function createBudgetItem(eventId: string, formData: FormData) {
 }
 
 export async function updateBudgetItem(eventId: string, itemId: string, formData: FormData) {
+  const accessDenied = await requireBudgetEdit(eventId);
+  if (accessDenied) return accessDenied;
+
   const title = formData.get("title") as string;
   const category = formData.get("category") as string;
   const estimatedCost = parseFloat(formData.get("estimated_cost") as string) || 0;
@@ -70,6 +81,9 @@ export async function updateBudgetItem(eventId: string, itemId: string, formData
 }
 
 export async function deleteBudgetItem(eventId: string, itemId: string) {
+  const accessDenied = await requireBudgetEdit(eventId);
+  if (accessDenied) return accessDenied;
+
   const supabase = await createClient();
 
   const { error } = await supabase

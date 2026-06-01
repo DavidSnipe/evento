@@ -7,6 +7,7 @@ import {
   clearActiveEventId,
   setActiveEventId,
 } from "@/lib/events/active-event";
+import { assertEventAccess, assertEventPermission } from "@/lib/events/assert-event-access";
 import { ro } from "@/lib/i18n/ro";
 import { createClient } from "@/lib/supabase/server";
 import { EVENT_TYPES } from "@/types/events";
@@ -86,6 +87,13 @@ export async function updateEvent(
   if (!title) return { error: ro.events.errors.titleRequired };
   if (!eventType) return { error: ro.events.errors.typeRequired };
 
+  const auth = await assertEventPermission(
+    eventId,
+    (p) => p.canDeleteEvent,
+    "canDeleteEvent"
+  );
+  if (!auth.ok) return { error: auth.error };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("events")
@@ -115,6 +123,15 @@ export async function updateEvent(
 }
 
 export async function deleteEvent(eventId: string) {
+  const auth = await assertEventPermission(
+    eventId,
+    (p) => p.canDeleteEvent,
+    "canDeleteEvent"
+  );
+  if (!auth.ok) {
+    redirect(`/dashboard/events?error=access`);
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.from("events").delete().eq("id", eventId);
 
@@ -129,6 +146,11 @@ export async function deleteEvent(eventId: string) {
 }
 
 export async function setActiveEvent(eventId: string) {
+  const auth = await assertEventAccess(eventId);
+  if (!auth.ok) {
+    redirect("/dashboard/events");
+  }
+
   await setActiveEventId(eventId);
   revalidatePath("/dashboard");
   redirect(`/dashboard/events/${eventId}`);

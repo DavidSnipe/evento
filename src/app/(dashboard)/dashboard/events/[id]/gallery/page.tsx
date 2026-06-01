@@ -1,7 +1,11 @@
 import { notFound } from "next/navigation";
+
+import { requireEventAccess } from "@/lib/events/verify-event";
 import { getEventGalleryInfo, getMediaUploads } from "@/lib/gallery/queries";
 import { GalleryClient } from "@/components/gallery/gallery-client";
 import { AnimatedPage } from "@/components/layout/animated-page";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Galerie & QR | Evento",
@@ -13,6 +17,7 @@ export default async function GalleryAdminPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { event } = await requireEventAccess(id);
   const info = await getEventGalleryInfo(id);
 
   if (!info) {
@@ -28,7 +33,7 @@ export default async function GalleryAdminPage({
           Galerie & QR Code
         </h1>
         <p className="text-muted-foreground mt-2">
-          Gestionează fotografiile și generează codul QR pentru invitații tăi la {info.title}.
+          Gestionează fotografiile și generează codul QR pentru invitații tăi la {event.title}.
         </p>
       </div>
 

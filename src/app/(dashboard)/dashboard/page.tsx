@@ -6,12 +6,14 @@ import { AnimatedPage } from "@/components/layout/animated-page";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { getActiveEventId } from "@/lib/events/active-event";
+import { reconcileActiveEventAccess } from "@/lib/events/active-event-access";
 import { getPrimaryEvent, getUserEvents } from "@/lib/events/queries";
 import { formatDaysUntil, getDaysUntil } from "@/lib/events/utils";
 import { getGuestStats } from "@/lib/guests/queries";
 import { ro } from "@/lib/i18n/ro";
 import { createClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -19,7 +21,7 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [events, activeEventId] = await Promise.all([getUserEvents(), getActiveEventId()]);
+  const [events, activeEventId] = await Promise.all([getUserEvents(), reconcileActiveEventAccess()]);
   const primaryEvent = await getPrimaryEvent(events);
   const statsEvent = activeEventId
     ? events.find((e) => e.id === activeEventId) ?? primaryEvent

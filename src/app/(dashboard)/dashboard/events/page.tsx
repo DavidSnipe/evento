@@ -5,12 +5,14 @@ import { EventCard } from "@/components/events/event-card";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { AnimatedPage } from "@/components/layout/animated-page";
 import { Button } from "@/components/ui/button";
-import { getActiveEventId } from "@/lib/events/active-event";
+import { reconcileActiveEventAccess } from "@/lib/events/active-event-access";
 import { getUserEvents } from "@/lib/events/queries";
 import { ro } from "@/lib/i18n/ro";
 
+export const dynamic = "force-dynamic";
+
 export default async function EventsPage() {
-  const [events, activeEventId] = await Promise.all([getUserEvents(), getActiveEventId()]);
+  const [events, activeEventId] = await Promise.all([getUserEvents(), reconcileActiveEventAccess()]);
 
   return (
     <AnimatedPage>

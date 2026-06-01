@@ -1,4 +1,3 @@
-import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { EventRow } from "@/types/events";
 
@@ -18,7 +17,7 @@ export async function getUserEvents(): Promise<EventRow[]> {
   return (data ?? []) as EventRow[];
 }
 
-export const getEventById = cache(async (id: string): Promise<EventRow | null> => {
+export async function getEventById(id: string): Promise<EventRow | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("events").select("*").eq("id", id).maybeSingle();
 
@@ -28,7 +27,7 @@ export const getEventById = cache(async (id: string): Promise<EventRow | null> =
   }
 
   return data as EventRow | null;
-});
+}
 
 /** Nearest upcoming event with a date, or most recently created */
 export async function getPrimaryEvent(events: EventRow[]): Promise<EventRow | null> {

@@ -1,13 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { denyUnlessEventAccess } from "@/lib/events/assert-event-access";
 import { createClient } from "@/lib/supabase/server";
 import crypto from "crypto";
 
 export async function generateQrSlug(eventId: string) {
+  const accessDenied = await denyUnlessEventAccess(eventId);
+  if (accessDenied) return accessDenied;
+
   const supabase = await createClient();
 
-  // Generate a random slug
   const slug = crypto.randomBytes(4).toString("hex");
 
   const { error } = await supabase
@@ -25,9 +28,11 @@ export async function generateQrSlug(eventId: string) {
 }
 
 export async function deleteMedia(eventId: string, mediaId: string) {
+  const accessDenied = await denyUnlessEventAccess(eventId);
+  if (accessDenied) return accessDenied;
+
   const supabase = await createClient();
 
-  // First get the media to find the file URL
   const { data: media, error: fetchError } = await supabase
     .from("media_uploads")
     .select("file_url")
@@ -38,13 +43,11 @@ export async function deleteMedia(eventId: string, mediaId: string) {
     return { error: "Nu am putut găsi fișierul." };
   }
 
-  // Delete from storage
   const filePath = media.file_url.split("event_media/")[1];
   if (filePath) {
     await supabase.storage.from("event_media").remove([filePath]);
   }
 
-  // Delete from DB
   const { error } = await supabase
     .from("media_uploads")
     .delete()

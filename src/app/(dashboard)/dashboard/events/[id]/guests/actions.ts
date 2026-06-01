@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireEvent } from "@/lib/events/verify-event";
+import { denyUnlessEventPermission } from "@/lib/events/assert-event-access";
 import { ro } from "@/lib/i18n/ro";
 import { createClient } from "@/lib/supabase/server";
 import { RSVP_STATUSES } from "@/types/guests";
@@ -42,7 +42,8 @@ export async function createGuest(
   _prev: GuestFormState,
   formData: FormData
 ): Promise<GuestFormState> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
+  if (accessDenied) return accessDenied;
 
   const first_name = String(formData.get("first_name") ?? "").trim();
   if (!first_name) return { error: ro.guests.errors.firstNameRequired };
@@ -106,7 +107,8 @@ export async function updateGuest(
   _prev: GuestFormState,
   formData: FormData
 ): Promise<GuestFormState> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
+  if (accessDenied) return accessDenied;
 
   const first_name = String(formData.get("first_name") ?? "").trim();
   if (!first_name) return { error: ro.guests.errors.firstNameRequired };
@@ -185,7 +187,8 @@ export async function updateGuest(
 }
 
 export async function deleteGuest(eventId: string, guestId: string) {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
   await supabase.from("guests").delete().eq("id", guestId).eq("event_id", eventId);
   revalidateGuestPages(eventId);
@@ -196,7 +199,8 @@ export async function updateGuestRsvp(
   guestId: string,
   rsvpStatus: RsvpStatus
 ) {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
   await supabase
     .from("guests")
@@ -211,7 +215,8 @@ export async function assignGuestToTable(
   guestId: string,
   tableId: string | null
 ) {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
 
   if (tableId) {
@@ -325,7 +330,8 @@ export async function bulkCreateGuests(
     tableId?: string;
   }[]
 ): Promise<{ error?: string; count?: number; insertedIds?: string[] }> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
 
   const rows = guests.map((g) => ({
@@ -353,7 +359,8 @@ export async function bulkDeleteGuests(
   eventId: string,
   guestIds: string[]
 ): Promise<{ error?: string }> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
 
   const { error } = await supabase
@@ -373,7 +380,8 @@ export async function bulkUpdateRsvp(
   guestIds: string[],
   rsvpStatus: RsvpStatus
 ): Promise<{ error?: string }> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
 
   const { error } = await supabase
@@ -393,7 +401,8 @@ export async function bulkAssignTable(
   guestIds: string[],
   tableId: string | null
 ): Promise<{ error?: string }> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
 
   const { error } = await supabase
@@ -420,7 +429,8 @@ export async function updateGuestTags(
   guestId: string,
   tags: string[]
 ): Promise<{ error?: string }> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
 
   const { error } = await supabase
@@ -441,7 +451,8 @@ export async function updateGuestField(
   field: string,
   value: string | boolean | null
 ): Promise<{ error?: string }> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
 
   const { error } = await supabase
@@ -461,7 +472,8 @@ export async function createSubGuest(
   parentId: string,
   relationshipType: "couple" | "family" | "child"
 ): Promise<{ error?: string; subGuest?: GuestRow }> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
   
   // Get parent guest to inherit last name, RSVP status, table, etc.
@@ -492,7 +504,8 @@ export async function createSubGuest(
 }
 
 export async function deleteSubGuest(eventId: string, subGuestId: string): Promise<{ error?: string }> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditGuests, "canEditGuests");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
   const { error } = await supabase
     .from("guests")

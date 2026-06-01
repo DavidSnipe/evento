@@ -1,9 +1,9 @@
-import { notFound } from "next/navigation";
-
+import { requireEventPermission } from "@/lib/events/verify-event";
 import { getVendors } from "@/lib/vendors/queries";
-import { getEventById } from "@/lib/events/queries";
 import { VendorsClient } from "@/components/vendors/vendors-client";
 import { AnimatedPage } from "@/components/layout/animated-page";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Furnizori Eveniment | Evento",
@@ -15,11 +15,7 @@ export default async function VendorsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const event = await getEventById(id);
-
-  if (!event) {
-    notFound();
-  }
+  const { event } = await requireEventPermission(id, (p) => p.canEditVendors);
 
   const vendors = await getVendors(id);
 

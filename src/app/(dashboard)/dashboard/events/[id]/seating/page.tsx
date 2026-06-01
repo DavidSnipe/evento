@@ -1,7 +1,9 @@
 import { SeatingPlanner } from "@/components/seating/seating-planner";
 import { AnimatedPage } from "@/components/layout/animated-page";
-import { requireEvent } from "@/lib/events/verify-event";
+import { requireEventAccess } from "@/lib/events/verify-event";
 import { getSeatingPlan } from "@/lib/seating/queries";
+
+export const dynamic = "force-dynamic";
 
 type SeatingPageProps = {
   params: Promise<{ id: string }>;
@@ -9,7 +11,7 @@ type SeatingPageProps = {
 
 export default async function SeatingPage({ params }: SeatingPageProps) {
   const { id } = await params;
-  await requireEvent(id);
+  await requireEventAccess(id);
   const { tables, unassigned, allGuests } = await getSeatingPlan(id);
 
   return (

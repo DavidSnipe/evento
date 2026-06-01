@@ -1,9 +1,9 @@
-import { notFound } from "next/navigation";
-
+import { requireEventPermission } from "@/lib/events/verify-event";
 import { getBudgetItems } from "@/lib/budget/queries";
-import { getEventById } from "@/lib/events/queries";
 import { BudgetClient } from "@/components/budget/budget-client";
 import { AnimatedPage } from "@/components/layout/animated-page";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Buget Eveniment | Evento",
@@ -15,11 +15,7 @@ export default async function BudgetPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const event = await getEventById(id);
-
-  if (!event) {
-    notFound();
-  }
+  const { event } = await requireEventPermission(id, (p) => p.canEditBudget);
 
   const budgetItems = await getBudgetItems(id);
 

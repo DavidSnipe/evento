@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { Calendar, MapPin, Pencil, Users, UtensilsCrossed } from "lucide-react";
+import { Calendar, MapPin, Pencil, Settings, Users, UtensilsCrossed } from "lucide-react";
 
 import { setActiveEvent } from "@/app/(dashboard)/dashboard/events/actions";
 import { DeleteEventButton } from "@/components/events/delete-event-button";
@@ -10,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { getActiveEventId } from "@/lib/events/active-event";
 import { getEventTypeLabel } from "@/lib/events/config";
-import { getEventById } from "@/lib/events/queries";
+import { requireEventAccess } from "@/lib/events/verify-event";
+import { canDeleteEvent, canManageCollaborators } from "@/lib/collaboration/permissions";
 import { getGuestStats } from "@/lib/guests/queries";
 import { getSeatingPlan } from "@/lib/seating/queries";
 import {
@@ -20,6 +20,8 @@ import {
 } from "@/lib/events/utils";
 import { ro } from "@/lib/i18n/ro";
 
+export const dynamic = "force-dynamic";
+
 type EventDetailPageProps = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string }>;
@@ -28,12 +30,15 @@ type EventDetailPageProps = {
 export default async function EventDetailPage({ params, searchParams }: EventDetailPageProps) {
   const { id } = await params;
   const { error } = await searchParams;
-  const [event, activeEventId] = await Promise.all([getEventById(id), getActiveEventId()]);
-
-  if (!event) notFound();
+  const [{ event, access }, activeEventId] = await Promise.all([
+    requireEventAccess(id),
+    getActiveEventId(),
+  ]);
 
   const days = getDaysUntil(event.event_date);
   const isActive = activeEventId === event.id;
+  const showOwnerActions = canManageCollaborators(access);
+  const showDelete = canDeleteEvent(access);
   const [guestStats, seating] = await Promise.all([
     getGuestStats(id),
     getSeatingPlan(id),
@@ -59,13 +64,27 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
               {ro.events.detail.active}
             </span>
           )}
+          {showOwnerActions && (
+            <Button variant="outline" className="h-9 text-xs" asChild>
+              <Link href={`/dashboard/events/${event.id}/edit`}>
+                <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                {ro.events.detail.edit}
+              </Link>
+            </Button>
+          )}
           <Button variant="outline" className="h-9 text-xs" asChild>
-            <Link href={`/dashboard/events/${event.id}/edit`}>
-              <Pencil className="h-3.5 w-3.5 mr-1.5" />
-              {ro.events.detail.edit}
+            <Link href={`/dashboard/events/${event.id}/settings/calendar`}>
+              <Calendar className="h-3.5 w-3.5 mr-1.5" />
+              {ro.calendar.subscription.settingsNav}
             </Link>
           </Button>
-          <DeleteEventButton eventId={event.id} />
+          <Button variant="outline" className="h-9 text-xs" asChild>
+            <Link href={`/dashboard/events/${event.id}/settings/collaborators`}>
+              <Settings className="h-3.5 w-3.5 mr-1.5" />
+              {ro.collaboration.settingsLink}
+            </Link>
+          </Button>
+          {showDelete && <DeleteEventButton eventId={event.id} />}
         </div>
       </div>
 

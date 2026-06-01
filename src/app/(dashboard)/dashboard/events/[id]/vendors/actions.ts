@@ -1,9 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { denyUnlessEventPermission } from "@/lib/events/assert-event-access";
 import { createClient } from "@/lib/supabase/server";
 
+async function requireVendorEdit(eventId: string) {
+  return denyUnlessEventPermission(eventId, (p) => p.canEditVendors, "canEditVendors");
+}
+
 export async function createVendor(eventId: string, formData: FormData) {
+  const accessDenied = await requireVendorEdit(eventId);
+  if (accessDenied) return accessDenied;
+
   const category = formData.get("category") as string;
   const name = formData.get("name") as string;
   const contact_person = formData.get("contact_person") as string;
@@ -37,6 +45,9 @@ export async function createVendor(eventId: string, formData: FormData) {
 }
 
 export async function deleteVendor(eventId: string, vendorId: string) {
+  const accessDenied = await requireVendorEdit(eventId);
+  if (accessDenied) return accessDenied;
+
   const supabase = await createClient();
 
   const { error } = await supabase

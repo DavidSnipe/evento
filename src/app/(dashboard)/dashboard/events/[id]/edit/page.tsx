@@ -4,9 +4,11 @@ import { updateEvent } from "@/app/(dashboard)/dashboard/events/actions";
 import { EventForm } from "@/components/events/event-form";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { AnimatedPage } from "@/components/layout/animated-page";
-import { getEventById } from "@/lib/events/queries";
+import { requireEventPermission } from "@/lib/events/verify-event";
 import { ro } from "@/lib/i18n/ro";
 import { createClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 
 type EditEventPageProps = {
   params: Promise<{ id: string }>;
@@ -14,9 +16,7 @@ type EditEventPageProps = {
 
 export default async function EditEventPage({ params }: EditEventPageProps) {
   const { id } = await params;
-  const event = await getEventById(id);
-
-  if (!event) notFound();
+  const { event } = await requireEventPermission(id, (p) => p.canDeleteEvent);
 
   const supabase = await createClient();
   const { data: existingGuests } = await supabase

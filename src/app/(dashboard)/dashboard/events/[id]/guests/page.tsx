@@ -1,10 +1,12 @@
 import { GuestDatabase } from "@/components/guests/guest-database";
 import { AnimatedPage } from "@/components/layout/animated-page";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
-import { requireEvent } from "@/lib/events/verify-event";
+import { requireEventAccess } from "@/lib/events/verify-event";
 import { getGuestStats, getGuestsByEvent } from "@/lib/guests/queries";
 import { getTablesByEvent } from "@/lib/seating/queries";
 import { ro } from "@/lib/i18n/ro";
+
+export const dynamic = "force-dynamic";
 
 type GuestsPageProps = {
   params: Promise<{ id: string }>;
@@ -12,7 +14,7 @@ type GuestsPageProps = {
 
 export default async function GuestsPage({ params }: GuestsPageProps) {
   const { id } = await params;
-  const event = await requireEvent(id);
+  const { event } = await requireEventAccess(id);
 
   const [guests, tables, stats] = await Promise.all([
     getGuestsByEvent(id),

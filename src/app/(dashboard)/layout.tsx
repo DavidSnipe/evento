@@ -1,8 +1,10 @@
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileNav } from "@/components/layout/mobile-nav";
-import { getActiveEventId } from "@/lib/events/active-event";
+import { reconcileActiveEventAccess } from "@/lib/events/active-event-access";
 import { getEventById } from "@/lib/events/queries";
 import { createClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout({
   children,
@@ -14,7 +16,7 @@ export default async function DashboardLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const activeEventId = await getActiveEventId();
+  const activeEventId = await reconcileActiveEventAccess();
   const activeEvent = activeEventId ? await getEventById(activeEventId) : null;
   const userEmail =
     user?.user_metadata?.full_name ||

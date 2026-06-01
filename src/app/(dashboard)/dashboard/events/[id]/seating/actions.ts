@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { assignGuestToTable } from "@/app/(dashboard)/dashboard/events/[id]/guests/actions";
-import { requireEvent } from "@/lib/events/verify-event";
+import { denyUnlessEventPermission } from "@/lib/events/assert-event-access";
 import { ro } from "@/lib/i18n/ro";
 import { createClient } from "@/lib/supabase/server";
 import type { TableShape } from "@/types/guests";
@@ -28,7 +28,8 @@ export async function createTable(
   eventId: string,
   formData: FormData
 ): Promise<TableFormState> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditSeating, "canEditSeating");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
 
   const objectType = formData.get("objectType") ? String(formData.get("objectType")) : null;
@@ -183,7 +184,8 @@ export async function updateTable(
     pos_y?: number;
   }
 ): Promise<TableFormState> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditSeating, "canEditSeating");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
 
   const updates: Record<string, unknown> = {};
@@ -211,7 +213,8 @@ export async function updateTablePositions(
   eventId: string,
   positions: { id: string; pos_x: number; pos_y: number }[]
 ): Promise<{ success: boolean }> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditSeating, "canEditSeating");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
 
   await Promise.all(
@@ -230,7 +233,8 @@ export async function updateTablePositions(
 
 /* ─── Delete table ─── */
 export async function deleteTable(eventId: string, tableId: string) {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditSeating, "canEditSeating");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
 
   await supabase.from("guests").update({ table_id: null }).eq("table_id", tableId);
@@ -263,7 +267,8 @@ export async function autoSeatGuestsAction(
   eventId: string,
   strategy: "family" | "even"
 ): Promise<{ success: boolean; count: number; updates?: { id: string; table_id: string }[]; error?: string }> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditSeating, "canEditSeating");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
 
   const [tablesRes, guestsRes] = await Promise.all([
@@ -522,7 +527,8 @@ export async function applyRoomTemplate(
   templateType: "ballroom" | "barn" | "garden" | "restaurant" | "long_hall",
   tableCount: number
 ): Promise<{ success: boolean; error?: string }> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditSeating, "canEditSeating");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
 
   // 1. Unassign all guests at the event
@@ -782,7 +788,8 @@ export async function initializeConcentricOnboarding(
   eventId: string,
   seatsPerTable: number
 ): Promise<{ success: boolean; error?: string }> {
-  await requireEvent(eventId);
+  const accessDenied = await denyUnlessEventPermission(eventId, (p) => p.canEditSeating, "canEditSeating");
+  if (accessDenied) return accessDenied;
   const supabase = await createClient();
 
   // 1. Get total guest count

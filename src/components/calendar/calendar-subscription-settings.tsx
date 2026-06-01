@@ -64,7 +64,7 @@ export function CalendarSubscriptionSettings({
       const base = httpsUrlState.replace(/\/[^/]+\.ics$/, "");
       const nextHttps = `${base}/${result.token}.ics`;
       setHttpsUrlState(nextHttps);
-      setWebcalUrlState(nextHttps.replace(/^https?:/, "webcal:"));
+      setWebcalUrlState(nextHttps.replace(/^https:/, "webcal:"));
     }
   };
 

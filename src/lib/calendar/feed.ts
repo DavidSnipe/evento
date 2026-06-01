@@ -1,9 +1,9 @@
 import { createHash } from "crypto";
 
 import { buildIcsCalendar } from "@/lib/calendar/ics";
+import { SUBSCRIPTION_FEED_TIMEZONE } from "@/lib/calendar/format";
 import { dayScheduleItemsToCalendarEvents } from "@/lib/calendar/mappers/day-schedule";
 import { timelineTasksToCalendarEvents } from "@/lib/calendar/mappers/timeline";
-import { resolveTimezone } from "@/lib/calendar/format";
 import type { CalendarExportContext } from "@/lib/calendar/types";
 import type { DayScheduleItemRow } from "@/types/day-schedule";
 import type { TimelineTaskWithRelations } from "@/types/timeline";
@@ -25,7 +25,7 @@ export function buildSubscriptionFeedIcs(
   const ctx: CalendarExportContext = {
     eventTitle: payload.event.title,
     eventVenue: payload.event.venue,
-    timezone: options?.timezone ?? resolveTimezone(),
+    timezone: options?.timezone ?? SUBSCRIPTION_FEED_TIMEZONE,
   };
 
   const taskEvents = timelineTasksToCalendarEvents(payload.tasks, ctx);

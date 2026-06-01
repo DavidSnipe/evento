@@ -1,5 +1,8 @@
 const DEFAULT_TIMEZONE = "Europe/Bucharest";
 
+/** Fixed TZ for live subscription feeds (must match VTIMEZONE in ICS). */
+export const SUBSCRIPTION_FEED_TIMEZONE = DEFAULT_TIMEZONE;
+
 export function resolveTimezone(preferred?: string): string {
   if (preferred) return preferred;
   if (typeof Intl !== "undefined") {
@@ -60,19 +63,32 @@ export function escapeIcs(value: string): string {
     .replace(/,/g, "\\,");
 }
 
-/** Fold lines per RFC 5545 (75 octets). */
+/** Fold lines per RFC 5545 (75 octets, not UTF-16 code units). */
 export function foldIcsLine(line: string): string {
-  const max = 75;
-  if (line.length <= max) return line;
-  const parts: string[] = [];
-  let rest = line;
-  parts.push(rest.slice(0, max));
-  rest = rest.slice(max);
-  while (rest.length > 0) {
-    parts.push(` ${rest.slice(0, max - 1)}`);
-    rest = rest.slice(max - 1);
+  const maxOctets = 75;
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const bytes = encoder.encode(line);
+  if (bytes.length <= maxOctets) return line;
+
+  const lines: string[] = [];
+  let pos = 0;
+  while (pos < bytes.length) {
+    const isContinuation = pos > 0;
+    const limit = isContinuation ? maxOctets - 1 : maxOctets;
+    let end = Math.min(pos + limit, bytes.length);
+
+    while (end > pos && end < bytes.length) {
+      const slice = bytes.subarray(pos, end);
+      if (encoder.encode(decoder.decode(slice)).length === slice.length) break;
+      end--;
+    }
+
+    const piece = decoder.decode(bytes.subarray(pos, end));
+    lines.push(isContinuation ? ` ${piece}` : piece);
+    pos = end;
   }
-  return parts.join("\r\n");
+  return lines.join("\r\n");
 }
 
 export function icsNowUtc(): string {

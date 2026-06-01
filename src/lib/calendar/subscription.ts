@@ -4,9 +4,12 @@ export function buildCalendarSubscriptionUrls(
   eventId: string,
   token: string
 ): { httpsUrl: string; webcalUrl: string } {
-  const base = siteUrl.replace(/\/$/, "");
+  let base = siteUrl.replace(/\/$/, "");
+  if (base.startsWith("http://") && !base.includes("localhost") && !base.includes("127.0.0.1")) {
+    base = base.replace(/^http:/, "https:");
+  }
   const httpsUrl = `${base}/calendar/${eventId}/${token}.ics`;
-  const webcalUrl = httpsUrl.replace(/^https?:/, "webcal:");
+  const webcalUrl = httpsUrl.replace(/^https:/, "webcal:");
   return { httpsUrl, webcalUrl };
 }
 

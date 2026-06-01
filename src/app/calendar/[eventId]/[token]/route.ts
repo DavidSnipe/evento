@@ -11,6 +11,11 @@ import {
   parseSubscriptionTokenParam,
 } from "@/lib/calendar/subscription";
 
+export const dynamic = "force-dynamic";
+
+/** Apple Calendar and other clients fetch without cookies; avoid static caching mistakes. */
+export const runtime = "nodejs";
+
 type CalendarFeedRouteContext = {
   params: Promise<{ eventId: string; token: string }>;
 };
@@ -48,10 +53,9 @@ export async function GET(
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
       "Content-Disposition": `inline; filename="evento-${sanitizeFilename(payload.event.title)}.ics"`,
-      "Cache-Control": "public, max-age=300, stale-while-revalidate=600",
+      "Cache-Control": "public, max-age=900",
       ETag: etag,
       "X-Robots-Tag": "noindex, nofollow",
-      "X-Content-Type-Options": "nosniff",
     },
   });
 }

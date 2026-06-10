@@ -2,7 +2,7 @@ import { AnimatedPage } from "@/components/layout/animated-page";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { DaySchedulePlanner } from "@/components/day-schedule/day-schedule-planner";
 import { TimelineModeNav } from "@/components/timeline/timeline-mode-nav";
-import { requireEventAccess } from "@/lib/events/verify-event";
+import { getEventAccessContext } from "@/lib/events/verify-event";
 import {
   checkDayScheduleReady,
   getDayScheduleItems,
@@ -25,8 +25,10 @@ type DaySchedulePageProps = {
 
 export default async function DaySchedulePage({ params }: DaySchedulePageProps) {
   const { id } = await params;
-  const { event } = await requireEventAccess(id);
-  const migrationReady = await checkDayScheduleReady();
+  const [{ event }, migrationReady] = await Promise.all([
+    getEventAccessContext(id),
+    checkDayScheduleReady(),
+  ]);
 
   const [items, enabledSegments] = migrationReady
     ? await Promise.all([getDayScheduleItems(id), getEnabledDaySegments(id)])

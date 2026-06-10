@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { getActiveEventId } from "@/lib/events/active-event";
 import { getEventTypeLabel } from "@/lib/events/config";
-import { requireEventAccess } from "@/lib/events/verify-event";
+import { getEventAccessContext } from "@/lib/events/verify-event";
 import { canDeleteEvent, canManageCollaborators } from "@/lib/collaboration/permissions";
 import { getGuestStats } from "@/lib/guests/queries";
 import { getSeatingPlan } from "@/lib/seating/queries";
@@ -30,19 +30,17 @@ type EventDetailPageProps = {
 export default async function EventDetailPage({ params, searchParams }: EventDetailPageProps) {
   const { id } = await params;
   const { error } = await searchParams;
-  const [{ event, access }, activeEventId] = await Promise.all([
-    requireEventAccess(id),
+  const [{ event, access }, activeEventId, guestStats, seating] = await Promise.all([
+    getEventAccessContext(id),
     getActiveEventId(),
+    getGuestStats(id),
+    getSeatingPlan(id),
   ]);
 
   const days = getDaysUntil(event.event_date);
   const isActive = activeEventId === event.id;
   const showOwnerActions = canManageCollaborators(access);
   const showDelete = canDeleteEvent(access);
-  const [guestStats, seating] = await Promise.all([
-    getGuestStats(id),
-    getSeatingPlan(id),
-  ]);
 
   return (
     <AnimatedPage>

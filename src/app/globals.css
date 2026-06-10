@@ -250,9 +250,9 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  h1,
-  h2,
-  h3 {
+  :where(:not(.dashboard-shell)) h1,
+  :where(:not(.dashboard-shell)) h2,
+  :where(:not(.dashboard-shell)) h3 {
     font-family: var(--font-playfair), Georgia, serif;
     @apply tracking-tight;
   }

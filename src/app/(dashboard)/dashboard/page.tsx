@@ -11,17 +11,16 @@ import { getPrimaryEvent, getUserEvents } from "@/lib/events/queries";
 import { formatDaysUntil, getDaysUntil } from "@/lib/events/utils";
 import { getGuestStats } from "@/lib/guests/queries";
 import { ro } from "@/lib/i18n/ro";
-import { createClient } from "@/lib/supabase/server";
+import { getServerUser } from "@/lib/supabase/server-auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const [events, activeEventId] = await Promise.all([getUserEvents(), reconcileActiveEventAccess()]);
+  const [user, events, activeEventId] = await Promise.all([
+    getServerUser(),
+    getUserEvents(),
+    reconcileActiveEventAccess(),
+  ]);
   const primaryEvent = await getPrimaryEvent(events);
   const statsEvent = activeEventId
     ? events.find((e) => e.id === activeEventId) ?? primaryEvent

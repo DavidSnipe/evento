@@ -2,7 +2,7 @@ import { AnimatedPage } from "@/components/layout/animated-page";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { TimelinePlanner } from "@/components/timeline/timeline-planner";
 import { TimelineModeNav } from "@/components/timeline/timeline-mode-nav";
-import { requireEventAccess } from "@/lib/events/verify-event";
+import { getEventAccessContext } from "@/lib/events/verify-event";
 import { checkTimelineReady, getTimelineFoundation } from "@/lib/timeline/queries";
 import { buildCalendarSubscriptionUrls } from "@/lib/calendar/subscription";
 import { getEventCalendarSubscriptionToken } from "@/lib/calendar/subscription-queries";
@@ -21,8 +21,10 @@ type TimelinePageProps = {
 
 export default async function TimelinePage({ params }: TimelinePageProps) {
   const { id } = await params;
-  const { event } = await requireEventAccess(id);
-  const migrationReady = await checkTimelineReady();
+  const [{ event }, migrationReady] = await Promise.all([
+    getEventAccessContext(id),
+    checkTimelineReady(),
+  ]);
 
   const foundation = migrationReady
     ? await getTimelineFoundation(id)

@@ -9,7 +9,6 @@ import { bulkCreateGuests } from "@/app/(dashboard)/dashboard/events/[id]/guests
 import { TagBadge } from "@/components/guests/tag-badge";
 import type { GuestWithTable, RsvpStatus } from "@/types/guests";
 import { GUEST_TAGS } from "@/types/guests";
-import * as XLSX from "xlsx";
 
 type ImportModalProps = {
   eventId: string;
@@ -154,8 +153,9 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
 
   const processCsvFile = (file: File) => {
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
+        const XLSX = await import("xlsx");
         const bstr = evt.target?.result;
         const workbook = XLSX.read(bstr, { type: "binary" });
         const wsname = workbook.SheetNames[0];

@@ -33,7 +33,8 @@ export function permissionsForRole(role: EventAccessRole): EventPermissions {
     canEditSeating: contributorPlus,
     canEditGuests: contributorPlus,
     canEditBudget: editorPlus,
-    canEditVendors: editorPlus,
+    canEditVendors: contributorPlus,
+    canManageVendors: editorPlus,
     canEditRsvp: editorPlus,
     canEditInvitation: editorPlus,
     canManageCollaborators: isOwner,
@@ -76,6 +77,10 @@ export function canEditBudget(access: EventAccess | null): boolean {
 
 export function canEditVendors(access: EventAccess | null): boolean {
   return access?.permissions.canEditVendors ?? false;
+}
+
+export function canManageVendors(access: EventAccess | null): boolean {
+  return access?.permissions.canManageVendors ?? false;
 }
 
 export function canEditRsvp(access: EventAccess | null): boolean {

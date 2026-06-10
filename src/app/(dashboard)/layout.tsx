@@ -1,8 +1,13 @@
+import { GeistSans } from "geist/font/sans";
+
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { reconcileActiveEventAccess } from "@/lib/events/active-event-access";
 import { getEventById } from "@/lib/events/queries";
-import { createClient } from "@/lib/supabase/server";
+import { getServerUser } from "@/lib/supabase/server-auth";
+import { cn } from "@/lib/utils";
+
+import "@/components/layout/dashboard-foundation.css";
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +16,10 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const activeEventId = await reconcileActiveEventAccess();
+  const [user, activeEventId] = await Promise.all([
+    getServerUser(),
+    reconcileActiveEventAccess(),
+  ]);
   const activeEvent = activeEventId ? await getEventById(activeEventId) : null;
   const userEmail =
     user?.user_metadata?.full_name ||
@@ -24,7 +27,13 @@ export default async function DashboardLayout({
     user?.email;
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div
+      className={cn(
+        "dashboard-shell flex min-h-screen bg-[var(--dash-ivory)]",
+        GeistSans.variable,
+        GeistSans.className
+      )}
+    >
       {/* Desktop Sidebar */}
       <div className="hidden md:flex print:hidden dashboard-sidebar-container">
         <AppSidebar
@@ -66,7 +75,7 @@ export default async function DashboardLayout({
         </div>
 
         {/* Page Content */}
-        <div className="mx-auto max-w-6xl p-6 md:p-10 pb-24 md:pb-10 print:max-w-none print:p-0 print:m-0 dashboard-content-container">
+        <div className="mx-auto max-w-6xl print:max-w-none print:p-0 print:m-0 dashboard-content-container">
           {children}
         </div>
       </main>

@@ -166,6 +166,9 @@ export function SeatingPlanner({
   allGuests,
 }: SeatingPlannerProps) {
   const router = useRouter();
+  const isMountedRef = useRef(true);
+  const autoSeatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cameraNotifyRafRef = useRef<number | null>(null);
 
   const {
     localTables,
@@ -210,6 +213,31 @@ export function SeatingPlanner({
 
   useEffect(() => {
     setIsMounted(true);
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (zoomAnimationRef.current !== null) {
+        cancelAnimationFrame(zoomAnimationRef.current);
+        zoomAnimationRef.current = null;
+      }
+      if (inertiaFrameRef.current !== null) {
+        cancelAnimationFrame(inertiaFrameRef.current);
+        inertiaFrameRef.current = null;
+      }
+      if (assistRafRef.current !== null) {
+        cancelAnimationFrame(assistRafRef.current);
+        assistRafRef.current = null;
+      }
+      if (cameraNotifyRafRef.current !== null) {
+        cancelAnimationFrame(cameraNotifyRafRef.current);
+        cameraNotifyRafRef.current = null;
+      }
+      if (autoSeatTimeoutRef.current !== null) {
+        clearTimeout(autoSeatTimeoutRef.current);
+        autoSeatTimeoutRef.current = null;
+      }
+      document.body.classList.remove("workspace-mode-active");
+    };
   }, []);
 
   async function handleApplyTemplate(
@@ -376,8 +404,13 @@ export function SeatingPlanner({
   const scheduleCameraNotify = () => {
     if (cameraNotifyScheduledRef.current) return;
     cameraNotifyScheduledRef.current = true;
-    requestAnimationFrame(() => {
+    if (cameraNotifyRafRef.current !== null) {
+      cancelAnimationFrame(cameraNotifyRafRef.current);
+    }
+    cameraNotifyRafRef.current = requestAnimationFrame(() => {
+      cameraNotifyRafRef.current = null;
       cameraNotifyScheduledRef.current = false;
+      if (!isMountedRef.current) return;
       setCameraRevision((n) => n + 1);
     });
   };
@@ -508,9 +541,11 @@ export function SeatingPlanner({
         zoomAnimationRef.current = requestAnimationFrame(step);
       } else {
         // Deferred sync to React state only when settles
-        setScale(nextScale);
-        setPanX(nextPanX);
-        setPanY(nextPanY);
+        if (isMountedRef.current) {
+          setScale(nextScale);
+          setPanX(nextPanX);
+          setPanY(nextPanY);
+        }
         zoomAnimationRef.current = null;
       }
     };
@@ -832,6 +867,8 @@ export function SeatingPlanner({
     let currentStep = 0;
 
     const runStep = () => {
+      if (!isMountedRef.current) return;
+
       if (skipAnimationRef.current) {
         // Apply remaining updates immediately
         const remainingUpdates = updates.slice(currentStep * batchSize);
@@ -860,7 +897,9 @@ export function SeatingPlanner({
           seatedCount: updates.length,
           tablesCount: Array.from(new Set(updates.map(u => u.table_id))).length
         });
-        router.refresh();
+        if (isMountedRef.current) {
+          router.refresh();
+        }
         return;
       }
 
@@ -878,14 +917,16 @@ export function SeatingPlanner({
       });
 
       if (endIdx < L) {
-        setTimeout(runStep, delay);
+        autoSeatTimeoutRef.current = setTimeout(runStep, delay);
       } else {
         setAutoSeatingProgress(null);
         setAutoSeatingSummary({
           seatedCount: updates.length,
           tablesCount: Array.from(new Set(updates.map(u => u.table_id))).length
         });
-        router.refresh();
+        if (isMountedRef.current) {
+          router.refresh();
+        }
       }
     };
 
@@ -2644,6 +2685,8 @@ function DraggableWrapper({
   const pointerStartRef = useRef({ x: 0, y: 0 });
   const livePosRef = useRef({ x: baseX, y: baseY });
   const draggedRef = useRef(false);
+  const activeDragCleanupRef = useRef<(() => void) | null>(null);
+  const isMountedRef = useRef(true);
   const [dragEnterCount, setDragEnterCount] = useState(0);
   const [pointerHover, setPointerHover] = useState(false);
   const [selfCollision, setSelfCollision] = useState(false);
@@ -2653,6 +2696,15 @@ function DraggableWrapper({
     if (nodeRef.current) {
       nodeRef.current.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
     }
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      activeDragCleanupRef.current?.();
+      activeDragCleanupRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -2718,7 +2770,9 @@ function DraggableWrapper({
         onCheckDragCollision?.(table.id, next.x, next.y) ?? false;
 
       const assist = onDragAssistMove?.(table.id, next.x, next.y);
-      if (assist) setSelfCollision(wouldCollide || assist.selfColliding);
+      if (assist && isMountedRef.current) {
+        setSelfCollision(wouldCollide || assist.selfColliding);
+      }
 
       if (wouldCollide) {
         return;
@@ -2732,12 +2786,12 @@ function DraggableWrapper({
     };
 
     const onPointerUp = (ev: PointerEvent) => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerUp);
+      detachPointerListeners();
 
       isDraggingRef.current = false;
-      setSelfCollision(false);
+      if (isMountedRef.current) {
+        setSelfCollision(false);
+      }
       onDragAssistEnd?.();
 
       try {
@@ -2768,6 +2822,15 @@ function DraggableWrapper({
         livePosRef.current = { x: baseX, y: baseY };
       }
     };
+
+    const detachPointerListeners = () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+      activeDragCleanupRef.current = null;
+    };
+
+    activeDragCleanupRef.current = detachPointerListeners;
 
     try {
       nodeRef.current?.setPointerCapture(e.pointerId);

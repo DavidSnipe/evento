@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Search, Plus, Upload, X, LayoutList, LayoutGrid, ChevronDown, Trash2, Users, Tag, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GuestWithTable, RsvpStatus, SeatingTableRow } from "@/types/guests";
@@ -8,7 +9,6 @@ import { GUEST_TAGS } from "@/types/guests";
 import { GuestTableView } from "@/components/guests/guest-table-view";
 import { GuestCardView } from "@/components/guests/guest-card-view";
 import { GuestDetailPanel } from "@/components/guests/guest-detail-panel";
-import { ImportModal } from "@/components/guests/import-modal";
 import { RsvpPill } from "@/components/guests/rsvp-pill";
 import { Card } from "@/components/ui/card";
 import {
@@ -18,6 +18,11 @@ import {
 import { useGuestStats } from "@/hooks/guests/use-guest-stats";
 import { useGuestFiltering, type SortKey } from "@/hooks/guests/use-guest-filtering";
 import { useGuestOptimistic } from "@/hooks/guests/use-guest-optimistic";
+
+const ImportModal = dynamic(
+  () => import("@/components/guests/import-modal").then((mod) => mod.ImportModal),
+  { ssr: false }
+);
 
 type ViewMode = "table" | "cards";
 

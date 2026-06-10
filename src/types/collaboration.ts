@@ -58,6 +58,8 @@ export type EventPermissions = {
   canEditGuests: boolean;
   canEditBudget: boolean;
   canEditVendors: boolean;
+  /** Delete vendors/offers and advanced vendor ops — editor+ */
+  canManageVendors: boolean;
   canEditRsvp: boolean;
   canEditInvitation: boolean;
   canManageCollaborators: boolean;

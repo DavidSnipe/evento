@@ -1,0 +1,63 @@
+/* Authenticated dashboard — Geist typography + Nuntiki spacing (foundation only) */
+
+.dashboard-shell {
+  --font-geist: var(--font-geist-sans, ui-sans-serif, system-ui, sans-serif);
+
+  /* Nuntiki palette */
+  --dash-ivory: #f5f4f3;
+  --dash-warm-gray: #eeedeb;
+  --dash-blush: #eedfe3;
+  --dash-dusty-rose: #dcb5be;
+  --dash-sage: #89a293;
+  --dash-text: #1c1816;
+  --dash-text-secondary: #6b6560;
+  --dash-text-muted: #9a9490;
+  --dash-hairline: rgba(28, 24, 22, 0.06);
+
+  /* Spacing scale */
+  --dash-space-1: 0.25rem;
+  --dash-space-2: 0.5rem;
+  --dash-space-3: 0.75rem;
+  --dash-space-4: 1rem;
+  --dash-space-5: 1.25rem;
+  --dash-space-6: 1.5rem;
+  --dash-space-8: 2rem;
+  --dash-space-10: 2.5rem;
+  --dash-space-12: 3rem;
+  --dash-space-16: 4rem;
+  --dash-content-px: var(--dash-space-10);
+  --dash-content-py: var(--dash-space-10);
+  --dash-section-gap: var(--dash-space-12);
+  --dash-stack-gap: var(--dash-space-8);
+
+  font-family: var(--font-geist);
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+.dashboard-shell h1,
+.dashboard-shell h2,
+.dashboard-shell h3,
+.dashboard-shell h4,
+.dashboard-shell h5,
+.dashboard-shell h6 {
+  font-family: inherit;
+}
+
+.dashboard-main-container {
+  background-color: var(--dash-ivory);
+}
+
+.dashboard-content-container {
+  padding: var(--dash-content-py) var(--dash-content-px);
+  padding-bottom: 6rem;
+}
+
+@media (min-width: 768px) {
+  .dashboard-content-container {
+    padding-bottom: var(--dash-space-10);
+  }
+}
+
+.dashboard-shell .font-serif {
+  font-family: inherit;
+}

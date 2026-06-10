@@ -7,7 +7,7 @@ import { AnimatedPage } from "@/components/layout/animated-page";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { Button } from "@/components/ui/button";
 import { getInvitationBuilderState, checkInvitationTableReady } from "@/lib/invitation/queries";
-import { requireEventAccess } from "@/lib/events/verify-event";
+import { getEventAccessContext } from "@/lib/events/verify-event";
 import { ro } from "@/lib/i18n/ro";
 
 export const dynamic = "force-dynamic";
@@ -24,8 +24,8 @@ export default async function InvitationEditorPage({
   params,
 }: InvitationEditorPageProps) {
   const { id } = await params;
-  const { event } = await requireEventAccess(id);
-  const [builderState, storageReady] = await Promise.all([
+  const [{ event }, builderState, storageReady] = await Promise.all([
+    getEventAccessContext(id),
     getInvitationBuilderState(id),
     checkInvitationTableReady(),
   ]);

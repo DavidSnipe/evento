@@ -1,17 +1,14 @@
 import { getEventAccessForUser } from "@/lib/collaboration/queries";
 import { logAccessDecision } from "@/lib/collaboration/access-debug";
 import { clearActiveEventId, getActiveEventId } from "@/lib/events/active-event";
-import { createClient } from "@/lib/supabase/server";
+import { getServerUser } from "@/lib/supabase/server-auth";
 
 /** Clear active-event cookie when user no longer has access. */
 export async function reconcileActiveEventAccess(): Promise<string | null> {
   const activeEventId = await getActiveEventId();
   if (!activeEventId) return null;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getServerUser();
 
   if (!user) {
     await clearActiveEventId();

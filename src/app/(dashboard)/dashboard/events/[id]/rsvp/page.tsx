@@ -1,7 +1,7 @@
 import { AnimatedPage } from "@/components/layout/animated-page";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { RsvpDashboard } from "@/components/rsvp/rsvp-dashboard";
-import { requireEventAccess } from "@/lib/events/verify-event";
+import { getEventAccessContext } from "@/lib/events/verify-event";
 import { getRsvpOverviewStats } from "@/lib/rsvp/public-queries";
 import { getHouseholdBundlesByEvent } from "@/lib/rsvp/queries";
 import { createClient } from "@/lib/supabase/server";
@@ -30,9 +30,10 @@ async function rsvpReady(): Promise<boolean> {
 
 export default async function RsvpPage({ params }: RsvpPageProps) {
   const { id } = await params;
-  const { event } = await requireEventAccess(id);
-
-  const migrationReady = await rsvpReady();
+  const [{ event }, migrationReady] = await Promise.all([
+    getEventAccessContext(id),
+    rsvpReady(),
+  ]);
   const rsvpSlug = event.rsvp_slug ?? null;
 
   const [stats, households]: [

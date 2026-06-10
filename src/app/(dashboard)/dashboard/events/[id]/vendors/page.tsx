@@ -1,7 +1,9 @@
-import { requireEventPermission } from "@/lib/events/verify-event";
-import { getVendors } from "@/lib/vendors/queries";
-import { VendorsClient } from "@/components/vendors/vendors-client";
+import { getEventAccessContext } from "@/lib/events/verify-event";
+import { getVendorFoundationSnapshot } from "@/lib/vendors/queries";
+import { VendorsWorkspace } from "@/components/vendors/vendors-workspace";
+import { VendorsPageShell } from "@/components/vendors/vendors-page-shell";
 import { AnimatedPage } from "@/components/layout/animated-page";
+import { ro } from "@/lib/i18n/ro";
 
 export const dynamic = "force-dynamic";
 
@@ -15,22 +17,28 @@ export default async function VendorsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { event } = await requireEventPermission(id, (p) => p.canEditVendors);
-
-  const vendors = await getVendors(id);
+  const [{ event, access }, snapshot] = await Promise.all([
+    getEventAccessContext(id),
+    getVendorFoundationSnapshot(id),
+  ]);
 
   return (
-    <AnimatedPage className="mx-auto max-w-5xl space-y-8">
-      <div>
-        <h1 className="font-serif text-3xl font-bold tracking-tight">
-          Furnizori & Contacte
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Gestionează echipa de profesioniști pentru {event.title}.
-        </p>
-      </div>
+    <AnimatedPage className="mx-auto max-w-[1200px]">
+      <VendorsPageShell className="space-y-[var(--dash-section-gap,3rem)] pb-8">
+        <header className="space-y-3 pb-6">
+          <h1 className="vk-page-title">{ro.vendors.workspace.pageTitle}</h1>
+          <p className="vk-page-desc">
+            {ro.vendors.workspace.pageSubtitle.replace("{title}", event.title)}
+          </p>
+        </header>
 
-      <VendorsClient eventId={id} initialItems={vendors} />
+        <VendorsWorkspace
+          eventId={id}
+          snapshot={snapshot}
+          canEdit={access.permissions.canEditVendors}
+          canManage={access.permissions.canManageVendors}
+        />
+      </VendorsPageShell>
     </AnimatedPage>
   );
 }

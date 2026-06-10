@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { getEventAccessForUser } from "@/lib/collaboration/queries";
@@ -5,7 +6,7 @@ import { logAccessDecision } from "@/lib/collaboration/access-debug";
 import type { EventAccess } from "@/types/collaboration";
 import { canManageCollaborators } from "@/lib/collaboration/permissions";
 import { getEventById } from "@/lib/events/queries";
-import { createClient } from "@/lib/supabase/server";
+import { getServerUser } from "@/lib/supabase/server-auth";
 import type { EventPermissions } from "@/types/collaboration";
 import type { EventRow } from "@/types/events";
 
@@ -14,14 +15,11 @@ export type EventAccessContext = {
   access: EventAccess;
 };
 
-/** Load event if user has any access (owner or accepted collaborator). */
-export async function requireEventAccess(
+/** Load event if user has any access (owner or accepted collaborator). Cached per request. */
+export const requireEventAccess = cache(async function requireEventAccess(
   eventId: string
 ): Promise<EventAccessContext> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getServerUser();
 
   const access = await getEventAccessForUser(
     eventId,
@@ -65,6 +63,14 @@ export async function requireEventAccess(
   });
 
   return { event, access };
+});
+
+/**
+ * Read cached event + access for pages under `events/[id]/layout`.
+ * Layout already gates access; this hits the same per-request cache.
+ */
+export function getEventAccessContext(eventId: string): Promise<EventAccessContext> {
+  return requireEventAccess(eventId);
 }
 
 /** Backward-compatible: any event member can open the page. */

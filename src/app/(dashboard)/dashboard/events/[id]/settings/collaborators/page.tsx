@@ -10,10 +10,10 @@ import {
   checkCollaborationReady,
   getEventMembers,
 } from "@/lib/collaboration/queries";
-import { requireEventAccess } from "@/lib/events/verify-event";
-import { ro } from "@/lib/i18n/ro";
-import { createClient } from "@/lib/supabase/server";
+import { getEventAccessContext } from "@/lib/events/verify-event";
+import { getServerUser } from "@/lib/supabase/server-auth";
 import { getSiteUrl } from "@/lib/supabase/site-url";
+import { ro } from "@/lib/i18n/ro";
 
 export const dynamic = "force-dynamic";
 
@@ -29,20 +29,14 @@ export default async function CollaboratorsSettingsPage({
   params,
 }: CollaboratorsSettingsPageProps) {
   const { id } = await params;
-  const [{ event, access }, migrationReady] = await Promise.all([
-    requireEventAccess(id),
+  const [{ event, access }, migrationReady, user, inviteBaseUrl] = await Promise.all([
+    getEventAccessContext(id),
     checkCollaborationReady(),
-  ]);
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const [members, inviteBaseUrl] = await Promise.all([
-    getEventMembers(event, user?.email ?? null),
+    getServerUser(),
     getSiteUrl(),
   ]);
+
+  const members = await getEventMembers(event, user?.email ?? null);
 
   const canManage = canManageCollaborators(access);
 

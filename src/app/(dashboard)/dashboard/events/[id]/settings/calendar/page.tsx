@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { buildCalendarSubscriptionUrls } from "@/lib/calendar/subscription";
 import { getEventCalendarSubscriptionToken } from "@/lib/calendar/subscription-queries";
 import { canDeleteEvent } from "@/lib/collaboration/permissions";
-import { requireEventAccess } from "@/lib/events/verify-event";
+import { getEventAccessContext } from "@/lib/events/verify-event";
 import { ro } from "@/lib/i18n/ro";
 import { getSiteUrl } from "@/lib/supabase/site-url";
 
@@ -24,8 +24,8 @@ type CalendarSettingsPageProps = {
 
 export default async function CalendarSettingsPage({ params }: CalendarSettingsPageProps) {
   const { id } = await params;
-  const { event, access } = await requireEventAccess(id);
-  const [token, siteUrl] = await Promise.all([
+  const [{ event, access }, token, siteUrl] = await Promise.all([
+    getEventAccessContext(id),
     getEventCalendarSubscriptionToken(id),
     getSiteUrl(),
   ]);

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { requireEventAccess } from "@/lib/events/verify-event";
+import { getEventAccessContext } from "@/lib/events/verify-event";
 import { getEventGalleryInfo, getMediaUploads } from "@/lib/gallery/queries";
 import { GalleryClient } from "@/components/gallery/gallery-client";
 import { AnimatedPage } from "@/components/layout/animated-page";
@@ -17,8 +17,10 @@ export default async function GalleryAdminPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { event } = await requireEventAccess(id);
-  const info = await getEventGalleryInfo(id);
+  const [{ event }, info] = await Promise.all([
+    getEventAccessContext(id),
+    getEventGalleryInfo(id),
+  ]);
 
   if (!info) {
     notFound();

@@ -53,12 +53,7 @@ export function RsvpDashboard({
   const [copyOk, setCopyOk] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
-  const publicUrl =
-    typeof window !== "undefined" && rsvpSlug
-      ? `${window.location.origin}/rsvp/${rsvpSlug}`
-      : rsvpSlug
-        ? `/rsvp/${rsvpSlug}`
-        : null;
+  const publicPath = rsvpSlug ? `/rsvp/${rsvpSlug}` : null;
 
   const handleActivate = () => {
     startTransition(async () => {
@@ -79,8 +74,12 @@ export function RsvpDashboard({
   };
 
   const handleCopy = () => {
-    if (!publicUrl) return;
-    void navigator.clipboard.writeText(publicUrl).then(() => {
+    if (!publicPath) return;
+    const absoluteUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}${publicPath}`
+        : publicPath;
+    void navigator.clipboard.writeText(absoluteUrl).then(() => {
       setCopyOk(true);
       setTimeout(() => setCopyOk(false), 2000);
     });
@@ -127,10 +126,10 @@ export function RsvpDashboard({
             <CardDescription>{ro.rsvp.publicLink.desc}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {rsvpSlug && publicUrl ? (
+            {rsvpSlug && publicPath ? (
               <>
                 <p className="text-xs font-mono text-text-secondary break-all bg-slate-50 rounded-lg px-3 py-2 border">
-                  {publicUrl}
+                  {publicPath}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -150,7 +149,7 @@ export function RsvpDashboard({
                     className="rounded-lg gap-1.5"
                     asChild
                   >
-                    <a href={publicUrl} target="_blank" rel="noopener noreferrer">
+                    <a href={publicPath} target="_blank" rel="noopener noreferrer">
                       <ExternalLink className="h-3.5 w-3.5" />
                       Preview
                     </a>

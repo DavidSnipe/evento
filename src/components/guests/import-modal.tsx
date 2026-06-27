@@ -6,6 +6,10 @@ import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
 import { parseGuestText, type ParsedGuest } from "@/lib/guests/smart-parser";
 import { bulkCreateGuests } from "@/app/(dashboard)/dashboard/events/[id]/guests/actions";
+import {
+  extractGuestsFromPhoto,
+  type ExtractedGuest,
+} from "@/app/(dashboard)/dashboard/events/[id]/guests/photo-import-actions";
 import { TagBadge } from "@/components/guests/tag-badge";
 import type { GuestWithTable, RsvpStatus } from "@/types/guests";
 import { GUEST_TAGS } from "@/types/guests";
@@ -33,8 +37,101 @@ type CSVGuest = {
 type PhotoGuest = {
   id: string;
   name: string;
-  confidence: number;
+  confidence: "high" | "medium" | "low";
+  tableHint?: string;
+  tagHints?: string[];
+  rawLine?: string;
 };
+
+function confidenceToPercent(level: PhotoGuest["confidence"]): number {
+  switch (level) {
+    case "high":
+      return 92;
+    case "medium":
+      return 76;
+    case "low":
+      return 54;
+  }
+}
+
+function confidenceLabel(level: PhotoGuest["confidence"]): string {
+  switch (level) {
+    case "high":
+      return "Ridicată";
+    case "medium":
+      return "Medie";
+    case "low":
+      return "Scăzută";
+  }
+}
+
+function mapTagHintToGuestTag(hint: string): string | null {
+  const normalized = hint
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+  const mappings: [string, string][] = [
+    ["vip", "vip"],
+    ["nasi", "godparents"],
+    ["familie", "family"],
+    ["prieteni", "friends"],
+    ["copii", "kids"],
+    ["transport", "transport"],
+    ["cazare", "accommodation"],
+    ["vegetarian", "vegetarian"],
+    ["alergii", "allergies"],
+  ];
+
+  for (const [needle, tag] of mappings) {
+    if (normalized.includes(needle)) return tag;
+  }
+
+  return GUEST_TAGS.some((gt) => gt.value === normalized) ? normalized : null;
+}
+
+function fileToImagePayload(file: File): Promise<{
+  dataUrl: string;
+  base64: string;
+  mediaType: string;
+  fileName: string;
+}> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error(`Nu am putut citi fișierul „${file.name}".`));
+    reader.onload = (evt) => {
+      const dataUrl = evt.target?.result;
+      if (typeof dataUrl !== "string") {
+        reject(new Error(`Fișierul „${file.name}" este invalid.`));
+        return;
+      }
+
+      const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      const mediaType = match?.[1] || file.type || "image/jpeg";
+      const base64 = match?.[2] || dataUrl;
+
+      resolve({
+        dataUrl,
+        base64,
+        mediaType,
+        fileName: file.name || "imagine",
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function toPhotoGuest(guest: ExtractedGuest, index: number): PhotoGuest {
+  return {
+    id: `photo-${Date.now()}-${index}`,
+    name: guest.name,
+    confidence: guest.confidence,
+    ...(guest.tableHint ? { tableHint: guest.tableHint } : {}),
+    ...(guest.tagHints && guest.tagHints.length > 0 ? { tagHints: guest.tagHints } : {}),
+    ...(guest.rawLine ? { rawLine: guest.rawLine } : {}),
+  };
+}
 
 const TYPE_ICONS = {
   single: UserPlus,
@@ -87,8 +184,11 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
 
   // Photo tab states
   const [photoStep, setPhotoStep] = useState<"upload" | "scanning" | "preview">("upload");
-  const [photoImage, setPhotoImage] = useState<string | null>(null);
+  const [photoImages, setPhotoImages] = useState<string[]>([]);
+  const [photoScanProgress, setPhotoScanProgress] = useState({ done: 0, total: 0 });
   const [photoGuests, setPhotoGuests] = useState<PhotoGuest[]>([]);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoWarnings, setPhotoWarnings] = useState<string[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [success, setSuccess] = useState<number | null>(null);
@@ -300,29 +400,93 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
     });
   };
 
-  // --- Photo OCR AI Simulation ---
-  const handlePhotoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      setPhotoImage(evt.target?.result as string);
-      setPhotoStep("scanning");
-      
-      // Simulate scanning scan-line animation & OCR delays
-      setTimeout(() => {
-        setPhotoGuests([
-          { id: "ocr-1", name: "Popescu Andrei & Maria", confidence: 94 },
-          { id: "ocr-2", name: "Dumitrescu Dan", confidence: 91 },
-          { id: "ocr-3", name: "Radu M.", confidence: 62 }, // low confidence
-          { id: "ocr-4", name: "Vasilescu G.", confidence: 58 }, // low confidence
-          { id: "ocr-5", name: "Ionescu Elena", confidence: 89 },
-        ]);
-        setPhotoStep("preview");
-      }, 2800);
-    };
-    reader.readAsDataURL(file);
+  const resetPhotoImport = () => {
+    setPhotoStep("upload");
+    setPhotoImages([]);
+    setPhotoScanProgress({ done: 0, total: 0 });
+    setPhotoGuests([]);
+    setPhotoError(null);
+    setPhotoWarnings([]);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+    }
+  };
+
+  // --- Photo AI vision import ---
+  const handlePhotoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []).filter((file) => file.type.startsWith("image/"));
+    if (files.length === 0) return;
+
+    setPhotoError(null);
+    setPhotoWarnings([]);
+    setPhotoGuests([]);
+    setPhotoStep("scanning");
+    setPhotoScanProgress({ done: 0, total: files.length });
+
+    let payloads: Awaited<ReturnType<typeof fileToImagePayload>>[];
+    try {
+      payloads = await Promise.all(files.map((file) => fileToImagePayload(file)));
+    } catch (error) {
+      setPhotoStep("upload");
+      setPhotoError(error instanceof Error ? error.message : "Nu am putut citi imaginile selectate.");
+      return;
+    }
+
+    setPhotoImages(payloads.map((payload) => payload.dataUrl));
+
+    const mergedGuests: PhotoGuest[] = [];
+    const warnings: string[] = [];
+    let guestIndex = 0;
+
+    try {
+      const results = await Promise.all(
+        payloads.map(async (payload) => {
+          const result = await extractGuestsFromPhoto(eventId, payload.base64, payload.mediaType);
+          setPhotoScanProgress((prev) => ({
+            done: Math.min(prev.done + 1, prev.total),
+            total: prev.total,
+          }));
+          return result;
+        })
+      );
+
+      results.forEach((result, index) => {
+        if (result.guests && result.guests.length > 0) {
+          for (const guest of result.guests) {
+            mergedGuests.push(toPhotoGuest(guest, guestIndex++));
+          }
+          return;
+        }
+
+        const fileName = payloads[index]?.fileName ?? `Imaginea ${index + 1}`;
+        warnings.push(`${fileName}: ${result.error ?? "Nu am putut procesa imaginea."}`);
+      });
+    } catch (error) {
+      setPhotoStep("upload");
+      setPhotoImages([]);
+      setPhotoError(
+        error instanceof Error
+          ? error.message
+          : "A apărut o eroare neașteptată la analiza imaginilor."
+      );
+      return;
+    }
+
+    if (mergedGuests.length === 0) {
+      setPhotoStep("upload");
+      setPhotoImages([]);
+      setPhotoError(
+        warnings.length === 1
+          ? warnings[0]
+          : "Nu am putut extrage invitați din imaginile încărcate. Încearcă fotografii mai clare."
+      );
+      setPhotoWarnings(warnings);
+      return;
+    }
+
+    setPhotoGuests(mergedGuests);
+    setPhotoWarnings(warnings);
+    setPhotoStep("preview");
   };
 
   const updatePhotoGuestName = (id: string, name: string) => {
@@ -359,11 +523,16 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
           lName = last;
         }
         
+        const tags = (pg.tagHints ?? [])
+          .map(mapTagHintToGuestTag)
+          .filter((tag): tag is string => tag !== null);
+
         return {
           firstName: fName,
           lastName: lName || undefined,
           plusOneName: plusOneName || undefined,
           rsvpStatus: "pending" as const,
+          ...(tags.length > 0 ? { tags: [...new Set(tags)] } : {}),
         };
       });
 
@@ -752,41 +921,72 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
 
               {/* --- TAB 3: Photo OCR Scanner --- */}
               {tab === "photo" && photoStep === "upload" && (
-                <div
-                  onClick={() => photoInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center rounded-[18px] border-2 border-dashed border-[#d2aaa9]/40 bg-[#F3F3F5]/30 py-16 text-center cursor-pointer transition-all hover:border-[#B8516B]/60 hover:bg-[#FEF0F3]/40 group animate-fade-in"
-                >
-                  <input
-                    type="file"
-                    ref={photoInputRef}
-                    onChange={handlePhotoFileChange}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                  <Camera className="mb-4 h-10 w-10 text-text-subtle transition-transform group-hover:-translate-y-1 duration-200" />
-                  <p className="text-xs font-bold text-foreground">
-                    Încarcă o fotografie cu lista de invitați
-                  </p>
-                  <p className="mt-1 text-[10px] font-semibold text-text-secondary">
-                    Acceptă imagini tipărite sau scrise de mână (liste, invitații)
-                  </p>
+                <div className="space-y-4 animate-fade-in">
+                  {photoError && (
+                    <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-[11px] font-semibold text-red-800">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <div className="space-y-1">
+                          <p>{photoError}</p>
+                          {photoWarnings.length > 1 && (
+                            <ul className="list-disc pl-4 space-y-0.5 text-red-700">
+                              {photoWarnings.map((warning) => (
+                                <li key={warning}>{warning}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div
+                    onClick={() => photoInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center rounded-[18px] border-2 border-dashed border-[#d2aaa9]/40 bg-[#F3F3F5]/30 py-16 text-center cursor-pointer transition-all hover:border-[#B8516B]/60 hover:bg-[#FEF0F3]/40 group"
+                  >
+                    <input
+                      type="file"
+                      ref={photoInputRef}
+                      onChange={handlePhotoFileChange}
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                    />
+                    <Camera className="mb-4 h-10 w-10 text-text-subtle transition-transform group-hover:-translate-y-1 duration-200" />
+                    <p className="text-xs font-bold text-foreground">
+                      Încarcă una sau mai multe fotografii cu lista de invitați
+                    </p>
+                    <p className="mt-1 text-[10px] font-semibold text-text-secondary">
+                      Acceptă imagini tipărite sau scrise de mână (liste, invitații)
+                    </p>
+                  </div>
                 </div>
               )}
 
-              {tab === "photo" && photoStep === "scanning" && photoImage && (
+              {tab === "photo" && photoStep === "scanning" && photoImages.length > 0 && (
                 <div className="flex flex-col items-center py-6 space-y-4 animate-fade-in">
-                  <div className="relative overflow-hidden rounded-[18px] max-h-60 max-w-xs border border-border-rose-18/30 shadow-sm">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={photoImage} className="w-full h-auto object-contain opacity-70" alt="Scanned view" />
-                    {/* Laser scanning line */}
-                    <div className="absolute left-0 right-0 h-1 bg-[#B8516B] shadow-[0_0_15px_#B8516B] animate-[scan_2.2s_ease-in-out_infinite]" />
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    {photoImages.map((image, index) => (
+                      <div
+                        key={`${image.slice(0, 32)}-${index}`}
+                        className="relative overflow-hidden rounded-[18px] max-h-40 max-w-[140px] border border-border-rose-18/30 shadow-sm"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={image} className="w-full h-auto object-contain opacity-70" alt={`Imagine ${index + 1}`} />
+                        {index === 0 && (
+                          <div className="absolute left-0 right-0 h-1 bg-[#B8516B] shadow-[0_0_15px_#B8516B] animate-[scan_2.2s_ease-in-out_infinite]" />
+                        )}
+                      </div>
+                    ))}
                   </div>
                   <div className="flex flex-col items-center gap-1.5 text-center">
                     <p className="text-xs font-bold text-foreground animate-pulse">
                       Se analizează imaginea folosind AI...
                     </p>
                     <p className="text-[10px] font-semibold text-text-secondary max-w-[280px]">
-                      Extragem și normalizăm automat numele invitaților din imagine.
+                      {photoScanProgress.total > 1
+                        ? `Procesăm ${photoScanProgress.done} din ${photoScanProgress.total} imagini. Extragem automat numele invitaților.`
+                        : "Extragem și normalizăm automat numele invitaților din imagine."}
                     </p>
                   </div>
                 </div>
@@ -794,6 +994,22 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
 
               {tab === "photo" && photoStep === "preview" && (
                 <div className="space-y-4 animate-fade-in">
+                  {photoWarnings.length > 0 && (
+                    <div className="rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] font-semibold text-amber-900">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <div className="space-y-1">
+                          <p>Unele imagini nu au putut fi procesate complet:</p>
+                          <ul className="list-disc pl-4 space-y-0.5">
+                            {photoWarnings.map((warning) => (
+                              <li key={warning}>{warning}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="bg-[#FEF0F3] border border-[#FCEAEF] rounded-[14px] p-4">
                     <h3 className="text-xs font-bold text-[#B8516B] flex items-center gap-2">
                       <Sparkles className="h-4 w-4" />
@@ -809,15 +1025,21 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                       <thead className="bg-[#F3F3F5]/60 sticky top-0 border-b border-border-rose-18/30 z-10 backdrop-blur-[12px]">
                         <tr>
                           <th className="px-3 py-2.5 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">Nume detectat</th>
+                          <th className="px-3 py-2.5 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">Indicii</th>
                           <th className="px-3 py-2.5 text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">Încredere AI</th>
                           <th className="px-2 py-2.5 text-center"></th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border-rose-18/20">
                         {photoGuests.map((pg) => {
-                          const isLowConfidence = pg.confidence < 75;
+                          const confidencePercent = confidenceToPercent(pg.confidence);
+                          const isLowConfidence = pg.confidence === "low";
+                          const mappedTags = (pg.tagHints ?? [])
+                            .map(mapTagHintToGuestTag)
+                            .filter((tag): tag is string => tag !== null);
+
                           return (
-                            <tr key={pg.id} className="hover:bg-[#FEF0F3]/15 transition-all">
+                            <tr key={pg.id} className="hover:bg-[#FEF0F3]/15 transition-all align-top">
                               <td className="px-3 py-2">
                                 <input
                                   type="text"
@@ -831,16 +1053,50 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                                   )}
                                   placeholder="Nume..."
                                 />
+                                {pg.rawLine && pg.rawLine !== pg.name && (
+                                  <p className="mt-1 text-[10px] font-medium text-text-subtle">
+                                    Text detectat: {pg.rawLine}
+                                  </p>
+                                )}
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex flex-col gap-1.5">
+                                  {pg.tableHint && (
+                                    <span className="inline-flex w-fit rounded-[7px] border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                                      Masă: {pg.tableHint}
+                                    </span>
+                                  )}
+                                  {mappedTags.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {mappedTags.map((tag) => (
+                                        <TagBadge key={`${pg.id}-${tag}`} tag={tag} />
+                                      ))}
+                                    </div>
+                                  ) : pg.tagHints && pg.tagHints.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {pg.tagHints.map((hint) => (
+                                        <span
+                                          key={`${pg.id}-${hint}`}
+                                          className="inline-flex rounded-[7px] border border-border-rose-18/40 bg-white px-2 py-0.5 text-[10px] font-semibold text-text-secondary"
+                                        >
+                                          {hint}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] font-medium text-text-faint/60 italic">—</span>
+                                  )}
+                                </div>
                               </td>
                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-2">
                                   <span className={cn(
                                     "h-1.5 w-1.5 rounded-full",
-                                    pg.confidence >= 90 ? "bg-emerald-500" :
-                                    pg.confidence >= 75 ? "bg-indigo-500" : "bg-amber-500 animate-pulse"
+                                    pg.confidence === "high" ? "bg-emerald-500" :
+                                    pg.confidence === "medium" ? "bg-indigo-500" : "bg-amber-500 animate-pulse"
                                   )} />
                                   <span className="font-bold text-text-secondary text-[11px]">
-                                    {pg.confidence}%
+                                    {confidenceLabel(pg.confidence)} ({confidencePercent}%)
                                   </span>
                                   {isLowConfidence && (
                                     <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded ml-1">
@@ -863,7 +1119,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                         })}
                         {photoGuests.length === 0 && (
                           <tr>
-                            <td colSpan={3} className="py-12 text-center text-xs font-semibold text-text-subtle">
+                            <td colSpan={4} className="py-12 text-center text-xs font-semibold text-text-subtle">
                               Niciun invitat de importat.
                             </td>
                           </tr>
@@ -875,7 +1131,7 @@ export function ImportModal({ eventId, guests, onClose, onImportSuccess }: Impor
                   <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={() => setPhotoStep("upload")}
+                      onClick={resetPhotoImport}
                       className="flex-1 rounded-[10px] border border-[#d2aaa9]/30 py-2.5 text-xs font-bold text-text-secondary hover:bg-muted/50 cursor-pointer transition-colors"
                     >
                       Încearcă altă poză

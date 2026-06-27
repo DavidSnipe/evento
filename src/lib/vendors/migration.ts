@@ -8,6 +8,7 @@ export function isVendorFoundationSchemaMissing(error: unknown): boolean {
     msg.includes("vendor_categories") ||
     msg.includes("event_vendor_categories") ||
     msg.includes("event_vendor_services") ||
+    msg.includes("vendor_service_templates") ||
     msg.includes("service_id") ||
     msg.includes("category_id") ||
     msg.includes("does not exist") ||

@@ -116,13 +116,13 @@ export function MobileNav({
         {/* ── Header ── */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#E8748A] to-[#AA3F58] text-white">
-              <Heart className="h-4.5 w-4.5 fill-white/20" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[var(--dash-blush)]/50 text-[var(--dash-accent-text)]">
+              <Heart className="h-4 w-4 fill-[var(--dash-dusty-rose)]/30" strokeWidth={2} />
             </div>
             <div>
-              <p className="font-sans text-sm font-semibold text-[#1A0E14]">Evento Meniu</p>
+              <p className="text-sm font-semibold tracking-[-0.012em] text-[var(--dash-text)]">Evento Meniu</p>
               {activeEventTitle && (
-                <p className="truncate text-[10px] text-text-subtle max-w-[200px]">{activeEventTitle}</p>
+                <p className="max-w-[200px] truncate text-[10px] text-[var(--dash-text-muted)]">{activeEventTitle}</p>
               )}
             </div>
           </div>
@@ -219,7 +219,7 @@ export function MobileNav({
       {/* Floating Bottom Nav Bar - Figma Style */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-6 pt-2 pointer-events-none md:print:hidden">
         <div
-          className="flex justify-around items-center bg-white/85 backdrop-blur-[24px] border border-border-rose-25 rounded-[24px] p-2 shadow-mobile-drawer pointer-events-auto"
+          className="flex justify-around items-center rounded-[24px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)]/90 p-2 shadow-[var(--dash-shadow-md)] backdrop-blur-[20px] pointer-events-auto"
           style={{ WebkitBackdropFilter: "blur(24px)" }}
         >
           {/* Panou */}

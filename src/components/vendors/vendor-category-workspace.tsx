@@ -1,634 +1,551 @@
 "use client";
 
-
-
-import { useState } from "react";
-
-import { Plus, Trash2 } from "lucide-react";
-
-
-
-import { createVendorService } from "@/app/(dashboard)/dashboard/events/[id]/vendors/service-actions";
-
-import { formatVendorPrice } from "@/lib/vendors/format";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Check, Plus, Trash2 } from "lucide-react";
 
 import {
-
+  createVendorService,
+  fetchServiceTemplates,
+} from "@/app/(dashboard)/dashboard/events/[id]/vendors/service-actions";
+import { formatVendorPrice } from "@/lib/vendors/format";
+import {
   findPriceExtremes,
-
   getSelectedOfferInService,
-
   type VendorCategoryGroup,
-
 } from "@/lib/vendors/grouping";
-
 import { ro } from "@/lib/i18n/ro";
-
 import type { VendorInput, VendorOfferInput } from "@/types/vendors";
-
+import { EmojiIcon } from "@/components/ui/emoji-icon";
+import {
+  getIconForVendorCategory,
+  ICON_REGISTRY,
+  type IconKey,
+} from "@/lib/icons/registry";
+import type { VendorServiceTemplate } from "@/types/vendors";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { VendorServiceSection } from "./vendor-service-section";
 
+const ALL_ICON_KEYS = Object.keys(ICON_REGISTRY) as IconKey[];
 
+const SERVICE_CARD_CLASS =
+  "inline-flex items-center gap-2 rounded-[10px] border border-border-rose-18 bg-white px-3 py-2 text-xs font-medium text-[var(--dash-text)] shadow-sm disabled:opacity-50";
+
+const CUSTOM_SERVICE_CARD_CLASS =
+  "inline-flex items-center gap-2 rounded-[10px] border border-dashed border-border-rose-18 bg-[var(--dash-blush)]/15 px-3 py-2 text-xs font-medium text-[var(--dash-text-secondary)] shadow-sm disabled:opacity-50";
+
+function resolveTemplateIcon(iconKey: string | null): IconKey {
+  if (iconKey && iconKey in ICON_REGISTRY) {
+    return iconKey as IconKey;
+  }
+  return "other";
+}
 
 type VendorCategoryWorkspaceProps = {
-
   eventId: string;
-
   group: VendorCategoryGroup;
-
   canEdit: boolean;
-
   canManage: boolean;
-
   removingCategory?: boolean;
-
   onSelectPackage: (vendorId: string, packageId: string, serviceId: string) => void;
-
   onAddVendor: (input: VendorInput) => Promise<{ error?: string; id?: string }>;
-
   onAddPackage: (input: VendorOfferInput) => Promise<{ error?: string }>;
-
   onUpdatePackage: (offerId: string, input: VendorOfferInput) => Promise<{ error?: string }>;
-
   onDeleteRow: (vendorId: string, packageId: string, serviceId: string) => Promise<void>;
-
   onRemoveCategory?: () => void;
-
   onServiceCreated: () => void;
-
 };
-
-
 
 type CategorySelection = {
-
   serviceId: string;
-
   serviceName: string;
-
   vendorName: string;
-
   packageName: string;
-
   price: number;
-
   currency: string;
-
   vendorId: string;
-
   offerId: string;
-
 };
 
-
-
 function getCategorySelections(group: VendorCategoryGroup): CategorySelection[] {
-
   const selections: CategorySelection[] = [];
-
   for (const sg of group.services) {
-
     const sel = getSelectedOfferInService(sg.service, sg.vendors);
-
     if (!sel) continue;
-
     selections.push({
-
       serviceId: sg.service.id,
-
       serviceName: sg.service.name,
-
       vendorName: sel.vendor.name,
-
       packageName: sel.offer.title,
-
       price: sel.offer.price != null ? Number(sel.offer.price) : 0,
-
       currency: sel.offer.currency,
-
       vendorId: sel.vendor.id,
-
       offerId: sel.offer.id,
-
     });
-
   }
-
   return selections;
-
 }
-
-
 
 function countAlternativeOffers(group: VendorCategoryGroup): number {
-
   let count = 0;
-
   for (const sg of group.services) {
-
     const selectedId = sg.service.selected_offer_id;
-
     for (const vendor of sg.vendors) {
-
       for (const offer of vendor.offers) {
-
         if (offer.id !== selectedId) count += 1;
-
       }
-
     }
-
   }
-
   return count;
-
 }
-
-
 
 function formatPriceRange(
-
   cheapest: ReturnType<typeof findPriceExtremes>["cheapest"],
-
   premium: ReturnType<typeof findPriceExtremes>["premium"]
-
 ): string | null {
-
   if (!cheapest && !premium) return null;
-
   const currency = cheapest?.currency ?? premium?.currency ?? "RON";
-
   const min = cheapest?.price ?? premium?.price;
-
   const max = premium?.price ?? cheapest?.price;
-
   if (min == null || max == null) return null;
-
   if (min === max) return formatVendorPrice(min, currency);
-
   const minStr = new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 0 }).format(min);
-
   const maxStr = new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 0 }).format(max);
-
   return `${minStr}–${maxStr} ${currency}`;
-
 }
 
-
-
-function ChoiceStripBlock({
-
+function SelectionPanel({
   selection,
-
   group,
-
   showServiceName,
-
 }: {
-
   selection: CategorySelection;
-
   group: VendorCategoryGroup;
-
   showServiceName: boolean;
-
 }) {
-
   const { cheapest, premium } = findPriceExtremes(group.vendors);
-
   const range = formatPriceRange(cheapest, premium);
-
   const alternatives = countAlternativeOffers(group);
 
-
-
   return (
-
     <div
-
-      className="vk-choice-strip"
-
+      className="min-w-[min(100%,12rem)] flex-1 rounded-[18px] border border-border-rose-18 bg-gradient-to-br from-[#FEF0F3]/80 to-white p-3 shadow-card"
       data-category-id={group.slug}
-
       data-service-id={selection.serviceId}
-
       data-vendor-id={selection.vendorId}
-
       data-offer-id={selection.offerId}
-
     >
-
+      <div className="mb-1.5 flex items-center gap-2">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--dash-sage)]/15">
+          <Check className="h-3 w-3 text-[var(--dash-sage)]" strokeWidth={2.5} aria-hidden />
+        </span>
+        <p className="text-[9.5px] font-bold uppercase tracking-wider text-[var(--dash-accent-text)]">
+          {ro.vendors.workspace.choiceStripChosen}
+        </p>
+      </div>
       {showServiceName ? (
-
-        <p className="vk-meta text-[var(--vk-text-secondary)]">{selection.serviceName}</p>
-
-      ) : null}
-
-      <p className="vk-choice-primary">
-
-        <span className="vk-choice-label">{ro.vendors.workspace.choiceStripChosen}: </span>
-
-        <strong>
-
-          {selection.vendorName} · {selection.packageName} ·{" "}
-
-          {formatVendorPrice(selection.price, selection.currency)}
-
-        </strong>
-
-      </p>
-
-      {range ? (
-
-        <p className="vk-choice-secondary">
-
-          <span className="vk-choice-label">{ro.vendors.workspace.choiceStripRange}: </span>
-
-          {range}
-
+        <p className="mb-1 text-[11px] font-medium text-[var(--dash-text-muted)]">
+          {selection.serviceName}
         </p>
-
       ) : null}
-
+      <p className="text-[0.8125rem] font-semibold leading-snug text-[var(--dash-text)]">
+        {selection.vendorName}
+      </p>
+      <p className="mt-0.5 text-[13px] text-[var(--dash-text-secondary)]">
+        {selection.packageName}
+      </p>
+      <p className="text-[12px] font-bold tabular-nums text-[var(--dash-accent-text)]">
+        {formatVendorPrice(selection.price, selection.currency)}
+      </p>
+      {range ? (
+        <p className="mt-1 text-[12px] text-[var(--dash-text-secondary)]">
+          <span className="text-[var(--dash-text-muted)]">{ro.vendors.workspace.choiceStripRange}: </span>
+          {range}
+        </p>
+      ) : null}
       {alternatives > 0 ? (
-
-        <p className="vk-choice-secondary">
-
-          <span className="vk-choice-label">{ro.vendors.workspace.choiceStripAlternative}: </span>
-
+        <p className="mt-0.5 text-[12px] text-[var(--dash-text-muted)]">
           {ro.vendors.workspace.choiceStripAlternativesAvailable.replace(
-
             "{count}",
-
             String(alternatives)
-
           )}
-
         </p>
-
       ) : null}
-
     </div>
-
   );
-
 }
 
-
-
-function UnselectedSummary({ group }: { group: VendorCategoryGroup }) {
-
-  const serviceCount = group.services.length;
-
-  const offerCount = group.aggregateSummary.offerCount;
-
-  const { cheapest, premium } = findPriceExtremes(group.vendors);
-
-  const range = formatPriceRange(cheapest, premium);
-
-
-
-  const servicesLabel =
-
-    serviceCount === 1
-
-      ? `1 ${ro.vendors.workspace.serviceSingular}`
-
-      : `${serviceCount} ${ro.vendors.workspace.servicePlural}`;
-
-  const offersLabel =
-
-    offerCount === 1
-
-      ? `1 ${ro.vendors.workspace.offerSingular}`
-
-      : `${offerCount} ${ro.vendors.workspace.offerPlural}`;
-
-
-
-  return (
-
-    <div className="vk-choice-strip">
-
-      <p className="vk-choice-secondary">
-
-        {ro.vendors.workspace.choiceStripNoSelectionSummary
-
-          .replace("{services}", servicesLabel)
-
-          .replace("{offers}", offersLabel)}
-
-      </p>
-
-      {range ? (
-
-        <p className="vk-choice-secondary">
-
-          <span className="vk-choice-label">{ro.vendors.workspace.choiceStripRange}: </span>
-
-          {range}
-
-        </p>
-
-      ) : null}
-
-      {offerCount === 0 ? (
-
-        <p className="vk-body text-[var(--vk-text-muted)]">{ro.vendors.workspace.noOffersHint}</p>
-
-      ) : null}
-
-    </div>
-
-  );
-
-}
-
-
-
-export function VendorCategoryWorkspace({
-
-  eventId,
-
-  group,
-
-  canEdit,
-
-  canManage,
-
-  removingCategory = false,
-
-  onSelectPackage,
-
-  onAddVendor,
-
-  onAddPackage,
-
-  onUpdatePackage,
-
-  onDeleteRow,
-
-  onRemoveCategory,
-
-  onServiceCreated,
-
-}: VendorCategoryWorkspaceProps) {
-
-  const [showNewService, setShowNewService] = useState(false);
-
-  const [newServiceName, setNewServiceName] = useState("");
-
-  const [creating, setCreating] = useState(false);
-
-  const [createError, setCreateError] = useState("");
-
-
-
-  const selections = getCategorySelections(group);
-
-  const hasSelection = selections.length > 0;
-
-
-
-  async function handleCreateService() {
-
-    if (!newServiceName.trim()) return;
-
-    setCreating(true);
-
-    setCreateError("");
-
-    const result = await createVendorService(eventId, group.slug, newServiceName);
-
-    setCreating(false);
-
-    if (result.error) {
-
-      setCreateError(result.error);
-
-      return;
-
+function CustomServiceInlineEdit({
+  icon,
+  name,
+  creating,
+  onIconChange,
+  onNameChange,
+  onSave,
+  onCancel,
+}: {
+  icon: IconKey;
+  name: string;
+  creating: boolean;
+  onIconChange: (icon: IconKey) => void;
+  onNameChange: (name: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+
+  useEffect(() => {
+    function handleMouseDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (rowRef.current?.contains(target)) return;
+      const popoverContent = document.querySelector('[data-slot="popover-content"]');
+      if (popoverContent?.contains(target)) return;
+      onCancel();
     }
 
-    setNewServiceName("");
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [onCancel]);
 
-    setShowNewService(false);
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onCancel();
+    }
 
-    onServiceCreated();
-
-  }
-
-
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onCancel]);
 
   return (
-
-    <div className="min-w-0 flex-1 space-y-[var(--dash-section-gap,3rem)]">
-
-      <header className="space-y-6 pb-2">
-
-        <div className="flex flex-wrap items-start justify-between gap-4">
-
-          <div className="flex items-center gap-3">
-
-            <span className="text-xl leading-none" aria-hidden>
-
-              {group.icon}
-
-            </span>
-
-            <h2 className="vk-section-title">{group.label}</h2>
-
-          </div>
-
-          {canManage && onRemoveCategory ? (
-
-            <button
-
-              type="button"
-
-              disabled={removingCategory}
-
-              onClick={onRemoveCategory}
-
-              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--vk-text-muted)] transition-colors hover:text-red-600 disabled:opacity-50"
-
-            >
-
-              <Trash2 className="h-3.5 w-3.5" />
-
-              {ro.vendors.workspace.removeCategoryFromEvent}
-
-            </button>
-
-          ) : null}
-
-        </div>
-
-
-
-        {hasSelection ? (
-
-          <div className="space-y-5">
-
-            {selections.map((sel) => (
-
-              <ChoiceStripBlock
-
-                key={sel.offerId}
-
-                selection={sel}
-
-                group={group}
-
-                showServiceName={selections.length > 1}
-
-              />
-
-            ))}
-
-          </div>
-
-        ) : (
-
-          <UnselectedSummary group={group} />
-
-        )}
-
-      </header>
-
-
-
-      {canEdit && (
-
-        <div>
-
-          {!showNewService ? (
-
-            <button
-
-              type="button"
-
-              onClick={() => setShowNewService(true)}
-
-              className="inline-flex items-center gap-2 text-[13px] font-medium text-[var(--vk-text-secondary)] transition-colors hover:text-[var(--vk-text)]"
-
-            >
-
-              <Plus className="h-4 w-4 text-[var(--vk-dusty-rose)]" />
-
-              {ro.vendors.workspace.addService}
-
-            </button>
-
-          ) : (
-
-            <div className="flex flex-wrap items-center gap-3">
-
-              <input
-
-                value={newServiceName}
-
-                onChange={(e) => setNewServiceName(e.target.value)}
-
-                placeholder={ro.vendors.workspace.serviceNamePlaceholder}
-
-                autoFocus
-
-                onKeyDown={(e) => {
-
-                  if (e.key === "Enter") void handleCreateService();
-
-                  if (e.key === "Escape") setShowNewService(false);
-
-                }}
-
-                className="h-10 w-full max-w-sm border-0 border-b border-[var(--vk-hairline)] bg-transparent px-0 text-[14px] outline-none transition-colors focus:border-[var(--vk-dusty-rose)]"
-
-              />
-
+    <div
+      ref={rowRef}
+      className="inline-flex min-w-[min(100%,18rem)] flex-1 items-center gap-2 rounded-[10px] border border-border-rose-18 bg-white px-2 py-1.5 shadow-sm"
+    >
+      <Popover open={iconPickerOpen} onOpenChange={setIconPickerOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            disabled={creating}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-border-rose-18 bg-[var(--dash-blush)]/10"
+            aria-label="Alege iconița"
+          >
+            <EmojiIcon icon={icon} size="sm" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-[9.5rem] p-2">
+          <div className="grid grid-cols-4 gap-1">
+            {ALL_ICON_KEYS.map((key) => (
               <button
-
+                key={key}
                 type="button"
-
-                disabled={creating || newServiceName.trim().length < 2}
-
-                onClick={() => void handleCreateService()}
-
-                className="text-[13px] font-medium text-[var(--vk-text)] underline-offset-4 hover:underline disabled:opacity-40"
-
+                onClick={() => {
+                  onIconChange(key);
+                  setIconPickerOpen(false);
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-[6px] border border-transparent transition-colors hover:border-border-rose-18 hover:bg-[var(--dash-blush)]/20"
+                aria-label={ICON_REGISTRY[key].labelRo}
               >
-
-                {creating ? ro.vendors.workspace.saving : ro.vendors.workspace.saveService}
-
+                <EmojiIcon icon={key} size="sm" />
               </button>
-
-              {createError ? (
-
-                <p className="w-full text-[13px] text-red-600">{createError}</p>
-
-              ) : null}
-
-            </div>
-
-          )}
-
-        </div>
-
-      )}
-
-
-
-      {group.services.length === 0 ? (
-
-        <div className="py-16 text-center">
-
-          <p className="text-[15px] font-medium text-[var(--vk-text)]">
-
-            {ro.vendors.workspace.noServicesYet}
-
-          </p>
-
-        </div>
-
-      ) : (
-
-        <div className="space-y-14">
-
-          {group.services.map((serviceGroup) => (
-
-            <VendorServiceSection
-
-              key={serviceGroup.service.id}
-
-              eventId={eventId}
-
-              categorySlug={group.slug}
-
-              group={serviceGroup}
-
-              canEdit={canEdit}
-
-              onSelectPackage={onSelectPackage}
-
-              onAddVendor={onAddVendor}
-
-              onAddPackage={onAddPackage}
-
-              onUpdatePackage={onUpdatePackage}
-
-              onDeleteRow={onDeleteRow}
-
-            />
-
-          ))}
-
-        </div>
-
-      )}
-
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
+      <input
+        value={name}
+        onChange={(e) => onNameChange(e.target.value)}
+        placeholder={ro.vendors.workspace.customServiceNamePlaceholder}
+        autoFocus
+        disabled={creating}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onSave();
+        }}
+        className="h-8 min-w-0 flex-1 rounded-[8px] border border-[rgba(210,170,185,0.22)] bg-[#F3F3F5] px-2.5 text-xs text-[#1A0E14] outline-none focus-visible:border-[#B8516B]/40 focus-visible:ring-3 focus-visible:ring-[#B8516B]/10"
+      />
+      <button
+        type="button"
+        disabled={creating || name.trim().length < 2}
+        onClick={onSave}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] text-white shadow-primary-btn disabled:opacity-40"
+        aria-label={ro.vendors.workspace.saveService}
+      >
+        <Plus className="h-4 w-4" strokeWidth={2.5} />
+      </button>
     </div>
-
   );
-
 }
 
+function UnselectedSummary({ group }: { group: VendorCategoryGroup }) {
+  const serviceCount = group.services.length;
+  const offerCount = group.aggregateSummary.offerCount;
+  const { cheapest, premium } = findPriceExtremes(group.vendors);
+  const range = formatPriceRange(cheapest, premium);
+
+  const servicesLabel =
+    serviceCount === 1
+      ? `1 ${ro.vendors.workspace.serviceSingular}`
+      : `${serviceCount} ${ro.vendors.workspace.servicePlural}`;
+  const offersLabel =
+    offerCount === 1
+      ? `1 ${ro.vendors.workspace.offerSingular}`
+      : `${offerCount} ${ro.vendors.workspace.offerPlural}`;
+
+  return (
+    <div className="rounded-[18px] border border-dashed border-border-rose-18/40 bg-white/60 p-3 shadow-card">
+      <p className="text-[13px] text-[var(--dash-text-secondary)]">
+        {ro.vendors.workspace.choiceStripNoSelectionSummary
+          .replace("{services}", servicesLabel)
+          .replace("{offers}", offersLabel)}
+      </p>
+      {range ? (
+        <p className="mt-1 text-[12px] text-[var(--dash-text-secondary)]">
+          <span className="text-[var(--dash-text-muted)]">{ro.vendors.workspace.choiceStripRange}: </span>
+          {range}
+        </p>
+      ) : null}
+      {offerCount === 0 ? (
+        <p className="mt-1 text-[12px] text-[var(--dash-text-muted)]">{ro.vendors.workspace.noOffersHint}</p>
+      ) : null}
+    </div>
+  );
+}
+
+export function VendorCategoryWorkspace({
+  eventId,
+  group,
+  canEdit,
+  canManage,
+  removingCategory = false,
+  onSelectPackage,
+  onAddVendor,
+  onAddPackage,
+  onUpdatePackage,
+  onDeleteRow,
+  onRemoveCategory,
+  onServiceCreated,
+}: VendorCategoryWorkspaceProps) {
+  const [showNewService, setShowNewService] = useState(false);
+  const [templates, setTemplates] = useState<VendorServiceTemplate[]>([]);
+  const [customServiceEditing, setCustomServiceEditing] = useState(false);
+  const [customServiceIcon, setCustomServiceIcon] = useState<IconKey>("other");
+  const [newServiceName, setNewServiceName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
+
+  const selections = getCategorySelections(group);
+  const hasSelection = selections.length > 0;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetchServiceTemplates(group.slug).then((fetched) => {
+      if (!cancelled) setTemplates(fetched);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [group.slug]);
+
+  const resetCustomServiceEdit = useCallback(() => {
+    setCustomServiceEditing(false);
+    setCustomServiceIcon(getIconForVendorCategory(group.slug));
+    setNewServiceName("");
+  }, [group.slug]);
+
+  function closeNewServicePicker() {
+    setShowNewService(false);
+    resetCustomServiceEdit();
+    setCreateError("");
+  }
+
+  function openNewServicePicker() {
+    setShowNewService(true);
+    setCreateError("");
+    if (templates.length === 0) {
+      setCustomServiceEditing(true);
+      setCustomServiceIcon(getIconForVendorCategory(group.slug));
+      setNewServiceName("");
+    } else {
+      resetCustomServiceEdit();
+    }
+  }
+
+  async function handleCreateService(name?: string) {
+    const serviceName = (name ?? newServiceName).trim();
+    if (serviceName.length < 2) return;
+    setCreating(true);
+    setCreateError("");
+    const result = await createVendorService(eventId, group.slug, serviceName);
+    setCreating(false);
+    if (result.error) {
+      setCreateError(result.error);
+      return;
+    }
+    closeNewServicePicker();
+    onServiceCreated();
+  }
+
+  async function handleCreateFromTemplate(template: VendorServiceTemplate) {
+    if (creating) return;
+    await handleCreateService(template.label_key);
+  }
+
+  return (
+    <div className="glass-panel min-w-0 flex-1 space-y-6 rounded-[18px] border bg-white/70 p-5 shadow-card backdrop-blur-md">
+      <header className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border border-border-rose-18/30 bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] shadow-sm">
+              <EmojiIcon icon={getIconForVendorCategory(group.slug)} size="lg" />
+            </span>
+            <div>
+              <h2 className="text-[1.375rem] font-semibold tracking-[-0.022em] text-[var(--dash-text)]">
+                {group.label}
+              </h2>
+              <p className="mt-0.5 text-[0.8125rem] text-[var(--dash-text-secondary)]">
+                {group.services.length}{" "}
+                {group.services.length === 1
+                  ? ro.vendors.workspace.serviceSingular
+                  : ro.vendors.workspace.servicePlural}{" "}
+                · {group.aggregateSummary.offerCount}{" "}
+                {group.aggregateSummary.offerCount === 1
+                  ? ro.vendors.workspace.offerSingular
+                  : ro.vendors.workspace.offerPlural}
+              </p>
+            </div>
+          </div>
+          {canManage && onRemoveCategory ? (
+            <button
+              type="button"
+              disabled={removingCategory}
+              onClick={onRemoveCategory}
+              className="inline-flex items-center gap-1.5 rounded-[10px] px-2 py-1.5 text-[12px] font-medium text-[var(--dash-text-muted)] transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {ro.vendors.workspace.removeCategoryFromEvent}
+            </button>
+          ) : null}
+        </div>
+
+        {hasSelection ? (
+          <div className="flex flex-row flex-wrap gap-2">
+            {selections.map((sel) => (
+              <SelectionPanel
+                key={sel.offerId}
+                selection={sel}
+                group={group}
+                showServiceName={selections.length > 1}
+              />
+            ))}
+          </div>
+        ) : (
+          <UnselectedSummary group={group} />
+        )}
+      </header>
+
+      {canEdit && (
+        <div className="glass-panel rounded-[18px] border bg-white/95 p-3 shadow-card">
+          {!showNewService ? (
+            <button
+              type="button"
+              onClick={openNewServicePicker}
+              className="flex items-center gap-2 rounded-[10px] px-2 py-1.5 text-xs font-semibold text-[var(--dash-text-secondary)] transition-colors hover:bg-[var(--dash-blush)]/20 hover:text-[var(--dash-accent-text)]"
+            >
+              <Plus className="h-3.5 w-3.5 text-[var(--dash-accent-text)]" />
+              {ro.vendors.workspace.addService}
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {templates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    disabled={creating || customServiceEditing}
+                    onClick={() => void handleCreateFromTemplate(template)}
+                    className={SERVICE_CARD_CLASS}
+                  >
+                    <EmojiIcon icon={resolveTemplateIcon(template.icon_key)} size="sm" />
+                    {template.label_key}
+                  </button>
+                ))}
+                {customServiceEditing ? (
+                  <CustomServiceInlineEdit
+                    icon={customServiceIcon}
+                    name={newServiceName}
+                    creating={creating}
+                    onIconChange={setCustomServiceIcon}
+                    onNameChange={setNewServiceName}
+                    onSave={() => void handleCreateService()}
+                    onCancel={resetCustomServiceEdit}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    disabled={creating}
+                    onClick={() => {
+                      setCustomServiceEditing(true);
+                      setCustomServiceIcon(getIconForVendorCategory(group.slug));
+                      setNewServiceName("");
+                      setCreateError("");
+                    }}
+                    className={CUSTOM_SERVICE_CARD_CLASS}
+                  >
+                    <EmojiIcon icon={getIconForVendorCategory(group.slug)} size="sm" />
+                    {ro.vendors.workspace.customService}
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                disabled={creating}
+                onClick={closeNewServicePicker}
+                className="text-xs font-medium text-[var(--dash-text-muted)] transition-colors hover:text-[var(--dash-text-secondary)] disabled:opacity-50"
+              >
+                {ro.vendors.workspace.cancelService}
+              </button>
+              {createError ? (
+                <p className="text-[12px] text-red-600">{createError}</p>
+              ) : null}
+            </div>
+          )}
+        </div>
+      )}
+
+      {group.services.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-[24px] border border-dashed border-border-rose-18/40 bg-white/40 py-16 text-center shadow-card">
+          <p className="text-sm font-semibold text-[var(--dash-text)]">
+            {ro.vendors.workspace.noServicesYet}
+          </p>
+          {canEdit ? (
+            <button
+              type="button"
+              onClick={openNewServicePicker}
+              className="mt-4 text-xs font-semibold text-[var(--dash-accent-text)] hover:underline"
+            >
+              {ro.vendors.workspace.addService}
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {group.services.map((serviceGroup) => (
+            <VendorServiceSection
+              key={serviceGroup.service.id}
+              eventId={eventId}
+              categorySlug={group.slug}
+              group={serviceGroup}
+              canEdit={canEdit}
+              onSelectPackage={onSelectPackage}
+              onAddVendor={onAddVendor}
+              onAddPackage={onAddPackage}
+              onUpdatePackage={onUpdatePackage}
+              onDeleteRow={onDeleteRow}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

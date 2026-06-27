@@ -753,6 +753,7 @@ function FootprintScaledTable({
       onDrop={onDrop}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      data-table-footprint
       className={cn(
         "table-visual-collision-host group relative flex cursor-pointer items-center justify-center select-none rounded-sm transition-shadow duration-150",
         isLocked && "cursor-default",
@@ -779,6 +780,7 @@ function FootprintScaledTable({
         </div>
       )}
       <div
+        data-table-footprint-inner
         className="flex items-center justify-center"
         style={{
           width: visualWidthPx,
@@ -917,6 +919,7 @@ export function TableVisual({
 
     return (
       <div
+        data-table-footprint
         role="button"
         tabIndex={0}
         onClick={onClick}

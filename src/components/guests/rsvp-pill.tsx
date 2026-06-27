@@ -71,26 +71,38 @@ export function RsvpPill({ status, onChange, readonly, isSyncing }: RsvpPillProp
     return () => document.removeEventListener("mousedown", handleClick);
   }, [isOpen]);
 
+  const pillClassName = cn(
+    "inline-flex items-center gap-1.5 rounded-[7px] border px-2 py-0.5 text-[10.5px] font-semibold tracking-wide transition-all duration-300 ease-out shadow-[0_1px_2px_rgba(180,100,120,0.02)]",
+    config.bg,
+    config.text,
+    config.border,
+    !readonly && "cursor-pointer hover:shadow-[0_2px_8px_rgba(180,100,120,0.04)] hover:scale-[1.02] active:scale-95",
+    isSyncing && "animate-soft-pulse opacity-85"
+  );
+
+  const pillContent = (
+    <>
+      <span className={cn("h-1.5 w-1.5 rounded-full animate-pulse", config.dot)} />
+      {config.label}
+    </>
+  );
+
+  if (readonly) {
+    return <span className={pillClassName}>{pillContent}</span>;
+  }
+
   return (
     <>
       <button
         ref={triggerRef}
         type="button"
         onClick={() => {
-          if (!readonly) {
-            if (!isOpen) updateCoords();
-            setIsOpen(!isOpen);
-          }
+          if (!isOpen) updateCoords();
+          setIsOpen(!isOpen);
         }}
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-[7px] border px-2 py-0.5 text-[10.5px] font-semibold tracking-wide transition-all duration-300 ease-out shadow-[0_1px_2px_rgba(180,100,120,0.02)]",
-          config.bg, config.text, config.border,
-          !readonly && "cursor-pointer hover:shadow-[0_2px_8px_rgba(180,100,120,0.04)] hover:scale-[1.02] active:scale-95",
-          isSyncing && "animate-soft-pulse opacity-85"
-        )}
+        className={pillClassName}
       >
-        <span className={cn("h-1.5 w-1.5 rounded-full animate-pulse", config.dot)} />
-        {config.label}
+        {pillContent}
       </button>
 
       {isOpen && mounted && coords && createPortal(

@@ -7,8 +7,6 @@ import {
   Plus,
   Wand2,
   Download,
-  ImageIcon,
-  FileText,
   Printer,
   LayoutGrid,
   List,
@@ -18,6 +16,7 @@ import {
   Users,
   Lock,
   Unlock,
+  Layers,
 } from "lucide-react";
 
 import { autoSeatGuestsAction } from "@/app/(dashboard)/dashboard/events/[id]/seating/actions";
@@ -29,8 +28,8 @@ type SeatingToolbarProps = {
   totalGuests: number;
   totalCapacity: number;
   onAddTable: () => void;
-  onExportPng: () => void;
-  onExportPdf: () => void;
+  onOpenExport: () => void;
+  onOpenLayouts: () => void;
   printSort: "alpha" | "table";
   onTogglePrintSort: () => void;
   globalLock: boolean;
@@ -43,6 +42,7 @@ type SeatingToolbarProps = {
   viewMode?: "canvas" | "list";
   onViewModeChange?: (mode: "canvas" | "list") => void;
   onToggleWorkspaceMode?: () => void;
+  previewMode?: boolean;
 };
 
 export function SeatingToolbar({
@@ -51,8 +51,8 @@ export function SeatingToolbar({
   totalGuests,
   totalCapacity,
   onAddTable,
-  onExportPng,
-  onExportPdf,
+  onOpenExport,
+  onOpenLayouts,
   printSort,
   onTogglePrintSort,
   globalLock,
@@ -63,10 +63,11 @@ export function SeatingToolbar({
   viewMode = "canvas",
   onViewModeChange,
   onToggleWorkspaceMode,
+  previewMode = false,
 }: SeatingToolbarProps) {
   const router = useRouter();
   const [assigning, setAssigning] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showPrintMenu, setShowPrintMenu] = useState(false);
   const [showAutoSeatMenu, setShowAutoSeatMenu] = useState(false);
   const [strategy, setStrategy] = useState<"family" | "even">("family");
 
@@ -245,11 +246,14 @@ export function SeatingToolbar({
 
       <button
         type="button"
-        onClick={onToggleGlobalLock}
+        onClick={previewMode ? undefined : onToggleGlobalLock}
+        disabled={previewMode}
         title={
-          globalLock
-            ? "Deblochează editarea layout-ului"
-            : "Blochează mutarea/redimensionarea meselor"
+          previewMode
+            ? "Indisponibil în previzualizare"
+            : globalLock
+              ? "Deblochează editarea layout-ului"
+              : "Blochează mutarea/redimensionarea meselor"
         }
         style={{
           display: "flex",
@@ -267,7 +271,8 @@ export function SeatingToolbar({
             ? "linear-gradient(145deg, #FEF0F3, #FCE8EE)"
             : "rgba(255,255,255,0.7)",
           color: globalLock ? "#B8516B" : "#8A7080",
-          cursor: "pointer",
+          cursor: previewMode ? "not-allowed" : "pointer",
+          opacity: previewMode ? 0.45 : 1,
           flexShrink: 0,
         }}
       >
@@ -295,7 +300,8 @@ export function SeatingToolbar({
           <div style={{ position: "relative" }}>
             <button
               type="button"
-              onClick={() => setShowAutoSeatMenu(!showAutoSeatMenu)}
+              onClick={previewMode ? undefined : () => setShowAutoSeatMenu(!showAutoSeatMenu)}
+              disabled={previewMode}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -305,7 +311,8 @@ export function SeatingToolbar({
                 background: "linear-gradient(135deg, #E8748A, #B8516B)",
                 color: "white",
                 border: "none",
-                cursor: "pointer",
+                cursor: previewMode ? "not-allowed" : "pointer",
+                opacity: previewMode ? 0.45 : 1,
                 fontSize: 12,
                 fontWeight: 700,
                 fontFamily: "Inter, sans-serif",
@@ -407,7 +414,8 @@ export function SeatingToolbar({
           </div>
           <button
             type="button"
-            onClick={onAddTable}
+            onClick={previewMode ? undefined : onAddTable}
+            disabled={previewMode}
             style={{
               display: "flex",
               alignItems: "center",
@@ -417,7 +425,8 @@ export function SeatingToolbar({
               background: "transparent",
               border: "none",
               color: "#8A7080",
-              cursor: "pointer",
+              cursor: previewMode ? "not-allowed" : "pointer",
+              opacity: previewMode ? 0.45 : 1,
               fontSize: 12,
               fontWeight: 500,
               fontFamily: "Inter, sans-serif",
@@ -434,15 +443,17 @@ export function SeatingToolbar({
       {/* Right actions */}
       <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }}>
         <GhostBtn icon={<Share2 size={13} />} label="Partajează" onClick={handleShare} />
+        <GhostBtn icon={<Layers size={13} />} label="Layout-uri" onClick={onOpenLayouts} />
+        <GhostBtn icon={<Download size={13} />} label="Exportă" onClick={onOpenExport} />
         <div style={{ position: "relative" }}>
           <GhostBtn
-            icon={<Download size={13} />}
-            label="Exportă"
-            onClick={() => setShowExportMenu(!showExportMenu)}
+            icon={<Printer size={13} />}
+            label="Print"
+            onClick={() => setShowPrintMenu(!showPrintMenu)}
           />
-          {showExportMenu && (
+          {showPrintMenu && (
             <>
-              <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setShowExportMenu(false)} />
+              <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setShowPrintMenu(false)} />
               <div
                 style={{
                   position: "absolute",
@@ -450,7 +461,7 @@ export function SeatingToolbar({
                   right: 0,
                   zIndex: 50,
                   marginTop: 8,
-                  width: 180,
+                  width: 220,
                   background: "white",
                   borderRadius: 12,
                   border: "1px solid rgba(210,170,185,0.25)",
@@ -461,19 +472,11 @@ export function SeatingToolbar({
                   gap: 2,
                 }}
               >
-                <button type="button" onClick={() => { onExportPng(); setShowExportMenu(false); }} style={dropdownItemStyle}>
-                  <ImageIcon size={13} />
-                  Exportă PNG
-                </button>
-                <button type="button" onClick={() => { onExportPdf(); setShowExportMenu(false); }} style={dropdownItemStyle}>
-                  <FileText size={13} />
-                  Exportă PDF
-                </button>
                 <button
                   type="button"
                   onClick={() => {
                     window.print();
-                    setShowExportMenu(false);
+                    setShowPrintMenu(false);
                   }}
                   style={dropdownItemStyle}
                 >
@@ -485,7 +488,7 @@ export function SeatingToolbar({
                   type="button"
                   onClick={() => {
                     onTogglePrintSort();
-                    setShowExportMenu(false);
+                    setShowPrintMenu(false);
                   }}
                   style={{ ...dropdownItemStyle, fontSize: 11, color: "#C4A8B4" }}
                 >

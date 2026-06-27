@@ -5,6 +5,8 @@ import { X, Phone, Mail, StickyNote, UtensilsCrossed, Trash2, Heart } from "luci
 import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
 import { RsvpPill } from "@/components/guests/rsvp-pill";
+import { EmojiIcon } from "@/components/ui/emoji-icon";
+import { getIconForGuestTag } from "@/lib/icons/registry";
 import { GUEST_TAGS } from "@/types/guests";
 import type { GuestWithTable, RsvpStatus, SeatingTableRow } from "@/types/guests";
 
@@ -366,7 +368,7 @@ function PanelContent({
                     isSyncing && "animate-soft-pulse"
                   )}
                 >
-                  <span className="leading-none text-[11px]">{tag.icon}</span>
+                  <EmojiIcon icon={getIconForGuestTag(tag.value)} size="sm" className="shrink-0" />
                   <span className="tracking-wide">{tag.label}</span>
                 </button>
               );

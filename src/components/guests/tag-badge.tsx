@@ -1,5 +1,7 @@
 "use client";
 
+import { EmojiIcon } from "@/components/ui/emoji-icon";
+import { getIconForGuestTag } from "@/lib/icons/registry";
 import { cn } from "@/lib/utils";
 import { getTagConfig } from "@/types/guests";
 import { X } from "lucide-react";
@@ -36,7 +38,7 @@ export function TagBadge({ tag, size = "sm", onRemove }: TagBadgeProps) {
         onRemove && "hover:scale-[1.03] active:scale-95 cursor-default"
       )}
     >
-      <span className="leading-none text-[10.5px]">{config.icon}</span>
+      <EmojiIcon icon={getIconForGuestTag(tag)} size="sm" className="shrink-0" />
       <span className="tracking-wide">{config.label}</span>
       {onRemove && (
         <button

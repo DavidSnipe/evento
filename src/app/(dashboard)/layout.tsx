@@ -29,7 +29,7 @@ export default async function DashboardLayout({
   return (
     <div
       className={cn(
-        "dashboard-shell flex min-h-screen bg-[var(--dash-ivory)]",
+        "dashboard-shell flex bg-[var(--dash-ivory)]",
         GeistSans.variable,
         GeistSans.className
       )}
@@ -45,9 +45,9 @@ export default async function DashboardLayout({
 
       <main className="flex-1 overflow-y-auto print:overflow-visible dashboard-main-container">
         {/* Mobile Top Bar */}
-        <div className="sticky top-0 z-40 flex items-center justify-between px-5 glass-toolbar md:hidden print:hidden mobile-top-bar">
+        <div className="sticky top-0 z-40 flex items-center justify-between border-b border-[var(--dash-hairline)] bg-[var(--dash-ivory)]/90 px-5 py-3 backdrop-blur-md md:hidden print:hidden mobile-top-bar">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#E8748A] to-[#AA3F58] text-white shadow-[0_2px_8px_rgba(184,81,107,0.18)]">
+            <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[var(--dash-blush)]/50 text-[var(--dash-accent-text)]">
               <svg
                 className="h-4 w-4"
                 viewBox="0 0 24 24"
@@ -57,11 +57,11 @@ export default async function DashboardLayout({
               </svg>
             </div>
             <div>
-              <p className="font-sans text-sm font-semibold leading-none text-[#1A0E14]">
+              <p className="text-sm font-semibold leading-none tracking-[-0.012em] text-[var(--dash-text)]">
                 Evento
               </p>
               {activeEvent ? (
-                <p className="max-w-[180px] truncate text-[10px] text-text-secondary mt-0.5 font-medium">
+                <p className="mt-0.5 max-w-[180px] truncate text-[10px] font-medium text-[var(--dash-text-secondary)]">
                   {activeEvent.title}
                 </p>
               ) : null}

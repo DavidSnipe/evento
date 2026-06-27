@@ -12,6 +12,10 @@ export type EventRow = {
   rsvp_slug: string | null;
   /** Secret token for live ICS calendar subscription (after migration 017) */
   calendar_subscription_token?: string | null;
+  /** Seating planner room width in meters (migration 025) */
+  seating_room_width_m?: number | null;
+  /** Seating planner room height in meters (migration 025) */
+  seating_room_height_m?: number | null;
   created_at: string;
   updated_at: string;
 };

@@ -6,7 +6,7 @@ import {
 } from "@/components/collaboration/invite-accept-client";
 import { getCollaboratorInviteByToken } from "@/lib/collaboration/queries";
 import { normalizeCollaboratorEmail } from "@/lib/collaboration/validation";
-import { createClient } from "@/lib/supabase/server";
+import { getServerUser } from "@/lib/supabase/server-auth";
 import { ro } from "@/lib/i18n/ro";
 
 type InvitePageProps = {
@@ -21,10 +21,7 @@ export default async function CollaboratorInvitePage({ params }: InvitePageProps
     notFound();
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getServerUser();
 
   const eventTitle = invite.event?.title ?? ro.collaboration.invite.unknownEvent;
   const roleLabel =

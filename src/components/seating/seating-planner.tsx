@@ -17,17 +17,38 @@ import {
   Maximize,
   Minimize,
   Lock,
+  Eye,
+  Loader2,
 } from "lucide-react";
 
 import {
   assignGuestFromSeating,
   unassignGuest,
   autoSeatGuestsAction,
-  initializeConcentricOnboarding,
+  clearSeatingLayout,
   applyRoomTemplate,
+  generateTemplateLayout,
   type TableFormState
 } from "@/app/(dashboard)/dashboard/events/[id]/seating/actions";
+import { activateSeatingSnapshot, upsertCurrentPlanSnapshot } from "@/app/(dashboard)/dashboard/events/[id]/seating/layout-actions";
 import { AddTableDialog } from "@/components/seating/add-table-dialog";
+import { GuestListExportDialog } from "@/components/seating/export/guest-list-export-dialog";
+import { LayoutSidebar, LAYOUT_SIDEBAR_WIDTH } from "@/components/seating/layout-sidebar";
+import { LayoutAutosaveBadge } from "@/components/seating/layout-autosave-badge";
+import {
+  TemplateWizard,
+  isTemplateWizardDismissed,
+  markTemplateWizardDismissed,
+  type TemplateWizardConfig,
+  type TemplateWizardSpacing,
+  type TemplateWizardTemplate,
+} from "@/components/seating/template-wizard";
+import { calculateTemplateLayout } from "@/lib/seating/template-generator";
+import { useLayoutAutosave } from "@/components/seating/use-layout-autosave";
+import {
+  captureFloorPlanPreview,
+  downloadFloorPlanExport,
+} from "@/components/seating/export/export-floor-plan";
 import { GuestSidebar } from "@/components/seating/guest-sidebar";
 import { SeatingToolbar } from "@/components/seating/seating-toolbar";
 import { TableAssignView } from "@/components/seating/table-assign-view";
@@ -35,41 +56,49 @@ import {
   TableDetailPanel,
   type PlannerTableActions,
 } from "@/components/seating/table-detail-panel";
+import {
+  TableResizeHandles,
+  type TableResizeCommitPayload,
+} from "@/components/seating/table-resize-handles";
 import { TableVisual } from "@/components/seating/table-visual";
 import {
   PlannerAssistOverlay,
   type PlannerAssistOverlayHandle,
 } from "@/components/seating/planner-assist-overlay";
 import { buildPlannerSpatialItems } from "@/lib/seating/build-planner-spatial-items";
+import { buildMetadataNotesUpdate } from "@/lib/seating/planner-mutations";
 import {
   computeDragAssist,
-  hasFootprintCollisionAt,
   SpatialHashGrid,
   type PlannerSpatialItem,
 } from "@/lib/seating/planner-spatial-assist";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import type { TableWithGuests } from "@/lib/seating/queries";
+import type { LocalPlannerTable } from "@/lib/seating/planner-table-state";
+import { snapshotTablesToPlannerTables } from "@/lib/seating/snapshot-preview";
+import { RoomSizePopover } from "@/components/seating/room-size-popover";
 import { usePlannerTables } from "@/components/seating/use-planner-tables";
 import {
-  CANVAS_HEIGHT_PX,
-  CANVAS_WIDTH_PX,
   clientPointToCanvasPx,
+  canvasPxToStoredPx,
+  formatMeters,
   GRID_CELL_PX,
+  isFootprintOutsideRoom,
   PIXELS_PER_METER,
+  resolveSpatialLayout,
   snapPointPx,
   WORKSPACE_PAD_PX,
 } from "@/lib/seating/spatial";
 import {
   getTableFootprintPx,
-  ROUND_TABLE_FOOTPRINT_M,
 } from "@/lib/seating/table-spatial";
 import { canAssignGuestToTable, canMoveTable } from "@/lib/seating/planner-lock";
 import { getNotesText, parseMetadata } from "@/lib/seating/utils";
 import { toggleRectangularOrientation } from "@/lib/seating/table-rotation";
 import { ro } from "@/lib/i18n/ro";
 import { cn } from "@/lib/utils";
+import type { TableWithGuests } from "@/lib/seating/queries";
 import type { GuestWithTable } from "@/types/guests";
+import type { SeatingLayoutSnapshot } from "@/types/seating";
 
 type TableDragStopData = {
   node: HTMLElement;
@@ -97,6 +126,20 @@ const PAN_EDGE_MARGIN = 48;
 const preventNativeDrag = (e: React.SyntheticEvent) => {
   e.preventDefault();
 };
+
+function computeTablesContentBounds(tables: TableWithGuests[]): { maxX: number; maxY: number } {
+  let maxX = 0;
+  let maxY = 0;
+
+  for (const table of tables) {
+    const meta = parseMetadata(table.notes);
+    const fp = getTableFootprintPx(meta, meta.customShape ?? table.shape);
+    maxX = Math.max(maxX, (table.pos_x ?? 0) + fp.footprintWidthPx);
+    maxY = Math.max(maxY, (table.pos_y ?? 0) + fp.footprintHeightPx);
+  }
+
+  return { maxX, maxY };
+}
 
 function canTableAccommodateGuest(
   table: TableWithGuests,
@@ -157,6 +200,9 @@ type SeatingPlannerProps = {
   tables: TableWithGuests[];
   unassigned: GuestWithTable[];
   allGuests: GuestWithTable[];
+  totalConfirmedGuests: number;
+  roomWidthM: number;
+  roomHeightM: number;
 };
 
 export function SeatingPlanner({
@@ -164,6 +210,9 @@ export function SeatingPlanner({
   tables,
   unassigned,
   allGuests,
+  totalConfirmedGuests,
+  roomWidthM: initialRoomWidthM,
+  roomHeightM: initialRoomHeightM,
 }: SeatingPlannerProps) {
   const router = useRouter();
   const isMountedRef = useRef(true);
@@ -181,20 +230,103 @@ export function SeatingPlanner({
     updateTableName,
     updateTableNotes,
     moveTableOnCanvas,
+    runTableMutation,
     deleteTableOptimistic,
     resolveMutationTarget,
   } = usePlannerTables(eventId, tables, allGuests, unassigned);
+
+  const [roomWidthM, setRoomWidthM] = useState(initialRoomWidthM);
+  const [roomHeightM, setRoomHeightM] = useState(initialRoomHeightM);
+  const [previewSnapshot, setPreviewSnapshot] = useState<SeatingLayoutSnapshot | null>(null);
+  const [activatingPreview, setActivatingPreview] = useState(false);
+  const [previewFeedback, setPreviewFeedback] = useState<{
+    message: string;
+    variant: "success" | "warning" | "error";
+  } | null>(null);
+
+  useEffect(() => {
+    setRoomWidthM(initialRoomWidthM);
+    setRoomHeightM(initialRoomHeightM);
+  }, [initialRoomWidthM, initialRoomHeightM]);
+
+  const isPreviewMode = previewSnapshot !== null;
+
+  const previewTables = useMemo((): LocalPlannerTable[] | null => {
+    if (!previewSnapshot) return null;
+    return snapshotTablesToPlannerTables(previewSnapshot, eventId);
+  }, [previewSnapshot, eventId]);
+
+  const canvasTables = previewTables ?? localTables;
+  const canvasRoomWidthM = previewSnapshot?.room_width_m ?? roomWidthM;
+  const canvasRoomHeightM = previewSnapshot?.room_height_m ?? roomHeightM;
+
+  useEffect(() => {
+    if (!previewFeedback) return;
+    const timer = window.setTimeout(() => setPreviewFeedback(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [previewFeedback]);
+
+  const spatialLayout = useMemo(() => {
+    const contentBounds = computeTablesContentBounds(canvasTables);
+    return resolveSpatialLayout(
+      canvasRoomWidthM,
+      canvasRoomHeightM,
+      contentBounds.maxX,
+      contentBounds.maxY
+    );
+  }, [canvasTables, canvasRoomWidthM, canvasRoomHeightM]);
+
+  const spatialLayoutRef = useRef(spatialLayout);
+  useEffect(() => {
+    spatialLayoutRef.current = spatialLayout;
+  }, [spatialLayout]);
+
+  const hasOutOfRoomItems = useMemo(() => {
+    return canvasTables.some((table) => {
+      const meta = parseMetadata(table.notes);
+      const fp = getTableFootprintPx(meta, meta.customShape ?? table.shape);
+      return isFootprintOutsideRoom(
+        table.pos_x ?? 0,
+        table.pos_y ?? 0,
+        fp.footprintWidthPx,
+        fp.footprintHeightPx,
+        spatialLayout.roomWidthPx,
+        spatialLayout.roomHeightPx
+      );
+    });
+  }, [canvasTables, spatialLayout.roomWidthPx, spatialLayout.roomHeightPx]);
   
   // Viewport and Canvas references
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const captureFloorPlanPreviewRef = useRef<(() => Promise<string>) | null>(null);
+  const markLayoutDirtyRef = useRef<() => void>(() => {});
+  const markLayoutDirty = useCallback(() => {
+    markLayoutDirtyRef.current();
+  }, []);
 
   // Selected states
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
   const [draggingGuestId, setDraggingGuestId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [layoutSidebarOpen, setLayoutSidebarOpen] = useState(false);
+  const [layoutListRefreshKey, setLayoutListRefreshKey] = useState(0);
+  const layoutSidebarOpenRef = useRef(false);
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const wizardConfigRef = useRef<{
+    template: TemplateWizardTemplate | null;
+    guestsPerTable: number;
+    spacing: TemplateWizardSpacing;
+  }>({
+    template: null,
+    guestsPerTable: 8,
+    spacing: "normal",
+  });
+  const [newLayoutBusy, setNewLayoutBusy] = useState(false);
+  const initialWizardCheckedRef = useRef(false);
   const [mobileSidebar, setMobileSidebar] = useState<"guests" | null>(null);
   const [printSort, setPrintSort] = useState<"alpha" | "table">("table");
   const [viewMode, setViewMode] = useState<"canvas" | "list">("canvas");
@@ -240,6 +372,14 @@ export function SeatingPlanner({
     };
   }, []);
 
+  useEffect(() => {
+    if (!isMounted || initialWizardCheckedRef.current) return;
+    initialWizardCheckedRef.current = true;
+    if (tables.length === 0 && !isTemplateWizardDismissed(eventId)) {
+      setWizardOpen(true);
+    }
+  }, [isMounted, eventId, tables.length]);
+
   async function handleApplyTemplate(
     type: "ballroom" | "barn" | "garden" | "restaurant" | "long_hall",
     count: number
@@ -252,6 +392,7 @@ export function SeatingPlanner({
     const result = await applyRoomTemplate(eventId, type, count);
     setApplyingTemplate(false);
     if (result.success) {
+      markLayoutDirty();
       router.refresh();
     } else {
       alert(result.error || "A apărut o eroare la aplicarea șablonului.");
@@ -262,10 +403,6 @@ export function SeatingPlanner({
   const [workspaceMode, setWorkspaceMode] = useState(false);
   const [guestSidebarWidth, setGuestSidebarWidth] = useState(FIGMA_GUEST_SIDEBAR_WIDTH);
   const [guestSidebarCollapsed, setGuestSidebarCollapsed] = useState(false);
-
-  // Smart Onboarding states
-  const [onboardingSeats, setOnboardingSeats] = useState(10);
-  const [initializingOnboarding, setInitializingOnboarding] = useState(false);
 
   // Pan & Zoom states
   const [scale, setScale] = useState(1.0);
@@ -280,10 +417,14 @@ export function SeatingPlanner({
   const [cameraRevision, setCameraRevision] = useState(0);
   const cameraNotifyScheduledRef = useRef(false);
   const [globalLock, setGlobalLock] = useState(false);
+  const canvasResizingTableIdRef = useRef<string | null>(null);
+  const dragPositionRef = useRef<{ tableId: string; x: number; y: number } | null>(
+    null
+  );
 
   const spatialItems = useMemo(
-    () => buildPlannerSpatialItems(localTables),
-    [localTables]
+    () => buildPlannerSpatialItems(canvasTables),
+    [canvasTables]
   );
   const spatialGridRef = useRef(new SpatialHashGrid<PlannerSpatialItem>());
   const spatialItemByIdRef = useRef<Map<string, PlannerSpatialItem>>(new Map());
@@ -301,45 +442,64 @@ export function SeatingPlanner({
     spatialItemByIdRef.current = byId;
   }, [spatialItems]);
 
-  const handleDragAssistMove = useCallback(
-    (tableId: string, x: number, y: number) => {
-      const item = spatialItemByIdRef.current.get(tableId);
-      if (!item) return { selfColliding: false };
-
-      const assist = computeDragAssist(
-        tableId,
-        x,
-        y,
-        item.rect.width,
-        item.rect.height,
-        spatialGridRef.current
-      );
-
-      if (assistRafRef.current !== null) {
-        cancelAnimationFrame(assistRafRef.current);
-      }
-      assistRafRef.current = requestAnimationFrame(() => {
-        assistRafRef.current = null;
-        assistOverlayRef.current?.update(assist, tableId);
-      });
-
-      return { selfColliding: assist.collisionIds.length > 0 };
-    },
-    []
-  );
-
-  const checkTableDragCollision = useCallback((tableId: string, x: number, y: number) => {
+  const resolveTableDragMove = useCallback((tableId: string, x: number, y: number) => {
     const item = spatialItemByIdRef.current.get(tableId);
-    if (!item) return false;
-    return hasFootprintCollisionAt(
+    if (!item) return { valid: false };
+
+    const { roomWidthPx, roomHeightPx } = spatialLayoutRef.current;
+    const w = item.rect.width;
+    const h = item.rect.height;
+
+    const inRoomBounds = !isFootprintOutsideRoom(
+      x,
+      y,
+      w,
+      h,
+      roomWidthPx,
+      roomHeightPx
+    );
+
+    const assist = computeDragAssist(
       tableId,
       x,
       y,
-      item.rect.width,
-      item.rect.height,
+      w,
+      h,
       spatialGridRef.current
     );
+
+    if (assistRafRef.current !== null) {
+      cancelAnimationFrame(assistRafRef.current);
+    }
+    assistRafRef.current = requestAnimationFrame(() => {
+      assistRafRef.current = null;
+      assistOverlayRef.current?.update(assist, tableId);
+    });
+
+    return {
+      valid: inRoomBounds && assist.collisionIds.length === 0,
+    };
   }, []);
+
+  const checkResizeAssist = useCallback(
+    (
+      tableId: string,
+      posX: number,
+      posY: number,
+      footprintWidth: number,
+      footprintHeight: number
+    ) => {
+      return computeDragAssist(
+        tableId,
+        posX,
+        posY,
+        footprintWidth,
+        footprintHeight,
+        spatialGridRef.current
+      );
+    },
+    []
+  );
 
   const clearDragAssist = useCallback(() => {
     if (assistRafRef.current !== null) {
@@ -349,6 +509,14 @@ export function SeatingPlanner({
     draggingTableIdRef.current = null;
     assistOverlayRef.current?.clear();
   }, []);
+
+  useEffect(() => {
+    if (previewSnapshot) {
+      setSelectedTableId(null);
+      setSelectedGuestId(null);
+      clearDragAssist();
+    }
+  }, [previewSnapshot, clearDragAssist]);
 
   useEffect(() => {
     const overlay = assistOverlayRef.current;
@@ -379,7 +547,8 @@ export function SeatingPlanner({
   const getViewportScaleLimits = useCallback(() => {
     const W = viewportRef.current?.clientWidth ?? viewportDimRef.current.width;
     const H = viewportRef.current?.clientHeight ?? viewportDimRef.current.height;
-    const base = Math.min(W / CANVAS_WIDTH_PX, H / CANVAS_HEIGHT_PX);
+    const { canvasWidthPx, canvasHeightPx } = spatialLayoutRef.current;
+    const base = Math.min(W / canvasWidthPx, H / canvasHeightPx);
     const minScale = base * CANVAS_MIN_MULTIPLIER;
     const fitScale = base * CANVAS_FIT_MULTIPLIER;
     const maxScale = Math.max(CANVAS_MAX_SCALE, fitScale * 1.05);
@@ -427,11 +596,12 @@ export function SeatingPlanner({
       const by = -y / s;
       const bw = W / s;
       const bh = H / s;
+      const { canvasWidthPx, canvasHeightPx } = spatialLayoutRef.current;
 
-      miniMapBoxRef.current.style.left = `${(bx / CANVAS_WIDTH_PX) * 100}%`;
-      miniMapBoxRef.current.style.top = `${(by / CANVAS_HEIGHT_PX) * 100}%`;
-      miniMapBoxRef.current.style.width = `${(bw / CANVAS_WIDTH_PX) * 100}%`;
-      miniMapBoxRef.current.style.height = `${(bh / CANVAS_HEIGHT_PX) * 100}%`;
+      miniMapBoxRef.current.style.left = `${(bx / canvasWidthPx) * 100}%`;
+      miniMapBoxRef.current.style.top = `${(by / canvasHeightPx) * 100}%`;
+      miniMapBoxRef.current.style.width = `${(bw / canvasWidthPx) * 100}%`;
+      miniMapBoxRef.current.style.height = `${(bh / canvasHeightPx) * 100}%`;
     }
     if (zoomPercentTextRef.current) {
       zoomPercentTextRef.current.innerText = `${Math.round(s * 100)}%`;
@@ -451,8 +621,9 @@ export function SeatingPlanner({
   const clampPanPosition = (x: number, y: number, currentScale: number) => {
     const W = viewportRef.current?.clientWidth ?? 1000;
     const H = viewportRef.current?.clientHeight ?? 800;
-    const canvasW = CANVAS_WIDTH_PX * currentScale;
-    const canvasH = CANVAS_HEIGHT_PX * currentScale;
+    const { canvasWidthPx, canvasHeightPx } = spatialLayoutRef.current;
+    const canvasW = canvasWidthPx * currentScale;
+    const canvasH = canvasHeightPx * currentScale;
     const pad = WORKSPACE_PAD_PX * currentScale;
     const m = PAN_EDGE_MARGIN;
 
@@ -469,7 +640,7 @@ export function SeatingPlanner({
 
   const isPanBlockedTarget = (target: HTMLElement) =>
     !!target.closest(
-      ".draggable-table-wrapper, .seating-canvas-hud, .seating-canvas-overlay, button, select, input, textarea, a[href]"
+      ".draggable-table-wrapper, .table-resize-handles, .table-resize-handle, .seating-canvas-hud, .seating-canvas-overlay, button, select, input, textarea, a[href]"
     );
 
   const cancelZoomAnimation = () => {
@@ -599,17 +770,52 @@ export function SeatingPlanner({
     } catch {}
   };
 
-  // Concentric Onboarding trigger
-  const handleRunOnboarding = async () => {
-    setInitializingOnboarding(true);
-    const result = await initializeConcentricOnboarding(eventId, onboardingSeats);
-    setInitializingOnboarding(false);
-    if (result.success) {
+  // Concentric Onboarding trigger — replaced by template wizard (Prompt 3 wires generation)
+
+  const handleWizardSkip = useCallback(() => {
+    markTemplateWizardDismissed(eventId);
+    setWizardOpen(false);
+  }, [eventId]);
+
+  const handleWizardComplete = useCallback(
+    async (config: TemplateWizardConfig) => {
+      const nextConfig = {
+        template: config.template,
+        guestsPerTable: config.guestsPerTable,
+        spacing: config.spacing,
+      };
+      wizardConfigRef.current = nextConfig;
+      markTemplateWizardDismissed(eventId);
+
+      const elements = calculateTemplateLayout(
+        {
+          ...config,
+          totalConfirmedGuests,
+        },
+        roomWidthM,
+        roomHeightM
+      );
+
+      const result = await generateTemplateLayout(eventId, elements);
+      if (result.error) {
+        alert(result.error);
+        return;
+      }
+
+      markLayoutDirty();
+      setLayoutListRefreshKey((key) => key + 1);
       router.refresh();
-    } else {
-      alert(result.error || "A apărut o eroare la configurarea inițială.");
-    }
-  };
+      setWizardOpen(false);
+    },
+    [
+      eventId,
+      totalConfirmedGuests,
+      roomWidthM,
+      roomHeightM,
+      markLayoutDirty,
+      router,
+    ]
+  );
 
   // Auto-Seating animation state
   const [autoSeatingProgress, setAutoSeatingProgress] = useState<{ current: number; total: number; strategy: "family" | "even" } | null>(null);
@@ -665,15 +871,46 @@ export function SeatingPlanner({
   // Sort tables: Sweetheart tables first, then by sort_order
   const sortedTables = useMemo(
     () =>
-      [...localTables].sort((a, b) => {
+      [...canvasTables].sort((a, b) => {
     const metaA = parseMetadata(a.notes);
     const metaB = parseMetadata(b.notes);
     if (metaA.customShape === "sweetheart" && metaB.customShape !== "sweetheart") return -1;
     if (metaB.customShape === "sweetheart" && metaA.customShape !== "sweetheart") return 1;
     return a.sort_order - b.sort_order;
       }),
-    [localTables]
+    [canvasTables]
   );
+
+  const handleActivatePreview = useCallback(async () => {
+    if (!previewSnapshot) return;
+    setActivatingPreview(true);
+    const result = await activateSeatingSnapshot(eventId, previewSnapshot.id);
+    setActivatingPreview(false);
+
+    if (result.error) {
+      setPreviewFeedback({ message: result.error, variant: "error" });
+      return;
+    }
+
+    const tPanel = ro.seating.layoutSnapshots.panel;
+    if (result.unassigned > 0) {
+      setPreviewFeedback({
+        message: tPanel.activatedWarning
+          .replace("{remapped}", String(result.remapped))
+          .replace("{unassigned}", String(result.unassigned)),
+        variant: "warning",
+      });
+    } else {
+      setPreviewFeedback({
+        message: tPanel.activatedWithCurrentPlan,
+        variant: "success",
+      });
+    }
+
+    setLayoutListRefreshKey((key) => key + 1);
+    setPreviewSnapshot(null);
+    router.refresh();
+  }, [previewSnapshot, eventId, router]);
 
   // Client-side mobile detection
   useEffect(() => {
@@ -780,11 +1017,12 @@ export function SeatingPlanner({
     if (viewportRef.current) {
       const W = viewportRef.current.clientWidth;
       const H = viewportRef.current.clientHeight;
+      const { canvasWidthPx, canvasHeightPx } = spatialLayoutRef.current;
       
       const { fitScale, maxScale } = getViewportScaleLimits();
       const targetScale = Math.min(fitScale, maxScale);
-      const targetX = Math.round((W - CANVAS_WIDTH_PX * targetScale) / 2);
-      const targetY = Math.round((H - CANVAS_HEIGHT_PX * targetScale) / 2);
+      const targetX = Math.round((W - canvasWidthPx * targetScale) / 2);
+      const targetY = Math.round((H - canvasHeightPx * targetScale) / 2);
 
       targetScaleRef.current = targetScale;
       targetPanXRef.current = targetX;
@@ -939,8 +1177,8 @@ export function SeatingPlanner({
     const mx = Math.max(0, Math.min(rect.width, clientX - rect.left));
     const my = Math.max(0, Math.min(rect.height, clientY - rect.top));
     
-    const cx = (mx / rect.width) * CANVAS_WIDTH_PX;
-    const cy = (my / rect.height) * CANVAS_HEIGHT_PX;
+    const cx = (mx / rect.width) * spatialLayoutRef.current.canvasWidthPx;
+    const cy = (my / rect.height) * spatialLayoutRef.current.canvasHeightPx;
     
     const VW = viewportRef.current.clientWidth;
     const VH = viewportRef.current.clientHeight;
@@ -990,7 +1228,15 @@ export function SeatingPlanner({
     tempTables: TableWithGuests[],
     promise: Promise<TableFormState>
   ) => {
-    addTablesOptimistic(tempTables, promise);
+    addTablesOptimistic(
+      tempTables,
+      promise.then((result) => {
+        if (!result.error && (result.tables?.length ?? 0) > 0) {
+          markLayoutDirty();
+        }
+        return result;
+      })
+    );
     setShowAddDialog(false);
   };
 
@@ -1011,7 +1257,8 @@ export function SeatingPlanner({
       const factor = Math.pow(zoomFactor, e.deltaY < 0 ? zoomIntensity : -zoomIntensity);
       
       const rect = viewportRef.current.getBoundingClientRect();
-      const base = Math.min(rect.width / CANVAS_WIDTH_PX, rect.height / CANVAS_HEIGHT_PX);
+      const { canvasWidthPx, canvasHeightPx } = spatialLayoutRef.current;
+      const base = Math.min(rect.width / canvasWidthPx, rect.height / canvasHeightPx);
       const minScale = base * CANVAS_MIN_MULTIPLIER;
       const maxScale = Math.max(CANVAS_MAX_SCALE, base * CANVAS_FIT_MULTIPLIER * 1.05);
 
@@ -1058,6 +1305,7 @@ export function SeatingPlanner({
     const target = e.target as HTMLElement;
     if (
       target.closest(".draggable-table-wrapper") ||
+      target.closest(".table-resize-handles") ||
       target.closest("button") ||
       target.closest("select") ||
       target.closest("input")
@@ -1301,7 +1549,8 @@ export function SeatingPlanner({
       
       if (viewportRef.current) {
         const rect = viewportRef.current.getBoundingClientRect();
-        const base = Math.min(rect.width / CANVAS_WIDTH_PX, rect.height / CANVAS_HEIGHT_PX);
+        const { canvasWidthPx, canvasHeightPx } = spatialLayoutRef.current;
+        const base = Math.min(rect.width / canvasWidthPx, rect.height / canvasHeightPx);
         const minScale = base * CANVAS_MIN_MULTIPLIER;
         const maxScale = Math.max(CANVAS_MAX_SCALE, base * CANVAS_FIT_MULTIPLIER * 1.05);
         const nextScale = Math.min(Math.max(touchStartRef.current.scale * scaleRatio, minScale), maxScale);
@@ -1389,7 +1638,8 @@ export function SeatingPlanner({
             })
           );
         }
-      } else {
+      } else if (!canvasResizingTableIdRef.current) {
+        setLayoutSidebarOpen(false);
         setSelectedTableId((prev) => (prev === tableId ? null : tableId));
       }
     },
@@ -1413,6 +1663,9 @@ export function SeatingPlanner({
 
     const result = await moveTableOnCanvas(idOrKey, nextX, nextY);
     reportTableMutationError(result);
+    if (result.ok && !result.skipped) {
+      markLayoutDirty();
+    }
   };
 
   const handleAssignGuestFromList = useCallback(
@@ -1537,6 +1790,7 @@ export function SeatingPlanner({
           row?.shape ?? shape
         );
         reportTableMutationError(result);
+        if (result.ok && !result.skipped) markLayoutDirty();
       },
       onToggleRectOrientation: async () => {
         const row = resolveMutationTarget(mutationKey);
@@ -1550,10 +1804,12 @@ export function SeatingPlanner({
           row?.shape ?? shape
         );
         reportTableMutationError(result);
+        if (result.ok && !result.skipped) markLayoutDirty();
       },
       onDelete: async () => {
         const result = await deleteTableOptimistic(mutationKey);
         reportTableMutationError(result);
+        if (result.ok) markLayoutDirty();
         setSelectedTableId(null);
       },
       onUnassignGuest: handleRemoveGuestFromList,
@@ -1565,71 +1821,112 @@ export function SeatingPlanner({
     updateTableNotes,
     deleteTableOptimistic,
     handleRemoveGuestFromList,
+    markLayoutDirty,
   ]);
 
-  // High-Resolution Export with Layout Reset (Flicker-Free Clone Method)
-  async function exportAsImage(format: "png" | "pdf") {
-    if (!canvasRef.current) return;
-
-    const original = canvasRef.current;
-    
-    // Create an off-screen clone of the canvas
-    const clone = original.cloneNode(true) as HTMLDivElement;
-    clone.style.transform = "translate(0px, 0px) scale(1)";
-    clone.style.transition = "none";
-    
-    // Wrap it in a hidden container off-screen
-    const container = document.createElement("div");
-    container.style.position = "absolute";
-    container.style.left = "-9999px";
-    container.style.top = "-9999px";
-    container.style.width = `${CANVAS_WIDTH_PX}px`;
-    container.style.height = `${CANVAS_HEIGHT_PX}px`;
-    container.style.overflow = "hidden";
-    container.appendChild(clone);
-    document.body.appendChild(container);
-
-    try {
-      const [html2canvasModule, jspdfModule] = await Promise.all([
-        import("html2canvas-pro"),
-        import("jspdf")
-      ]);
-      const html2canvas = html2canvasModule.default;
-      const jsPDF = jspdfModule.jsPDF;
-
-      // Render clone canvas at 2x resolution
-      const canvasBg = getComputedStyle(document.documentElement).getPropertyValue("--ev-bg-canvas").trim() || "rgb(249,244,241)";
-      const canvas = await html2canvas(clone, {
-        backgroundColor: canvasBg,
-        scale: 2,
-        useCORS: true,
-        logging: false
-      });
-
-      if (format === "png") {
-        const link = document.createElement("a");
-        link.download = `aranjare-mese-${Date.now()}.png`;
-        link.href = canvas.toDataURL("image/png");
-        link.click();
-      } else {
-        const imgData = canvas.toDataURL("image/png");
-        const pdf = new jsPDF({
-          orientation: canvas.width > canvas.height ? "landscape" : "portrait",
-          unit: "px",
-          format: [canvas.width, canvas.height],
-        });
-        pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
-        pdf.save(`aranjare-mese-${Date.now()}.pdf`);
-      }
-    } catch (e) {
-      console.error("Export failure:", e);
-    } finally {
-      // Clean up off-screen clone container
-      if (document.body.contains(container)) {
-        document.body.removeChild(container);
-      }
+  const exportFloorPlan = useCallback(async (format: "png" | "pdf") => {
+    if (viewMode !== "canvas") {
+      throw new Error("Comutați la vizualizarea Plan pentru a exporta schema sălii.");
     }
-  }
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      throw new Error("Canvas indisponibil pentru export.");
+    }
+    await downloadFloorPlanExport(canvas, format);
+  }, [viewMode]);
+
+  const getFloorPlanCanvas = useCallback((): HTMLDivElement | null => {
+    if (viewMode !== "canvas") return null;
+    return canvasRef.current;
+  }, [viewMode]);
+
+  const captureFloorPlanPreviewUrl = useCallback(async (): Promise<string> => {
+    const canvas = getFloorPlanCanvas();
+    if (!canvas) {
+      throw new Error("Planul sălii nu este disponibil. Comutați la vizualizarea Plan.");
+    }
+    const result = await captureFloorPlanPreview(canvas);
+    return result.dataUrl;
+  }, [getFloorPlanCanvas]);
+
+  captureFloorPlanPreviewRef.current = captureFloorPlanPreviewUrl;
+
+  const handleNewLayout = useCallback(async () => {
+    if (newLayoutBusy) return;
+    setNewLayoutBusy(true);
+    try {
+      let thumbnail: string | undefined;
+      try {
+        thumbnail = await captureFloorPlanPreviewUrl();
+      } catch {
+        /* thumbnail optional */
+      }
+
+      const saveResult = await upsertCurrentPlanSnapshot(eventId, thumbnail);
+      if (saveResult.error) {
+        alert(saveResult.error);
+        return;
+      }
+      setLayoutListRefreshKey((key) => key + 1);
+
+      const clearResult = await clearSeatingLayout(eventId);
+      if (!clearResult.success) {
+        alert(clearResult.error || "Nu s-a putut crea un layout nou.");
+        return;
+      }
+
+      setLocalTables([]);
+      setLocalAllGuests((prev) => {
+        const cleared = prev.map((guest) => ({
+          ...guest,
+          table_id: null,
+          seating_tables: null,
+        }));
+        setLocalUnassigned(cleared);
+        return cleared;
+      });
+      setSelectedTableId(null);
+      setPreviewSnapshot(null);
+      setWizardOpen(true);
+      router.refresh();
+    } finally {
+      setNewLayoutBusy(false);
+    }
+  }, [
+    newLayoutBusy,
+    eventId,
+    captureFloorPlanPreviewUrl,
+    setLocalTables,
+    setLocalAllGuests,
+    setLocalUnassigned,
+    router,
+  ]);
+
+  const { markLayoutDirty: bindMarkLayoutDirty, status: autosaveStatus } =
+    useLayoutAutosave({
+      eventId,
+      previewSnapshot,
+      captureThumbnail: async () => {
+        const capture = captureFloorPlanPreviewRef.current;
+        if (!capture) {
+          throw new Error("Planul sălii nu este disponibil.");
+        }
+        return capture();
+      },
+      onAutosaveComplete: () => {
+        if (layoutSidebarOpenRef.current) {
+          setLayoutListRefreshKey((key) => key + 1);
+        }
+      },
+    });
+
+  useEffect(() => {
+    layoutSidebarOpenRef.current = layoutSidebarOpen;
+  }, [layoutSidebarOpen]);
+
+  useEffect(() => {
+    markLayoutDirtyRef.current = bindMarkLayoutDirty;
+  }, [bindMarkLayoutDirty]);
 
   // Subscribe children to live camera (DOM-driven); refs hold truth during pan/zoom
   void cameraRevision;
@@ -1644,6 +1941,83 @@ export function SeatingPlanner({
       scale: scaleRef.current,
     };
   }, []);
+
+  const setCanvasResizingTableId = useCallback((tableId: string | null) => {
+    canvasResizingTableIdRef.current = tableId;
+  }, []);
+
+  const handleResizeCommit = useCallback(
+    async (payload: TableResizeCommitPayload) => {
+      const row = resolveMutationTarget(payload.tableId);
+      if (!row) return;
+
+      const sizeChanged =
+        payload.widthM !== payload.initialWidthM ||
+        payload.heightM !== payload.initialHeightM;
+      const posChanged =
+        payload.posX !== payload.initialPosX ||
+        payload.posY !== payload.initialPosY;
+
+      if (!sizeChanged && !posChanged) return;
+
+      const notesText = getNotesText(row.notes);
+      const meta = parseMetadata(row.notes);
+      const shape = meta.customShape ?? row.shape;
+      const snappedPos = snapPointPx(payload.posX, payload.posY);
+
+      const result = await runTableMutation(
+        row.renderKey,
+        (t) => {
+          let next = t;
+          if (sizeChanged) {
+            next = {
+              ...next,
+              notes: buildMetadataNotesUpdate(
+                t.notes,
+                notesText,
+                { widthM: payload.widthM, heightM: payload.heightM },
+                shape
+              ),
+            };
+          }
+          if (posChanged) {
+            next = {
+              ...next,
+              pos_x: snappedPos.x,
+              pos_y: snappedPos.y,
+            };
+          }
+          return next;
+        },
+        () => {
+          const serverPayload: {
+            notes?: string;
+            pos_x?: number;
+            pos_y?: number;
+          } = {};
+          if (sizeChanged) {
+            serverPayload.notes = buildMetadataNotesUpdate(
+              row.notes,
+              notesText,
+              { widthM: payload.widthM, heightM: payload.heightM },
+              shape
+            );
+          }
+          if (posChanged) {
+            serverPayload.pos_x = canvasPxToStoredPx(snappedPos.x);
+            serverPayload.pos_y = canvasPxToStoredPx(snappedPos.y);
+          }
+          return serverPayload;
+        },
+        { skipPending: true }
+      );
+      reportTableMutationError(result);
+      if (sizeChanged && result.ok && !result.skipped) {
+        markLayoutDirty();
+      }
+    },
+    [resolveMutationTarget, runTableMutation, markLayoutDirty]
+  );
 
   return (
     <>
@@ -1709,8 +2083,18 @@ export function SeatingPlanner({
               totalGuests={localAllGuests.length}
               totalCapacity={totalCapacity}
               onAddTable={() => setShowAddDialog(true)}
-              onExportPng={() => exportAsImage("png")}
-              onExportPdf={() => exportAsImage("pdf")}
+              onOpenExport={() => setExportDialogOpen(true)}
+              onOpenLayouts={() => {
+                setLayoutSidebarOpen((prev) => {
+                  const next = !prev;
+                  if (next) {
+                    setSelectedTableId(null);
+                  } else {
+                    setPreviewSnapshot(null);
+                  }
+                  return next;
+                });
+              }}
               printSort={printSort}
               onTogglePrintSort={() => setPrintSort(s => s === "alpha" ? "table" : "alpha")}
               globalLock={globalLock}
@@ -1722,8 +2106,67 @@ export function SeatingPlanner({
               viewMode={viewMode}
               onViewModeChange={setViewMode}
               onToggleWorkspaceMode={() => setWorkspaceMode((prev) => !prev)}
+              previewMode={isPreviewMode}
             />
           </div>
+
+          {isPreviewMode && previewSnapshot ? (
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[rgba(210,170,185,0.35)] bg-[#FFFBF8] px-4 py-2.5 print:hidden z-[25]">
+              <div className="flex min-w-0 items-center gap-2">
+                <Eye className="h-4 w-4 shrink-0 text-[#B8516B]" />
+                <span className="truncate text-sm font-medium text-[#1A0E14]">
+                  {ro.seating.layoutSnapshots.sidebar.previewBanner.replace(
+                    "{name}",
+                    previewSnapshot.name
+                  )}
+                </span>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={activatingPreview}
+                  className="h-8 rounded-lg text-xs text-[#8A7080] hover:text-[#1A0E14]"
+                  onClick={() => setPreviewSnapshot(null)}
+                >
+                  {ro.seating.layoutSnapshots.sidebar.backToLivePlan}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={activatingPreview}
+                  className="h-8 rounded-lg bg-[#B8516B] text-xs font-semibold text-white hover:bg-[#9A4560]"
+                  onClick={() => void handleActivatePreview()}
+                >
+                  {activatingPreview ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      {ro.seating.layoutSnapshots.sidebar.activating}
+                    </>
+                  ) : (
+                    ro.seating.layoutSnapshots.sidebar.activateFromPreview
+                  )}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          {previewFeedback ? (
+            <div
+              className={cn(
+                "mx-4 mt-2 shrink-0 rounded-xl border px-3 py-2 text-xs font-medium print:hidden",
+                previewFeedback.variant === "error"
+                  ? "border-rose-200 bg-rose-50 text-rose-900"
+                  : previewFeedback.variant === "warning"
+                    ? "border-amber-200 bg-amber-50 text-amber-950"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-900"
+              )}
+              role="status"
+            >
+              {previewFeedback.message}
+            </div>
+          ) : null}
 
           {/* Mobile guest drawer toggle */}
           <div className={cn("flex gap-2 lg:hidden print:hidden", workspaceMode && "p-3 bg-white border-b border-slate-100")}>
@@ -1827,6 +2270,10 @@ export function SeatingPlanner({
                   "radial-gradient(ellipse at center, transparent 60%, rgba(200,160,170,0.08) 100%)",
               }}
             />
+            <LayoutAutosaveBadge
+              status={autosaveStatus}
+              hidden={isPreviewMode}
+            />
             {globalLock && (
               <div className="pointer-events-none absolute left-1/2 top-3 z-[25] -translate-x-1/2 print:hidden">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200/80 bg-white/90 px-3 py-1 text-[11px] font-semibold text-rose-700 shadow-sm backdrop-blur-sm">
@@ -1851,109 +2298,81 @@ export function SeatingPlanner({
             {/* The Actual transformed Floor Canvas */}
             <div
               ref={canvasRef}
-              className={cn(
-                "seating-canvas-surface absolute shadow-inner canvas-grid origin-top-left select-none",
-                showMeterGrid && "canvas-meter-grid"
-              )}
+              className="seating-canvas-surface absolute origin-top-left select-none overflow-visible"
               style={{
-                width: CANVAS_WIDTH_PX,
-                height: CANVAS_HEIGHT_PX,
+                width: spatialLayout.canvasWidthPx,
+                height: spatialLayout.canvasHeightPx,
                 ["--planner-grid-px" as string]: `${GRID_CELL_PX}px`,
                 ["--planner-meter-px" as string]: `${PIXELS_PER_METER}px`,
               }}
               onDragStart={preventNativeDrag}
+              onPointerDown={(e) => {
+                if (canvasResizingTableIdRef.current) return;
+                const target = e.target as HTMLElement;
+                if (
+                  target === e.currentTarget ||
+                  target.classList.contains("canvas-grid") ||
+                  target.classList.contains("canvas-meter-grid")
+                ) {
+                  setSelectedTableId(null);
+                }
+              }}
             >
-              <PlannerAssistOverlay ref={assistOverlayRef} />
-              {localTables.length === 0 ? (
-                /* Onboarding Wizard */
-                <div className="seating-canvas-overlay absolute inset-0 flex items-center justify-center p-4 bg-slate-500/5 backdrop-blur-xs print:hidden z-10 select-none">
-                  <div className="max-w-md w-full bg-white/95 backdrop-blur-md rounded-3xl border border-slate-150 p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-300">
-                    <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                      <Sparkles className="h-6 w-6 text-primary animate-pulse" />
-                    </div>
-                    
-                    <div className="text-center space-y-1.5">
-                      <h3 className="font-serif text-xl font-bold text-slate-800">
-                        Configurare Sală de Evenimente
-                      </h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Pentru a începe, introdu numărul preferat de locuri pentru o masă. Sistemul va calcula și va genera automat numărul optim de mese dispuse în cercuri concentrice în jurul ringului de dans, pe baza listei de invitați.
-                      </p>
-                    </div>
+              {(spatialLayout.canvasWidthPx > spatialLayout.roomWidthPx ||
+                spatialLayout.canvasHeightPx > spatialLayout.roomHeightPx) && (
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background: hasOutOfRoomItems
+                      ? "rgba(251, 191, 36, 0.05)"
+                      : "rgba(148, 163, 184, 0.04)",
+                  }}
+                />
+              )}
 
-                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-650">
-                        <span>Invitați Total:</span>
-                        <span className="font-bold text-slate-800 bg-white border border-slate-150 px-2 py-0.5 rounded-md">
-                          {localAllGuests.length} persoane
-                        </span>
-                      </div>
+              <div
+                className={cn(
+                  "pointer-events-none absolute left-0 top-0 shadow-inner canvas-grid",
+                  showMeterGrid && "canvas-meter-grid",
+                  hasOutOfRoomItems && "border-2 border-dashed border-amber-400/60"
+                )}
+                style={{
+                  width: spatialLayout.roomWidthPx,
+                  height: spatialLayout.roomHeightPx,
+                }}
+              />
 
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          Locuri per Masă (implicit 10)
-                        </label>
-                        <div className="relative flex items-center">
-                          <Input
-                            type="number"
-                            min={4}
-                            max={24}
-                            value={onboardingSeats}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value, 10) || 10;
-                              setOnboardingSeats(val);
-                            }}
-                            className="h-10 pr-16 font-semibold text-sm rounded-xl"
-                          />
-                          <span className="absolute right-3 text-xs font-medium text-slate-400">
-                            locuri
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-650 pt-2 border-t border-slate-200/50">
-                        <span>Mese estimate de generat:</span>
-                        <span className="font-bold text-primary">
-                          {Math.max(1, Math.ceil(localAllGuests.length / (onboardingSeats || 10)))} mese
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2.5">
-                      <Button
-                        onClick={handleRunOnboarding}
-                        disabled={initializingOnboarding}
-                        className="w-full rounded-xl text-xs h-11 font-bold bg-gradient-to-r from-primary to-pink-500 hover:from-primary/95 hover:to-pink-500/95 text-white shadow-md active:scale-98 transition-all"
-                      >
-                        {initializingOnboarding ? "Se generează schema..." : "Generează Schema Inteligentă"}
-                      </Button>
-                      
-                      <Button
-                        variant="ghost"
-                        onClick={() => setShowTemplateMenu(true)}
-                        className="w-full text-xs text-slate-600 hover:text-slate-800 font-semibold h-9 rounded-xl hover:bg-slate-100"
-                      >
-                        Sau alege un șablon manual
-                      </Button>
-                    </div>
-                  </div>
+              {hasOutOfRoomItems && (
+                <div className="pointer-events-none absolute left-3 top-3 z-[5] rounded-full border border-amber-200 bg-amber-50/95 px-2.5 py-1 text-[10px] font-semibold text-amber-800 shadow-sm">
+                  Obiecte în afara limitei sălii ({formatMeters(canvasRoomWidthM)} × {formatMeters(canvasRoomHeightM)})
                 </div>
-              ) : (
-                <>
-                  {/* Tables and Room Objects */}
-                  {sortedTables.map((table) => {
+              )}
+
+              <PlannerAssistOverlay ref={assistOverlayRef} />
+              <>
+                {/* Tables and Room Objects */}
+                {sortedTables.map((table) => {
                     const activeId = draggingGuestId || selectedGuestId;
                     const validation = activeId
                       ? canTableAccommodateGuest(table, activeId, localAllGuests)
                       : { allowed: true };
 
-                    return (
+                    return isPreviewMode ? (
+                      <ReadOnlyTableWrapper
+                        key={table.renderKey}
+                        table={table}
+                        canvasWidthPx={spatialLayout.canvasWidthPx}
+                        canvasHeightPx={spatialLayout.canvasHeightPx}
+                        lodScale={cameraScale}
+                      />
+                    ) : (
                       <DraggableWrapper
                         key={table.renderKey}
                         table={table}
                         readCamera={readCameraForDrag}
                         lodScale={cameraScale}
                         globalLock={globalLock}
+                        resizeActiveTableIdRef={canvasResizingTableIdRef}
                         isMobile={isMobile}
                         isSpacePressed={isSpacePressed}
                         isSelected={selectedTableId === table.id}
@@ -1966,15 +2385,44 @@ export function SeatingPlanner({
                         onDragAssistStart={(id) => {
                           draggingTableIdRef.current = id;
                         }}
-                        onDragAssistMove={handleDragAssistMove}
-                        onCheckDragCollision={checkTableDragCollision}
+                        onResolveDragMove={resolveTableDragMove}
                         onDragAssistEnd={clearDragAssist}
+                        onDragPositionStart={(id, x, y) => {
+                          dragPositionRef.current = { tableId: id, x, y };
+                        }}
+                        onDragPositionMove={(id, x, y) => {
+                          dragPositionRef.current = { tableId: id, x, y };
+                        }}
+                        onDragPositionEnd={() => {
+                          dragPositionRef.current = null;
+                        }}
                       />
                     );
                   })}
-                </>
-              )}
+                  {!isPreviewMode ? (
+                  <TableResizeHandles
+                    selectedTableId={selectedTableId}
+                    tables={localTables}
+                    zoom={cameraScale}
+                    globalLock={globalLock}
+                    readCamera={readCameraForDrag}
+                    dragPositionRef={dragPositionRef}
+                    checkResizeAssist={checkResizeAssist}
+                    onResizeCommit={handleResizeCommit}
+                    onResizeActiveChange={setCanvasResizingTableId}
+                  />
+                  ) : null}
+              </>
             </div>
+
+            {!isPreviewMode && wizardOpen ? (
+              <TemplateWizard
+                open={wizardOpen}
+                totalConfirmedGuests={totalConfirmedGuests}
+                onSkip={handleWizardSkip}
+                onComplete={handleWizardComplete}
+              />
+            ) : null}
 
             {/* Canvas HUD Controls overlay */}
             <div
@@ -2040,6 +2488,17 @@ export function SeatingPlanner({
                 >
                   <Grid3X3 className="h-3.5 w-3.5" />
                 </Button>
+                <RoomSizePopover
+                  eventId={eventId}
+                  roomWidthM={roomWidthM}
+                  roomHeightM={roomHeightM}
+                  onRoomSizeChange={(widthM, heightM) => {
+                    setRoomWidthM(widthM);
+                    setRoomHeightM(heightM);
+                    markLayoutDirty();
+                  }}
+                  disabled={globalLock}
+                />
                 <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-slate-650 hover:bg-slate-100" onClick={handleZoomIn} title="Zoom In">
                   <ZoomIn className="h-3.5 w-3.5" />
                 </Button>
@@ -2116,14 +2575,14 @@ export function SeatingPlanner({
             >
               <div className="relative w-full h-full text-[10px]">
                 {/* Mini Tables */}
-                {localTables.map((t) => {
+                {canvasTables.map((t) => {
                   const meta = parseMetadata(t.notes);
                   const isObj = !!meta.objectType;
                   const fp = getTableFootprintPx(meta, t.shape);
-                  const tx = ((t.pos_x ?? 0) / CANVAS_WIDTH_PX) * 100;
-                  const ty = ((t.pos_y ?? 0) / CANVAS_HEIGHT_PX) * 100;
-                  const tw = (fp.footprintWidthPx / CANVAS_WIDTH_PX) * 100;
-                  const th = (fp.footprintHeightPx / CANVAS_HEIGHT_PX) * 100;
+                  const tx = ((t.pos_x ?? 0) / spatialLayout.canvasWidthPx) * 100;
+                  const ty = ((t.pos_y ?? 0) / spatialLayout.canvasHeightPx) * 100;
+                  const tw = (fp.footprintWidthPx / spatialLayout.canvasWidthPx) * 100;
+                  const th = (fp.footprintHeightPx / spatialLayout.canvasHeightPx) * 100;
                   
                   return (
                     <div
@@ -2212,6 +2671,35 @@ export function SeatingPlanner({
           )}
         </div>
 
+        {/* RIGHT: Layout snapshots sidebar (desktop) */}
+        {layoutSidebarOpen && (
+          <aside
+            style={{ width: `${LAYOUT_SIDEBAR_WIDTH}px` }}
+            className={cn(
+              "hidden shrink-0 lg:block print:hidden relative h-full select-none transition-all duration-350 ease-in-out",
+              workspaceMode
+                ? "rounded-none border-none border-l border-slate-200/80 bg-white z-20 shadow-xl"
+                : "border-l border-[var(--ev-border-soft)] bg-[var(--ev-bg-sidebar)]"
+            )}
+          >
+            <LayoutSidebar
+              eventId={eventId}
+              open={layoutSidebarOpen}
+              refreshKey={layoutListRefreshKey}
+              onClose={() => {
+                setPreviewSnapshot(null);
+                setLayoutSidebarOpen(false);
+              }}
+              onCaptureThumbnail={captureFloorPlanPreviewUrl}
+              previewSnapshotId={previewSnapshot?.id ?? null}
+              onPreviewSnapshot={setPreviewSnapshot}
+              onNewLayout={() => void handleNewLayout()}
+              newLayoutBusy={newLayoutBusy}
+              className={cn("h-full transition-all duration-300", workspaceMode && "rounded-none border-none")}
+            />
+          </aside>
+        )}
+
         {/* RIGHT: Table Inspector Panel (desktop) */}
         {selectedTable && (
           <aside className={cn(
@@ -2266,6 +2754,14 @@ export function SeatingPlanner({
           tables={localTables}
           onClose={() => setShowAddDialog(false)}
           onAddOptimistic={handleAddOptimistic}
+        />
+        <GuestListExportDialog
+          eventId={eventId}
+          open={exportDialogOpen}
+          onOpenChange={setExportDialogOpen}
+          initialSortMode="byTable"
+          onExportFloorPlan={exportFloorPlan}
+          onCaptureFloorPlanPreview={captureFloorPlanPreviewUrl}
         />
       </div>
 
@@ -2584,6 +3080,7 @@ type DraggableWrapperProps = {
   readCamera: () => DragCameraSnapshot;
   lodScale: number;
   globalLock: boolean;
+  resizeActiveTableIdRef: React.MutableRefObject<string | null>;
   isMobile: boolean;
   isSpacePressed: boolean;
   isSelected: boolean;
@@ -2594,44 +3091,43 @@ type DraggableWrapperProps = {
   onDrop: (e: React.DragEvent) => void;
   onStop: (tableId: string, e: unknown, data: TableDragStopData) => void;
   onDragAssistStart?: (tableId: string) => void;
-  onDragAssistMove?: (
+  onResolveDragMove?: (
     tableId: string,
     x: number,
     y: number
-  ) => { selfColliding: boolean };
-  onCheckDragCollision?: (tableId: string, x: number, y: number) => boolean;
+  ) => { valid: boolean };
   onDragAssistEnd?: () => void;
+  onDragPositionStart?: (tableId: string, x: number, y: number) => void;
+  onDragPositionMove?: (tableId: string, x: number, y: number) => void;
+  onDragPositionEnd?: () => void;
 };
 
-const TABLE_DRAG_MAX_X =
-  CANVAS_WIDTH_PX - Math.round(ROUND_TABLE_FOOTPRINT_M * PIXELS_PER_METER);
-const TABLE_DRAG_MAX_Y =
-  CANVAS_HEIGHT_PX - Math.round(ROUND_TABLE_FOOTPRINT_M * PIXELS_PER_METER);
+type TableDragBounds = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
 
-const TABLE_DRAG_BOUNDS = {
-  left: 0,
-  top: 0,
-  right: TABLE_DRAG_MAX_X,
-  bottom: TABLE_DRAG_MAX_Y,
-} as const;
-
-function clampTableDragPosition(x: number, y: number) {
+function getTableDragBounds(
+  canvasWidthPx: number,
+  canvasHeightPx: number,
+  footprintWidthPx: number,
+  footprintHeightPx: number
+): TableDragBounds {
   return {
-    x: Math.min(Math.max(x, TABLE_DRAG_BOUNDS.left), TABLE_DRAG_BOUNDS.right),
-    y: Math.min(Math.max(y, TABLE_DRAG_BOUNDS.top), TABLE_DRAG_BOUNDS.bottom),
+    left: 0,
+    top: 0,
+    right: Math.max(0, canvasWidthPx - footprintWidthPx),
+    bottom: Math.max(0, canvasHeightPx - footprintHeightPx),
   };
 }
 
-/** Snap to GRID_METERS (0.5 m) then clamp — used on every pointer move */
-function resolveSnappedTableDragPosition(
-  canvasPt: { x: number; y: number },
-  grabOffset: { x: number; y: number }
-) {
-  const snapped = snapPointPx(
-    canvasPt.x - grabOffset.x,
-    canvasPt.y - grabOffset.y
-  );
-  return clampTableDragPosition(snapped.x, snapped.y);
+function clampTableDragPosition(x: number, y: number, bounds: TableDragBounds) {
+  return {
+    x: Math.min(Math.max(x, bounds.left), bounds.right),
+    y: Math.min(Math.max(y, bounds.top), bounds.bottom),
+  };
 }
 
 function canvasPointFromClient(
@@ -2650,12 +3146,61 @@ function canvasPointFromClient(
   );
 }
 
+/** Read-only snapshot preview — no drag, click, or guest drop */
+function ReadOnlyTableWrapper({
+  table,
+  canvasWidthPx,
+  canvasHeightPx,
+  lodScale,
+}: {
+  table: TableWithGuests;
+  canvasWidthPx: number;
+  canvasHeightPx: number;
+  lodScale: number;
+}) {
+  const metadata = parseMetadata(table.notes);
+  const footprint = getTableFootprintPx(metadata, metadata.customShape ?? table.shape);
+  const dragBounds = getTableDragBounds(
+    canvasWidthPx,
+    canvasHeightPx,
+    footprint.footprintWidthPx,
+    footprint.footprintHeightPx
+  );
+  const baseX = table.pos_x ?? 0;
+  const baseY = table.pos_y ?? 0;
+  const snapped = snapPointPx(baseX, baseY);
+  const aligned = clampTableDragPosition(snapped.x, snapped.y, dragBounds);
+
+  return (
+    <div
+      data-table-id={table.id}
+      data-planner-table-id={table.id}
+      className="absolute draggable-table-wrapper pointer-events-none select-none touch-none cursor-default"
+      style={{
+        transform: `translate3d(${Math.round(aligned.x)}px, ${Math.round(aligned.y)}px, 0)`,
+      }}
+    >
+      <TableVisual
+        table={table}
+        isSelected={false}
+        isDropTarget={false}
+        isHovered={false}
+        isValidDrop
+        onClick={() => {}}
+        onDrop={() => {}}
+        scale={lodScale}
+      />
+    </div>
+  );
+}
+
 /** Pointer drag with correct viewport pan/zoom inverse (react-draggable scale is wrong inside scaled canvas) */
 function DraggableWrapper({
   table,
   readCamera,
   lodScale,
   globalLock,
+  resizeActiveTableIdRef,
   isMobile,
   isSpacePressed,
   isSelected,
@@ -2666,15 +3211,19 @@ function DraggableWrapper({
   onDrop,
   onStop,
   onDragAssistStart,
-  onDragAssistMove,
-  onCheckDragCollision,
+  onResolveDragMove,
   onDragAssistEnd,
+  onDragPositionStart,
+  onDragPositionMove,
+  onDragPositionEnd,
 }: DraggableWrapperProps) {
   const nodeRef = useRef<HTMLDivElement>(null);
 
   const metadata = parseMetadata(table.notes);
   const isDragDisabled =
-    !canMoveTable(globalLock, metadata) || isSpacePressed;
+    !canMoveTable(globalLock, metadata) ||
+    isSpacePressed ||
+    resizeActiveTableIdRef.current === table.id;
   const canAcceptGuestDrop = canAssignGuestToTable(metadata);
 
   const baseX = table.pos_x ?? 0;
@@ -2684,12 +3233,11 @@ function DraggableWrapper({
   const grabOffsetRef = useRef({ x: 0, y: 0 });
   const pointerStartRef = useRef({ x: 0, y: 0 });
   const livePosRef = useRef({ x: baseX, y: baseY });
+  const lastValidPositionRef = useRef({ x: baseX, y: baseY });
   const draggedRef = useRef(false);
   const activeDragCleanupRef = useRef<(() => void) | null>(null);
-  const isMountedRef = useRef(true);
   const [dragEnterCount, setDragEnterCount] = useState(0);
   const [pointerHover, setPointerHover] = useState(false);
-  const [selfCollision, setSelfCollision] = useState(false);
   const isHovered = dragEnterCount > 0;
 
   const applyTransform = useCallback((x: number, y: number) => {
@@ -2699,9 +3247,7 @@ function DraggableWrapper({
   }, []);
 
   useEffect(() => {
-    isMountedRef.current = true;
     return () => {
-      isMountedRef.current = false;
       activeDragCleanupRef.current?.();
       activeDragCleanupRef.current = null;
     };
@@ -2709,12 +3255,13 @@ function DraggableWrapper({
 
   useEffect(() => {
     if (!isDraggingRef.current) {
+      if (resizeActiveTableIdRef.current === table.id) return;
       const snapped = snapPointPx(baseX, baseY);
-      const aligned = clampTableDragPosition(snapped.x, snapped.y);
-      livePosRef.current = aligned;
-      applyTransform(aligned.x, aligned.y);
+      livePosRef.current = snapped;
+      lastValidPositionRef.current = snapped;
+      applyTransform(snapped.x, snapped.y);
     }
-  }, [baseX, baseY, applyTransform]);
+  }, [baseX, baseY, applyTransform, resizeActiveTableIdRef, table.id]);
 
   const handleWrapperClick = (e: React.MouseEvent) => {
     if (draggedRef.current) {
@@ -2736,9 +3283,9 @@ function DraggableWrapper({
     const canvasPt = canvasPointFromClient(e.clientX, e.clientY, camera);
     if (!canvasPt) return;
 
-    const snappedStart = snapPointPx(livePosRef.current.x, livePosRef.current.y);
-    const startPos = clampTableDragPosition(snappedStart.x, snappedStart.y);
+    const startPos = snapPointPx(livePosRef.current.x, livePosRef.current.y);
     livePosRef.current = startPos;
+    lastValidPositionRef.current = startPos;
     applyTransform(startPos.x, startPos.y);
 
     grabOffsetRef.current = {
@@ -2749,6 +3296,7 @@ function DraggableWrapper({
     isDraggingRef.current = true;
     draggedRef.current = false;
     onDragAssistStart?.(table.id);
+    onDragPositionStart?.(table.id, startPos.x, startPos.y);
 
     const threshold = isMobile ? 8 : 4;
 
@@ -2765,33 +3313,40 @@ function DraggableWrapper({
         draggedRef.current = true;
       }
 
-      const next = resolveSnappedTableDragPosition(pt, grabOffsetRef.current);
-      const wouldCollide =
-        onCheckDragCollision?.(table.id, next.x, next.y) ?? false;
+      const candidate = snapPointPx(
+        pt.x - grabOffsetRef.current.x,
+        pt.y - grabOffsetRef.current.y
+      );
 
-      const assist = onDragAssistMove?.(table.id, next.x, next.y);
-      if (assist && isMountedRef.current) {
-        setSelfCollision(wouldCollide || assist.selfColliding);
-      }
+      const { valid } =
+        onResolveDragMove?.(table.id, candidate.x, candidate.y) ?? { valid: true };
 
-      if (wouldCollide) {
+      if (valid) {
+        lastValidPositionRef.current = candidate;
+        if (
+          candidate.x !== livePosRef.current.x ||
+          candidate.y !== livePosRef.current.y
+        ) {
+          livePosRef.current = candidate;
+          applyTransform(candidate.x, candidate.y);
+          onDragPositionMove?.(table.id, candidate.x, candidate.y);
+        }
         return;
       }
 
-      if (next.x === livePosRef.current.x && next.y === livePosRef.current.y) {
-        return;
+      const last = lastValidPositionRef.current;
+      if (last.x !== livePosRef.current.x || last.y !== livePosRef.current.y) {
+        livePosRef.current = last;
+        applyTransform(last.x, last.y);
+        onDragPositionMove?.(table.id, last.x, last.y);
       }
-      livePosRef.current = next;
-      applyTransform(next.x, next.y);
     };
 
     const onPointerUp = (ev: PointerEvent) => {
       detachPointerListeners();
 
       isDraggingRef.current = false;
-      if (isMountedRef.current) {
-        setSelfCollision(false);
-      }
+      onDragPositionEnd?.();
       onDragAssistEnd?.();
 
       try {
@@ -2866,6 +3421,7 @@ function DraggableWrapper({
   return (
     <div
       ref={nodeRef}
+      data-table-id={table.id}
       data-planner-table-id={table.id}
       onPointerDown={handlePointerDown}
       onClick={handleWrapperClick}
@@ -2889,7 +3445,6 @@ function DraggableWrapper({
         pointerHover && !isDragDisabled && "planner-table-hover",
         table.id.startsWith("temp-") && "animate-in fade-in zoom-in-90 duration-350 ease-out"
       )}
-      style={{ transform: `translate3d(${baseX}px, ${baseY}px, 0)` }}
     >
       <TableVisual
         table={table}
@@ -2898,7 +3453,6 @@ function DraggableWrapper({
         isHovered={isHovered}
         isValidDrop={isValidDrop}
         validationReason={validationReason}
-        collisionWarning={selfCollision}
         onClick={() => {}}
         onDrop={() => {}}
         scale={lodScale}

@@ -9,6 +9,8 @@ import { GUEST_TAGS } from "@/types/guests";
 import { GuestTableView } from "@/components/guests/guest-table-view";
 import { GuestCardView } from "@/components/guests/guest-card-view";
 import { GuestDetailPanel } from "@/components/guests/guest-detail-panel";
+import { EmojiIcon } from "@/components/ui/emoji-icon";
+import { getIconForGuestTag } from "@/lib/icons/registry";
 import { RsvpPill } from "@/components/guests/rsvp-pill";
 import { Card } from "@/components/ui/card";
 import {
@@ -529,7 +531,8 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
                       : "bg-[#F3F3F5] border-transparent text-text-secondary hover:text-[#B8516B]"
                   )}
                 >
-                  {t.icon} {t.label}
+                  <EmojiIcon icon={getIconForGuestTag(t.value)} size="sm" className="shrink-0" />
+                  {t.label}
                 </button>
               ))}
             </div>

@@ -3,13 +3,10 @@ import { ArrowRight, Heart, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ro } from "@/lib/i18n/ro";
-import { createClient } from "@/lib/supabase/server";
+import { getServerUser } from "@/lib/supabase/server-auth";
 
 export default async function HomePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getServerUser();
 
   const features = [
     ro.landing.features.guests,

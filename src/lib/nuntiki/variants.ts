@@ -1,6 +1,6 @@
 import { cva, type VariantProps } from "class-variance-authority";
 
-/** Shared panel shell — cards, tables, toolbars. */
+/** Shared panel shell — matches Guests glass-panel cards. */
 export const panelShellVariants = cva(
   "rounded-[18px] border border-border-rose-18 bg-white/70 shadow-card backdrop-blur-md",
   {
@@ -10,7 +10,7 @@ export const panelShellVariants = cva(
         solid: "bg-white/95",
         muted: "bg-[#F3F3F5]/40 border-border-rose-18/30",
         highlight:
-          "border-emerald-200 bg-gradient-to-br from-emerald-50/90 to-[#FEF0F3]/30",
+          "border-[var(--dash-blush)]/60 bg-gradient-to-br from-[var(--dash-blush)]/30 to-white/90",
         ghost: "border-dashed border-border-rose-18/40 bg-white/40 shadow-none",
       },
     },
@@ -52,13 +52,14 @@ export const pageHeaderVariants = cva("space-y-2", {
   },
 });
 
+/** Apple-style display title — Geist only. */
 export const pageHeaderTitleVariants = cva(
-  "font-serif font-bold tracking-tight text-foreground",
+  "font-semibold tracking-[-0.022em] text-[var(--dash-text)]",
   {
     variants: {
       size: {
-        default: "text-3xl",
-        compact: "text-2xl",
+        default: "text-[2rem] leading-[1.15]",
+        compact: "text-2xl leading-tight",
       },
     },
     defaultVariants: {
@@ -67,10 +68,10 @@ export const pageHeaderTitleVariants = cva(
   }
 );
 
-export const pageHeaderDescriptionVariants = cva("text-muted-foreground", {
+export const pageHeaderDescriptionVariants = cva("text-[var(--dash-text-secondary)]", {
   variants: {
     size: {
-      default: "mt-2 text-sm",
+      default: "mt-1.5 text-[0.8125rem] leading-relaxed",
       compact: "mt-1 text-xs",
     },
   },
@@ -92,14 +93,15 @@ export const statsGridVariants = cva("grid gap-3", {
   },
 });
 
+/** Matches guest-database stats row exactly. */
 export const statsCardVariants = cva(
   "glass-panel border bg-white p-4 shadow-card rounded-[18px]",
   {
     variants: {
       accent: {
         default: "",
-        primary: "bg-primary/5 border-primary/10",
-        success: "border-emerald-200/60 bg-emerald-50/40",
+        primary: "bg-[var(--dash-blush)]/20 border-[var(--dash-blush)]/40",
+        success: "border-[var(--dash-sage)]/30 bg-[var(--dash-sage)]/8",
         warning: "border-[#FF9F0A]/20 bg-[#FF9F0A]/5",
       },
     },
@@ -117,10 +119,10 @@ export const statsValueVariants = cva("mt-1.5 font-sans text-2xl font-bold", {
   variants: {
     accent: {
       default: "text-[#1A0E14]",
-      primary: "text-primary",
-      success: "text-confirmed-green",
+      primary: "text-[var(--dash-accent-text)]",
+      success: "text-[var(--dash-sage)]",
       warning: "text-pending-orange",
-      rose: "text-[#B8516B]",
+      rose: "text-[var(--dash-accent-text)]",
     },
   },
   defaultVariants: {
@@ -144,6 +146,7 @@ export const emptyStateVariants = cva(
   }
 );
 
+/** Matches guest-table-view shell exactly. */
 export const dataTableShellVariants = cva(
   "overflow-hidden rounded-[18px] border border-border-rose-18 bg-white/70 shadow-card backdrop-blur-md"
 );
@@ -180,13 +183,13 @@ export const entitySidebarNavVariants = cva(
 );
 
 export const entitySidebarItemVariants = cva(
-  "w-full text-left rounded-[12px] px-3 py-2.5 transition-all border cursor-pointer border-l-[3px]",
+  "w-full text-left rounded-[12px] px-3 py-2.5 transition-all border cursor-pointer border-l-[2px]",
   {
     variants: {
       active: {
-        true: "bg-[#FEF0F3] border-[#FCEAEF] shadow-[0_2px_8px_rgba(184,81,107,0.06)] border-l-[#B8516B]",
+        true: "bg-[var(--dash-blush)]/35 border-[var(--dash-blush)]/50 shadow-[0_1px_2px_rgba(28,24,22,0.03)] border-l-[var(--dash-dusty-rose)]",
         false:
-          "bg-white/60 border-transparent hover:bg-[#F3F3F5]/80 border-l-transparent",
+          "bg-transparent border-transparent hover:bg-[var(--dash-warm-gray)]/80 border-l-transparent",
       },
     },
     defaultVariants: {
@@ -195,11 +198,11 @@ export const entitySidebarItemVariants = cva(
   }
 );
 
-export const entitySidebarLabelVariants = cva("text-xs font-bold truncate", {
+export const entitySidebarLabelVariants = cva("text-xs font-semibold truncate", {
   variants: {
     active: {
-      true: "text-[#B8516B]",
-      false: "text-foreground",
+      true: "text-[var(--dash-accent-text)]",
+      false: "text-[var(--dash-text)]",
     },
   },
   defaultVariants: {
@@ -208,18 +211,18 @@ export const entitySidebarLabelVariants = cva("text-xs font-bold truncate", {
 });
 
 export const entitySidebarMetaVariants = cva(
-  "text-[10px] font-medium text-text-secondary mt-0.5"
+  "text-[10px] font-medium text-[var(--dash-text-secondary)] mt-0.5"
 );
 
 export const entitySidebarActionVariants = cva(
-  "w-full rounded-[12px] border-dashed border-[#d2aaa9]/40 text-xs font-semibold text-[#B8516B] hover:bg-[#FEF0F3]/40 gap-1.5 h-9"
+  "w-full rounded-[12px] border-dashed border-[var(--dash-dusty-rose)]/35 text-xs font-semibold text-[var(--dash-accent-text)] hover:bg-[var(--dash-blush)]/25 gap-1.5 h-9"
 );
 
 export const entityWorkspaceVariants = cva("flex-1 min-w-0 space-y-5");
 
-/** Nuntiki modal overlay — matches import-modal / guest-detail-panel. */
+/** Matches import-modal / guest-detail-panel overlay. */
 export const overlayVariants = cva(
-  "fixed inset-0 bg-[#1A0E14]/15 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+  "fixed inset-0 bg-[#1A0E14]/12 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
   {
     variants: {
       layer: {
@@ -238,6 +241,10 @@ export const modalContentVariants = cva(
 );
 
 export const confirmDialogContentVariants = modalContentVariants;
+
+export const filterToolbarVariants = cva(
+  "flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-border-rose-18 bg-white/70 p-3 shadow-card backdrop-blur-md"
+);
 
 export type PanelShellVariants = VariantProps<typeof panelShellVariants>;
 export type SectionCardVariants = VariantProps<typeof sectionCardVariants>;

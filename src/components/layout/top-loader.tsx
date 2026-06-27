@@ -3,6 +3,23 @@
 import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
+const MAX_VISIBLE_MS = 10_000;
+
+function currentRouteUrl(): string {
+  if (typeof window === "undefined") return "";
+  return window.location.pathname + window.location.search;
+}
+
+function resolveHistoryUrl(url: string | URL | null | undefined): string {
+  if (!url) return currentRouteUrl();
+  try {
+    const resolved = new URL(String(url), window.location.href);
+    return resolved.pathname + resolved.search;
+  } catch {
+    return currentRouteUrl();
+  }
+}
+
 function TopLoaderInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -13,6 +30,7 @@ function TopLoaderInner() {
   const startTimerRef = useRef<NodeJS.Timeout | null>(null);
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const minDurationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const maxDurationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isNavigatingRef = useRef(false);
   const startTimeRef = useRef<number>(0);
 
@@ -40,6 +58,10 @@ function TopLoaderInner() {
     if (progressTimerRef.current) {
       clearInterval(progressTimerRef.current);
       progressTimerRef.current = null;
+    }
+    if (maxDurationTimerRef.current) {
+      clearTimeout(maxDurationTimerRef.current);
+      maxDurationTimerRef.current = null;
     }
 
     const elapsed = Date.now() - startTimeRef.current;
@@ -79,6 +101,10 @@ function TopLoaderInner() {
       clearTimeout(minDurationTimerRef.current);
       minDurationTimerRef.current = null;
     }
+    if (maxDurationTimerRef.current) {
+      clearTimeout(maxDurationTimerRef.current);
+      maxDurationTimerRef.current = null;
+    }
 
     // Start delay to prevent flicker on rapid loads
     startTimerRef.current = setTimeout(() => {
@@ -95,8 +121,12 @@ function TopLoaderInner() {
           return prev + Math.random() * 8;
         });
       }, 150);
+
+      maxDurationTimerRef.current = setTimeout(() => {
+        stopLoading();
+      }, MAX_VISIBLE_MS);
     }, 120); // 120ms start delay to filter out fast loads
-  }, []);
+  }, [stopLoading]);
 
   // Complete loading when pathname or query parameters change
   useEffect(() => {
@@ -105,6 +135,7 @@ function TopLoaderInner() {
       if (startTimerRef.current) clearTimeout(startTimerRef.current);
       if (progressTimerRef.current) clearInterval(progressTimerRef.current);
       if (minDurationTimerRef.current) clearTimeout(minDurationTimerRef.current);
+      if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current);
     };
   }, [pathname, searchParams, stopLoading]);
 
@@ -114,13 +145,23 @@ function TopLoaderInner() {
     const originalReplaceState = window.history.replaceState;
 
     window.history.pushState = function (...args) {
-      startLoading();
-      return originalPushState.apply(this, args);
+      const before = currentRouteUrl();
+      const target = resolveHistoryUrl(args[2] as string | URL | null | undefined);
+      const result = originalPushState.apply(this, args);
+      if (target !== before) {
+        startLoading();
+      }
+      return result;
     };
 
     window.history.replaceState = function (...args) {
-      startLoading();
-      return originalReplaceState.apply(this, args);
+      const before = currentRouteUrl();
+      const target = resolveHistoryUrl(args[2] as string | URL | null | undefined);
+      const result = originalReplaceState.apply(this, args);
+      if (target !== before) {
+        startLoading();
+      }
+      return result;
     };
 
     // Listen for browser back/forward history navigation

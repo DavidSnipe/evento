@@ -10,6 +10,7 @@ import type {
   VendorOffer,
   VendorPayment,
   EventVendorService,
+  VendorServiceTemplate,
 } from "@/types/vendors";
 
 export async function checkVendorFoundationMigration(): Promise<boolean> {
@@ -55,6 +56,25 @@ export async function getEventActiveCategorySlugs(eventId: string): Promise<stri
   }
 
   return (data ?? []).map((r) => r.category_slug as string);
+}
+
+export async function getVendorServiceTemplates(
+  categorySlug: string
+): Promise<VendorServiceTemplate[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("vendor_service_templates")
+    .select("*")
+    .eq("category_slug", categorySlug)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    if (isVendorFoundationSchemaMissing(error)) return [];
+    console.error("getVendorServiceTemplates:", error);
+    return [];
+  }
+
+  return (data ?? []) as VendorServiceTemplate[];
 }
 
 export async function getVendorCategories(): Promise<VendorCategoryRow[]> {

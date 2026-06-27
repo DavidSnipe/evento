@@ -14,6 +14,16 @@ import {
   patchMeterDimensions,
   serializeTableMetadata,
 } from "@/lib/seating/table-spatial";
+import { getSeatingExportSnapshot } from "@/lib/seating/export-snapshot";
+import type { SeatingExportSnapshot } from "@/lib/seating/export-snapshot-types";
+import {
+  clampRoomDimensionM,
+  canvasPxToStoredPx,
+  MAX_SEATING_ROOM_DIMENSION_M,
+  metersToPixels,
+  MIN_SEATING_ROOM_DIMENSION_M,
+} from "@/lib/seating/spatial";
+import type { TemplateElement } from "@/lib/seating/template-generator";
 
 export type TableFormState = { error?: string; success?: string; tables?: unknown[] };
 
@@ -525,6 +535,147 @@ export async function autoSeatGuestsAction(
   return { success: true, count: assignedCount, updates };
 }
 
+/* ─── Clear all tables (preserve guest list, unassign seats) ─── */
+export async function clearSeatingLayout(
+  eventId: string
+): Promise<{ success: boolean; error?: string }> {
+  const denied = deniedAsSuccess(
+    await denyUnlessEventPermission(eventId, (p) => p.canEditSeating, "canEditSeating")
+  );
+  if (denied) return denied;
+  const supabase = await createClient();
+
+  const { error: unassignError } = await supabase
+    .from("guests")
+    .update({ table_id: null })
+    .eq("event_id", eventId);
+
+  if (unassignError) return { success: false, error: "Failed to unassign guests" };
+
+  const { error: deleteError } = await supabase
+    .from("seating_tables")
+    .delete()
+    .eq("event_id", eventId);
+
+  if (deleteError) return { success: false, error: "Failed to clear existing layout" };
+
+  revalidateSeating(eventId);
+  return { success: true };
+}
+
+function resolveTemplateDbShape(element: TemplateElement): TableShape {
+  if (element.shape === "sweetheart") return "sweetheart";
+  if (element.shape === "round") return "round";
+  return "rectangular";
+}
+
+function buildTemplateInsertMetadata(element: TemplateElement): string {
+  const rotation = element.rotation ?? 0;
+  const isLocked = false;
+
+  if (element.type === "room_object" && element.objectType) {
+    const customShape =
+      element.objectType === "dance_floor" ? "square" : "rectangular";
+    return serializeTableMetadata(
+      patchMeterDimensions(
+        {
+          ...defaultObjectMetadata(element.objectType),
+          objectType: element.objectType as TableMetadata["objectType"],
+          customShape: customShape as TableMetadata["customShape"],
+          rotation,
+          isLocked,
+        },
+        {
+          ...(element.widthM != null ? { widthM: element.widthM } : {}),
+          ...(element.heightM != null ? { heightM: element.heightM } : {}),
+        }
+      ),
+      customShape
+    );
+  }
+
+  return serializeTableMetadata(
+    patchMeterDimensions(
+      {
+        customShape: element.shape as TableMetadata["customShape"],
+        rotation,
+        isLocked,
+      },
+      {
+        ...(element.widthM != null ? { widthM: element.widthM } : {}),
+        ...(element.heightM != null ? { heightM: element.heightM } : {}),
+      },
+      element.shape
+    ),
+    element.shape
+  );
+}
+
+export async function generateTemplateLayout(
+  eventId: string,
+  elements: TemplateElement[]
+): Promise<{ error?: string }> {
+  const accessDenied = await denyUnlessEventPermission(
+    eventId,
+    (p) => p.canEditSeating,
+    "canEditSeating"
+  );
+  if (accessDenied) return accessDenied;
+
+  const supabase = await createClient();
+
+  const { error: unassignError } = await supabase
+    .from("guests")
+    .update({ table_id: null })
+    .eq("event_id", eventId);
+
+  if (unassignError) {
+    console.error("[generateTemplateLayout] unassign", unassignError);
+    return { error: ro.seating.errors.saveFailed };
+  }
+
+  const { error: deleteError } = await supabase
+    .from("seating_tables")
+    .delete()
+    .eq("event_id", eventId);
+
+  if (deleteError) {
+    console.error("[generateTemplateLayout] delete", deleteError);
+    return { error: ro.seating.errors.saveFailed };
+  }
+
+  if (elements.length === 0) {
+    revalidateSeating(eventId);
+    return {};
+  }
+
+  const rows = elements.map((element, index) => {
+    const pos_x = canvasPxToStoredPx(metersToPixels(element.pos_x_m));
+    const pos_y = canvasPxToStoredPx(metersToPixels(element.pos_y_m));
+
+    return {
+      event_id: eventId,
+      name: element.name,
+      capacity: Math.max(1, element.capacity ?? 1),
+      shape: resolveTemplateDbShape(element),
+      pos_x,
+      pos_y,
+      notes: buildTemplateInsertMetadata(element),
+      sort_order: index + 1,
+    };
+  });
+
+  const { error: insertError } = await supabase.from("seating_tables").insert(rows);
+
+  if (insertError) {
+    console.error("[generateTemplateLayout] insert", insertError);
+    return { error: ro.seating.errors.saveFailed };
+  }
+
+  revalidateSeating(eventId);
+  return {};
+}
+
 /* ─── Apply Room Template ─── */
 export async function applyRoomTemplate(
   eventId: string,
@@ -940,5 +1091,77 @@ export async function initializeConcentricOnboarding(
 
   revalidateSeating(eventId);
   return { success: true };
+}
+
+export async function fetchSeatingExportSnapshotAction(
+  eventId: string
+): Promise<SeatingExportSnapshot | null> {
+  const accessDenied = await denyUnlessEventPermission(
+    eventId,
+    (p) => p.canEditSeating,
+    "canEditSeating"
+  );
+  if (accessDenied) return null;
+  return getSeatingExportSnapshot(eventId);
+}
+
+export async function updateSeatingRoomSize(
+  eventId: string,
+  widthM: number,
+  heightM: number
+): Promise<{ error?: string; widthM?: number; heightM?: number }> {
+  const accessDenied = await denyUnlessEventPermission(
+    eventId,
+    (p) => p.canEditSeating,
+    "canEditSeating"
+  );
+  if (accessDenied) return accessDenied;
+
+  if (
+    !Number.isFinite(widthM) ||
+    !Number.isFinite(heightM) ||
+    widthM < MIN_SEATING_ROOM_DIMENSION_M ||
+    widthM > MAX_SEATING_ROOM_DIMENSION_M ||
+    heightM < MIN_SEATING_ROOM_DIMENSION_M ||
+    heightM > MAX_SEATING_ROOM_DIMENSION_M
+  ) {
+    return {
+      error: `Dimensiunile trebuie să fie între ${MIN_SEATING_ROOM_DIMENSION_M} m și ${MAX_SEATING_ROOM_DIMENSION_M} m.`,
+    };
+  }
+
+  const nextWidthM = clampRoomDimensionM(widthM);
+  const nextHeightM = clampRoomDimensionM(heightM);
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("update_seating_room_size", {
+    p_event_id: eventId,
+    p_width_m: nextWidthM,
+    p_height_m: nextHeightM,
+  });
+
+  if (error) {
+    console.error("[updateSeatingRoomSize]", error);
+    const message = error.message ?? "";
+    if (
+      error.code === "PGRST202" ||
+      message.includes("update_seating_room_size") ||
+      message.includes("seating_room_width_m") ||
+      message.includes("seating_room_height_m")
+    ) {
+      return { error: ro.seating.roomSize.migrationRequired };
+    }
+    return { error: ro.seating.roomSize.saveFailed };
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { width_m: number; height_m: number }
+    | null
+    | undefined;
+  const savedWidthM = row?.width_m != null ? Number(row.width_m) : nextWidthM;
+  const savedHeightM = row?.height_m != null ? Number(row.height_m) : nextHeightM;
+
+  revalidateSeating(eventId);
+  return { widthM: savedWidthM, heightM: savedHeightM };
 }
 

@@ -7,6 +7,16 @@ export type VendorCategoryRow = {
   created_at: string;
 };
 
+/** Predefined service template inside a vendor category (global catalog). */
+export type VendorServiceTemplate = {
+  id: string;
+  category_slug: string;
+  label_key: string;
+  icon_key: string | null;
+  sort_order: number;
+  created_at: string;
+};
+
 /** Scoped service inside a category (e.g. Buchet mireasă). */
 export type EventVendorService = {
   id: string;

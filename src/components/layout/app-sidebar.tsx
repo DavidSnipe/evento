@@ -9,7 +9,6 @@ import { signOut } from "@/app/(auth)/actions";
 import { getMainNav } from "@/config/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { ro } from "@/lib/i18n/ro";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +33,7 @@ export function AppSidebar({
   const [loadingHref, setLoadingHref] = useState<string | null>(null);
   const prefetchedUrls = useRef<Set<string>>(new Set());
   const prefetchTimerRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
@@ -49,20 +48,17 @@ export function AppSidebar({
   };
 
   const initials = userEmail?.slice(0, 2).toUpperCase() ?? "EV";
-  
-  // Extract event ID from pathname if we are inside an event (e.g. /dashboard/events/[id]/...)
+
   const eventIdMatch = pathname.match(/^\/dashboard\/events\/([^/]+)/);
   const isNewEvent = pathname === "/dashboard/events/new";
-  const contextualEventId = (eventIdMatch && !isNewEvent) ? eventIdMatch[1] : activeEventId;
+  const contextualEventId = eventIdMatch && !isNewEvent ? eventIdMatch[1] : activeEventId;
 
   const navItems = getMainNav(contextualEventId);
 
-  // Clear loading state when page change completes
   useEffect(() => {
     setLoadingHref(null);
   }, [pathname]);
 
-  // Clean up hover prefetch timer on unmount
   useEffect(() => {
     return () => {
       if (prefetchTimerRef.current) {
@@ -93,54 +89,86 @@ export function AppSidebar({
   };
 
   return (
-    <aside className={cn(
-      "flex h-full shrink-0 flex-col border-r border-sidebar-border bg-white shadow-nav transition-all duration-350 ease-out relative",
-      isCollapsed ? "w-16" : "w-[220px]"
-    )}>
-      {/* Floating Toggle Button */}
-      <button
-        onClick={toggleCollapse}
-        className="absolute -right-3 top-8 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-sidebar-border bg-white text-[#7A6270] shadow-md hover:text-[#B8516B] hover:scale-105 active:scale-95 transition-all cursor-pointer"
-        title={isCollapsed ? "Extinde meniul" : "Restrânge meniul"}
-      >
-        {isCollapsed ? (
-          <ChevronRight className="h-3.5 w-3.5" />
-        ) : (
-          <ChevronLeft className="h-3.5 w-3.5" />
+    <aside
+      className={cn(
+        "dash-sidebar flex h-full shrink-0 flex-col transition-[width] duration-300 ease-out",
+        isCollapsed ? "w-[var(--dash-sidebar-collapsed)]" : "w-[var(--dash-sidebar-width)]"
+      )}
+    >
+      {/* Header row */}
+      <div
+        className={cn(
+          "flex items-center gap-3 px-4 py-6",
+          isCollapsed ? "justify-center px-2" : "px-5"
         )}
-      </button>
-
-      <div className={cn("flex items-center gap-3 px-4 py-8 overflow-hidden", isCollapsed ? "justify-center" : "px-6")}>
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#E8748A] to-[#AA3F58] text-white shadow-[0_2px_10px_rgba(184,81,107,0.25)]">
-          <Heart className="h-4.5 w-4.5 fill-white/20" />
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[var(--dash-blush)]/50 text-[var(--dash-accent-text)]">
+          <Heart className="h-4 w-4 fill-[var(--dash-dusty-rose)]/30" strokeWidth={2} />
         </div>
-        <div className={cn("transition-all duration-300 origin-left", isCollapsed ? "opacity-0 w-0 pointer-events-none" : "opacity-100 w-auto")}>
-          <p className="font-sans text-[15px] font-semibold tracking-tight text-[#1A0E14] whitespace-nowrap">Evento</p>
-          <p className="text-[10px] text-text-subtle whitespace-nowrap">{ro.brand.tagline}</p>
-        </div>
+        {!isCollapsed ? (
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[0.9375rem] font-semibold tracking-[-0.015em] text-[var(--dash-text)]">
+              Evento
+            </p>
+            <p className="truncate text-[10px] text-[var(--dash-text-muted)]">{ro.brand.tagline}</p>
+          </div>
+        ) : null}
+        {!isCollapsed ? (
+          <button
+            type="button"
+            onClick={toggleCollapse}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--dash-text-muted)] transition-colors hover:bg-[var(--dash-blush)]/30 hover:text-[var(--dash-text)]"
+            title="Restrânge meniul"
+            aria-label="Restrânge meniul"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        ) : null}
       </div>
 
-      {activeEventTitle ? (
-        <div className={cn("mx-3 mb-4 rounded-xl bg-gradient-to-br from-[#FEF0F3] to-[#FCE8EE] border border-border-rose-18 transition-all duration-300 overflow-hidden", isCollapsed ? "p-1 py-2 text-center" : "px-3.5 py-2.5")}>
-          {isCollapsed ? (
-            <span className="text-[10px] font-bold text-primary block" title={activeEventTitle}>
-              {activeEventTitle.slice(0, 2).toUpperCase()}
-            </span>
-          ) : (
-            <>
-              <p className="text-[9.5px] uppercase tracking-wider text-text-subtle mb-0.5">
-                Eveniment activ
-              </p>
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-confirmed-green animate-pulse" />
-                <p className="truncate text-xs font-semibold text-text-secondary">{activeEventTitle}</p>
-              </div>
-            </>
-          )}
+      {isCollapsed ? (
+        <button
+          type="button"
+          onClick={toggleCollapse}
+          className="mx-auto mb-3 flex h-7 w-7 items-center justify-center rounded-md text-[var(--dash-text-muted)] hover:bg-[var(--dash-blush)]/30"
+          title="Extinde meniul"
+          aria-label="Extinde meniul"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      ) : null}
+
+      {/* Active event */}
+      {activeEventTitle && !isCollapsed ? (
+        <div className="mx-3 mb-4 rounded-[14px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)] px-3.5 py-3 shadow-[var(--dash-shadow-sm)]">
+          <p className="dash-type-micro mb-1.5">Eveniment activ</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--dash-sage)]"
+              aria-hidden
+            />
+            <p className="truncate text-[0.8125rem] font-semibold text-[var(--dash-text)]">
+              {activeEventTitle}
+            </p>
+          </div>
         </div>
       ) : null}
 
-      <nav className="flex-1 space-y-1 px-2.5">
+      {activeEventTitle && isCollapsed ? (
+        <div
+          className="relative mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-[12px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)] text-[10px] font-semibold text-[var(--dash-accent-text)] shadow-[var(--dash-shadow-sm)]"
+          title={activeEventTitle}
+        >
+          <span
+            className="absolute left-1 top-1 h-1.5 w-1.5 rounded-full bg-[var(--dash-sage)]"
+            aria-hidden
+          />
+          {activeEventTitle.slice(0, 2).toUpperCase()}
+        </div>
+      ) : null}
+
+      {/* Navigation */}
+      <nav className="flex-1 space-y-0.5 px-2">
         {navItems.map((item) => {
           const isActive =
             item.href === "/dashboard/events"
@@ -156,20 +184,13 @@ export function AppSidebar({
               <span
                 key={item.href}
                 className={cn(
-                  "flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] text-text-subtle/50 transition-all duration-200 overflow-hidden",
-                  isCollapsed && "justify-center"
+                  "dash-sidebar-nav-item cursor-not-allowed opacity-40",
+                  isCollapsed && "justify-center px-0"
                 )}
                 title={ro.nav.comingSoon}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                <span className={cn("transition-opacity duration-300 whitespace-nowrap", isCollapsed ? "opacity-0 w-0 hidden" : "opacity-100")}>
-                  {item.title}
-                </span>
-                {!isCollapsed && (
-                  <span className="ml-auto text-[9px] uppercase tracking-wider bg-secondary px-1 py-0.5 rounded text-text-subtle">
-                    {ro.nav.soon}
-                  </span>
-                )}
+                {!isCollapsed ? <span className="truncate">{item.title}</span> : null}
               </span>
             );
           }
@@ -180,7 +201,8 @@ export function AppSidebar({
             <Link
               key={item.href + item.title}
               href={item.href}
-              prefetch={true}
+              prefetch
+              data-active={isActive}
               onClick={(e) => {
                 if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && pathname !== item.href) {
                   setLoadingHref(item.href);
@@ -189,46 +211,53 @@ export function AppSidebar({
               onMouseEnter={() => handleMouseEnter(item.href)}
               onMouseLeave={handleMouseLeave}
               className={cn(
-                "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-200 ease-out hover:scale-[1.01] active:scale-[0.98] overflow-hidden",
-                isActive
-                  ? "bg-[#FEF0F3]/80 text-[#B8516B] font-semibold border-l-3 border-[#B8516B] rounded-l-none"
-                  : "text-text-secondary hover:bg-gradient-to-r hover:from-[#FEF0F3]/30 hover:to-transparent hover:text-[#B8516B] hover:translate-x-0.5",
-                isCurrentlyLoading && "opacity-80 bg-primary/5",
-                isCollapsed && "justify-center hover:translate-x-0 rounded-xl border-l-0"
+                "dash-sidebar-nav-item",
+                isCollapsed && "justify-center px-0",
+                isCurrentlyLoading && "opacity-70"
               )}
               title={isCollapsed ? item.title : undefined}
             >
-              <Icon className={cn("h-4 w-4 shrink-0 transition-transform duration-300", isCurrentlyLoading && "animate-soft-pulse text-primary", isActive && "text-[#B8516B]")} />
-              <span className={cn("transition-all duration-300 origin-left whitespace-nowrap", isCollapsed ? "opacity-0 w-0 pointer-events-none" : "opacity-100 w-auto")}>
-                {item.title}
-              </span>
-              {isCurrentlyLoading && !isCollapsed && (
-                <span className="absolute bottom-1 left-3 right-3 h-[1.5px] rounded-full bg-primary/45 animate-soft-pulse" />
-              )}
+              <Icon className={cn("h-4 w-4 shrink-0", isActive && "text-[var(--dash-accent-text)]")} />
+              {!isCollapsed ? <span className="truncate">{item.title}</span> : null}
             </Link>
           );
         })}
       </nav>
 
-      <div className="mt-auto p-3">
-        <Separator className="mb-4 bg-border-rose-18" />
-        <div className={cn("flex items-center gap-3 rounded-xl bg-gradient-to-br from-[#FDFAF9]/80 to-[#FCEAEF]/40 border border-border-rose-18 transition-all duration-300 overflow-hidden", isCollapsed ? "p-1 justify-center" : "p-3")}>
-          <Avatar className="h-8 w-8 shrink-0 border border-border-rose-22 bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF]">
-            <AvatarFallback className="text-[#B8516B] font-semibold text-xs">{initials}</AvatarFallback>
+      {/* Footer */}
+      <div className="mt-auto border-t border-[var(--dash-hairline)] p-3">
+        <div
+          className={cn(
+            "flex items-center gap-3 rounded-[12px] px-2 py-2",
+            isCollapsed && "justify-center"
+          )}
+        >
+          <Avatar className="h-8 w-8 shrink-0 border border-[var(--dash-hairline)] bg-[var(--dash-surface)]">
+            <AvatarFallback className="bg-[var(--dash-blush)]/40 text-[11px] font-semibold text-[var(--dash-accent-text)]">
+              {initials}
+            </AvatarFallback>
           </Avatar>
-          <div className={cn("min-w-0 flex-1 transition-all duration-300 origin-left", isCollapsed ? "opacity-0 w-0 pointer-events-none" : "opacity-100 w-auto")}>
-            <p className="truncate text-xs font-semibold text-text-secondary whitespace-nowrap">{ro.nav.planner}</p>
-            <p className="truncate text-[10px] text-text-subtle whitespace-nowrap">
-              {userEmail ?? ro.nav.guest}
-            </p>
-          </div>
+          {!isCollapsed ? (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium text-[var(--dash-text)]">{ro.nav.planner}</p>
+              <p className="truncate text-[10px] text-[var(--dash-text-muted)]">
+                {userEmail ?? ro.nav.guest}
+              </p>
+            </div>
+          ) : null}
         </div>
-        <form action={signOut} className="mt-3">
-          <Button type="submit" variant="ghost" className={cn("w-full justify-start gap-2 px-3 text-text-secondary hover:text-[#B8516B] hover:bg-[#FEF0F3]/50 text-[13px]", isCollapsed && "justify-center px-0")} title={isCollapsed ? ro.nav.signOut : undefined}>
+        <form action={signOut} className="mt-2">
+          <Button
+            type="submit"
+            variant="ghost"
+            className={cn(
+              "h-9 w-full justify-start gap-2 px-2 text-[0.8125rem] font-medium text-[var(--dash-text-secondary)] hover:bg-[var(--dash-blush)]/25 hover:text-[var(--dash-accent-text)]",
+              isCollapsed && "justify-center px-0"
+            )}
+            title={isCollapsed ? ro.nav.signOut : undefined}
+          >
             <LogOut className="h-4 w-4 shrink-0" />
-            <span className={cn("transition-all duration-300 origin-left whitespace-nowrap", isCollapsed ? "opacity-0 w-0 pointer-events-none" : "opacity-100 w-auto")}>
-              {ro.nav.signOut}
-            </span>
+            {!isCollapsed ? <span>{ro.nav.signOut}</span> : null}
           </Button>
         </form>
       </div>

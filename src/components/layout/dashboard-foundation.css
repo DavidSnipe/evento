@@ -1,20 +1,33 @@
-/* Authenticated dashboard — Geist typography + Nuntiki spacing (foundation only) */
+/* Authenticated dashboard — Geist + Nuntiki tokens (Guests = visual source of truth) */
 
 .dashboard-shell {
   --font-geist: var(--font-geist-sans, ui-sans-serif, system-ui, sans-serif);
 
-  /* Nuntiki palette */
+  /* ── Surfaces (reference palette) ── */
   --dash-ivory: #f5f4f3;
   --dash-warm-gray: #eeedeb;
+  --dash-surface: #ffffff;
   --dash-blush: #eedfe3;
   --dash-dusty-rose: #dcb5be;
   --dash-sage: #89a293;
+
+  /* ── Text ── */
   --dash-text: #1c1816;
   --dash-text-secondary: #6b6560;
   --dash-text-muted: #9a9490;
-  --dash-hairline: rgba(28, 24, 22, 0.06);
 
-  /* Spacing scale */
+  /* ── Borders & accents ── */
+  --dash-hairline: rgba(28, 24, 22, 0.06);
+  --dash-border: rgba(28, 24, 22, 0.08);
+  --dash-border-rose-18: rgba(210, 170, 185, 0.18);
+  --dash-border-rose-22: rgba(210, 170, 185, 0.22);
+  --dash-accent: var(--dash-dusty-rose);
+  --dash-accent-soft: var(--dash-blush);
+  --dash-accent-text: #b8516b;
+  --dash-success: var(--dash-sage);
+  --dash-danger: #c45c5c;
+
+  /* ── Spacing scale ── */
   --dash-space-1: 0.25rem;
   --dash-space-2: 0.5rem;
   --dash-space-3: 0.75rem;
@@ -29,9 +42,60 @@
   --dash-content-py: var(--dash-space-10);
   --dash-section-gap: var(--dash-space-12);
   --dash-stack-gap: var(--dash-space-8);
+  --dash-page-header-gap: var(--dash-space-8);
+
+  /* ── Typography scale (Apple / SF Pro hierarchy via Geist) ── */
+  --dash-type-display-size: 2rem;
+  --dash-type-display-weight: 600;
+  --dash-type-display-tracking: -0.022em;
+  --dash-type-display-leading: 1.15;
+
+  --dash-type-title-size: 1.5rem;
+  --dash-type-title-weight: 600;
+  --dash-type-title-tracking: -0.018em;
+
+  --dash-type-heading-size: 1.125rem;
+  --dash-type-heading-weight: 600;
+  --dash-type-heading-tracking: -0.012em;
+
+  --dash-type-body-size: 0.875rem;
+  --dash-type-body-weight: 400;
+
+  --dash-type-body-sm-size: 0.8125rem;
+  --dash-type-caption-size: 0.6875rem;
+  --dash-type-micro-size: 0.625rem;
+  --dash-type-micro-tracking: 0.04em;
+
+  /* ── Radius scale ── */
+  --dash-radius-sm: 8px;
+  --dash-radius-md: 12px;
+  --dash-radius-lg: 16px;
+  --dash-radius-xl: 18px;
+  --dash-radius-2xl: 22px;
+
+  /* ── Shadow scale ── */
+  --dash-shadow-sm: 0 1px 2px rgba(28, 24, 22, 0.04);
+  --dash-shadow-md: 0 4px 12px rgba(28, 24, 22, 0.06);
+  --dash-shadow-lg: 0 8px 24px rgba(28, 24, 22, 0.08);
+
+  /* ── Sidebar ── */
+  --dash-sidebar-width: 240px;
+  --dash-sidebar-collapsed: 56px;
+  --dash-sidebar-bg: var(--dash-warm-gray);
+  --dash-sidebar-item-height: 36px;
 
   font-family: var(--font-geist);
   font-feature-settings: "rlig" 1, "calt" 1;
+  color: var(--dash-text);
+  height: 100vh;
+  overflow: hidden;
+}
+
+.dashboard-sidebar-container {
+  height: 100vh;
+  flex-shrink: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .dashboard-shell h1,
@@ -39,17 +103,66 @@
 .dashboard-shell h3,
 .dashboard-shell h4,
 .dashboard-shell h5,
-.dashboard-shell h6 {
+.dashboard-shell h6,
+.dashboard-shell .font-serif {
   font-family: inherit;
+}
+
+.dashboard-shell [data-slot="card-title"] {
+  font-family: inherit;
+  font-weight: var(--dash-type-heading-weight);
+  letter-spacing: var(--dash-type-heading-tracking);
 }
 
 .dashboard-main-container {
   background-color: var(--dash-ivory);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .dashboard-content-container {
   padding: var(--dash-content-py) var(--dash-content-px);
   padding-bottom: 6rem;
+}
+
+/* Hidden scrollbar (scroll still works) */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Vendors — sticky category sidebar + scrollable workspace */
+@media (min-width: 1024px) {
+  .vendors-category-layout {
+    --vendors-sticky-top: 1.5rem;
+    --vendors-viewport-offset: 14rem;
+  }
+
+  .vendors-category-sidebar-slot {
+    position: sticky;
+    top: var(--vendors-sticky-top);
+    align-self: start;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .vendors-category-sidebar-slot > aside {
+    width: 100%;
+  }
+
+  .vendors-category-workspace-slot {
+    min-width: 0;
+    min-height: 0;
+    max-height: calc(100vh - var(--vendors-viewport-offset));
+    overflow-y: auto;
+  }
 }
 
 @media (min-width: 768px) {
@@ -58,6 +171,102 @@
   }
 }
 
-.dashboard-shell .font-serif {
-  font-family: inherit;
+/* ── Typography utilities ── */
+.dash-type-display {
+  font-size: var(--dash-type-display-size);
+  font-weight: var(--dash-type-display-weight);
+  letter-spacing: var(--dash-type-display-tracking);
+  line-height: var(--dash-type-display-leading);
+  color: var(--dash-text);
+}
+
+.dash-type-title {
+  font-size: var(--dash-type-title-size);
+  font-weight: var(--dash-type-title-weight);
+  letter-spacing: var(--dash-type-title-tracking);
+  color: var(--dash-text);
+}
+
+.dash-type-heading {
+  font-size: var(--dash-type-heading-size);
+  font-weight: var(--dash-type-heading-weight);
+  letter-spacing: var(--dash-type-heading-tracking);
+  color: var(--dash-text);
+}
+
+.dash-type-body {
+  font-size: var(--dash-type-body-size);
+  font-weight: var(--dash-type-body-weight);
+  color: var(--dash-text);
+}
+
+.dash-type-body-sm {
+  font-size: var(--dash-type-body-sm-size);
+  color: var(--dash-text-secondary);
+}
+
+.dash-type-caption {
+  font-size: var(--dash-type-caption-size);
+  font-weight: 500;
+  color: var(--dash-text-muted);
+}
+
+.dash-type-micro {
+  font-size: var(--dash-type-micro-size);
+  font-weight: 600;
+  letter-spacing: var(--dash-type-micro-tracking);
+  text-transform: uppercase;
+  color: var(--dash-text-muted);
+}
+
+/* ── Page rhythm ── */
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-page-header-gap);
+}
+
+.dashboard-page-header {
+  margin-bottom: 0;
+}
+
+.dashboard-page-stats {
+  margin-top: calc(var(--dash-section-gap) - var(--dash-page-header-gap));
+}
+
+.dashboard-page-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-stack-gap);
+}
+
+/* ── Sidebar primitives ── */
+.dash-sidebar {
+  background: var(--dash-sidebar-bg);
+  border-right: 1px solid var(--dash-hairline);
+}
+
+.dash-sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: var(--dash-sidebar-item-height);
+  padding: 0 0.75rem;
+  border-radius: var(--dash-radius-md);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--dash-text-secondary);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dash-sidebar-nav-item:hover {
+  background: rgba(238, 223, 227, 0.35);
+  color: var(--dash-text);
+}
+
+.dash-sidebar-nav-item[data-active="true"] {
+  background: rgba(238, 223, 227, 0.45);
+  color: var(--dash-accent-text);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--dash-dusty-rose);
 }

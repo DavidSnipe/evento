@@ -16,12 +16,22 @@ export const GRID_METERS = 0.5;
 /** One snap cell on canvas in pixels */
 export const GRID_CELL_PX = PIXELS_PER_METER * GRID_METERS;
 
-/** Default room size in meters */
-export const ROOM_WIDTH_M = 30;
-export const ROOM_HEIGHT_M = 24;
+/** Default room size in meters (used when event has no custom value) */
+export const DEFAULT_ROOM_WIDTH_M = 30;
+export const DEFAULT_ROOM_HEIGHT_M = 24;
 
-export const CANVAS_WIDTH_PX = ROOM_WIDTH_M * PIXELS_PER_METER;
-export const CANVAS_HEIGHT_PX = ROOM_HEIGHT_M * PIXELS_PER_METER;
+/** @deprecated use DEFAULT_ROOM_WIDTH_M or event-specific room size */
+export const ROOM_WIDTH_M = DEFAULT_ROOM_WIDTH_M;
+/** @deprecated use DEFAULT_ROOM_HEIGHT_M or event-specific room size */
+export const ROOM_HEIGHT_M = DEFAULT_ROOM_HEIGHT_M;
+
+export const MIN_SEATING_ROOM_DIMENSION_M = 5;
+export const MAX_SEATING_ROOM_DIMENSION_M = 100;
+
+/** @deprecated use resolveSpatialLayout() for event-specific canvas size */
+export const CANVAS_WIDTH_PX = DEFAULT_ROOM_WIDTH_M * PIXELS_PER_METER;
+/** @deprecated use resolveSpatialLayout() for event-specific canvas size */
+export const CANVAS_HEIGHT_PX = DEFAULT_ROOM_HEIGHT_M * PIXELS_PER_METER;
 
 /** Extra pan range beyond the room, in meters */
 export const WORKSPACE_PAD_M = 10;
@@ -37,9 +47,72 @@ export type SpatialConfig = {
 export const DEFAULT_SPATIAL_CONFIG: SpatialConfig = {
   pixelsPerMeter: PIXELS_PER_METER,
   gridMeters: GRID_METERS,
-  roomWidthM: ROOM_WIDTH_M,
-  roomHeightM: ROOM_HEIGHT_M,
+  roomWidthM: DEFAULT_ROOM_WIDTH_M,
+  roomHeightM: DEFAULT_ROOM_HEIGHT_M,
 };
+
+export type RoomSpatialLayout = {
+  roomWidthM: number;
+  roomHeightM: number;
+  roomWidthPx: number;
+  roomHeightPx: number;
+  canvasWidthPx: number;
+  canvasHeightPx: number;
+};
+
+export function clampRoomDimensionM(meters: number): number {
+  if (!Number.isFinite(meters)) return DEFAULT_ROOM_WIDTH_M;
+  const rounded = Math.round(meters * 10) / 10;
+  return Math.min(MAX_SEATING_ROOM_DIMENSION_M, Math.max(MIN_SEATING_ROOM_DIMENSION_M, rounded));
+}
+
+export function normalizeRoomDimensions(
+  widthM: number | null | undefined,
+  heightM: number | null | undefined
+): { roomWidthM: number; roomHeightM: number } {
+  return {
+    roomWidthM: clampRoomDimensionM(Number(widthM) || DEFAULT_ROOM_WIDTH_M),
+    roomHeightM: clampRoomDimensionM(Number(heightM) || DEFAULT_ROOM_HEIGHT_M),
+  };
+}
+
+/** Workspace canvas is at least the room size, or large enough to fit placed content. */
+export function resolveSpatialLayout(
+  roomWidthM: number,
+  roomHeightM: number,
+  contentMaxX = 0,
+  contentMaxY = 0
+): RoomSpatialLayout {
+  const roomWidthPx = metersToPixels(roomWidthM);
+  const roomHeightPx = metersToPixels(roomHeightM);
+  const canvasWidthPx = Math.max(roomWidthPx, Math.ceil(contentMaxX));
+  const canvasHeightPx = Math.max(roomHeightPx, Math.ceil(contentMaxY));
+
+  return {
+    roomWidthM,
+    roomHeightM,
+    roomWidthPx,
+    roomHeightPx,
+    canvasWidthPx,
+    canvasHeightPx,
+  };
+}
+
+export function isFootprintOutsideRoom(
+  x: number,
+  y: number,
+  footprintWidthPx: number,
+  footprintHeightPx: number,
+  roomWidthPx: number,
+  roomHeightPx: number
+): boolean {
+  return (
+    x < 0 ||
+    y < 0 ||
+    x + footprintWidthPx > roomWidthPx ||
+    y + footprintHeightPx > roomHeightPx
+  );
+}
 
 export function metersToPixels(
   meters: number,

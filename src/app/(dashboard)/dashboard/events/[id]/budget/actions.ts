@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { denyUnlessEventPermission } from "@/lib/events/assert-event-access";
+import { categoryLabel } from "@/lib/vendors/grouping";
 import { createClient } from "@/lib/supabase/server";
 
 async function requireBudgetEdit(eventId: string) {
@@ -19,22 +20,24 @@ export async function createBudgetItem(
   if (accessDenied) return accessDenied;
 
   const title = formData.get("title") as string;
-  const category = formData.get("category") as string;
+  const categorySlug = formData.get("category_slug") as string;
   const estimatedCost = parseFloat(formData.get("estimated_cost") as string) || 0;
   const actualCost = parseFloat(formData.get("actual_cost") as string) || 0;
   const paidAmount = parseFloat(formData.get("paid_amount") as string) || 0;
   const dueDate = formData.get("due_date") as string;
 
-  if (!title || !category) {
+  if (!title || !categorySlug) {
     return { error: "Titlul și categoria sunt obligatorii" };
   }
 
   const supabase = await createClient();
+  const category = categoryLabel(categorySlug);
 
   const { error } = await supabase.from("budget_items").insert({
     event_id: eventId,
     title,
     category,
+    category_slug: categorySlug,
     estimated_cost: estimatedCost,
     actual_cost: actualCost,
     paid_amount: paidAmount,
@@ -59,19 +62,21 @@ export async function updateBudgetItem(
   if (accessDenied) return accessDenied;
 
   const title = formData.get("title") as string;
-  const category = formData.get("category") as string;
+  const categorySlug = formData.get("category_slug") as string;
   const estimatedCost = parseFloat(formData.get("estimated_cost") as string) || 0;
   const actualCost = parseFloat(formData.get("actual_cost") as string) || 0;
   const paidAmount = parseFloat(formData.get("paid_amount") as string) || 0;
   const dueDate = formData.get("due_date") as string;
 
   const supabase = await createClient();
+  const category = categorySlug ? categoryLabel(categorySlug) : "";
 
   const { error } = await supabase
     .from("budget_items")
     .update({
       title,
       category,
+      category_slug: categorySlug || null,
       estimated_cost: estimatedCost,
       actual_cost: actualCost,
       paid_amount: paidAmount,
@@ -107,6 +112,36 @@ export async function deleteBudgetItem(
   if (error) {
     console.error("Error deleting budget item:", error);
     return { error: "Nu am putut șterge acest cost." };
+  }
+
+  revalidatePath(`/dashboard/events/${eventId}/budget`);
+  return { success: true };
+}
+
+export async function updateBudgetTarget(
+  eventId: string,
+  formData: FormData
+): Promise<BudgetActionResult> {
+  const accessDenied = await requireBudgetEdit(eventId);
+  if (accessDenied) return accessDenied;
+
+  const raw = formData.get("budget_target") as string;
+  const parsed = raw.trim() === "" ? null : parseFloat(raw);
+
+  if (parsed != null && (Number.isNaN(parsed) || parsed < 0)) {
+    return { error: "Introdu o sumă validă pentru bugetul total." };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("events")
+    .update({ budget_target: parsed })
+    .eq("id", eventId);
+
+  if (error) {
+    console.error("Error updating budget target:", error);
+    return { error: "Nu am putut salva bugetul total." };
   }
 
   revalidatePath(`/dashboard/events/${eventId}/budget`);

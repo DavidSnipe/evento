@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 
 import { denyUnlessEventPermission } from "@/lib/events/assert-event-access";
 import { isVendorFoundationSchemaMissing } from "@/lib/vendors/migration";
+import { getVendorServiceTemplates } from "@/lib/vendors/queries";
 import type { VendorActionResult } from "@/lib/vendors/validation";
+import type { VendorServiceTemplate } from "@/types/vendors";
 import { createClient } from "@/lib/supabase/server";
 
 const SERVICE_MIGRATION_HINT =
@@ -12,6 +14,12 @@ const SERVICE_MIGRATION_HINT =
 
 function revalidateVendors(eventId: string) {
   revalidatePath(`/dashboard/events/${eventId}/vendors`);
+}
+
+export async function fetchServiceTemplates(
+  categorySlug: string
+): Promise<VendorServiceTemplate[]> {
+  return getVendorServiceTemplates(categorySlug);
 }
 
 export async function createVendorService(

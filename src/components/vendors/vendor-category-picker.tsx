@@ -8,7 +8,9 @@ import {
   activateVendorCategory,
   createVendorCategory,
 } from "@/app/(dashboard)/dashboard/events/[id]/vendors/category-actions";
-import { categoryIcon, categoryLabel } from "@/lib/vendors/grouping";
+import { categoryLabel } from "@/lib/vendors/grouping";
+import { EmojiIcon } from "@/components/ui/emoji-icon";
+import { getIconForVendorCategory } from "@/lib/icons/registry";
 import { ro } from "@/lib/i18n/ro";
 import type { VendorCategoryRow } from "@/types/vendors";
 import { GeistSans } from "geist/font/sans";
@@ -138,7 +140,7 @@ export function VendorCategoryPicker({
                     onClick={() => void handleActivate(cat.slug)}
                     className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2.5 text-left text-[14px] font-medium text-[var(--vk-text)] transition-colors hover:bg-[var(--vk-warm-gray)]/60 disabled:opacity-50"
                   >
-                    <span aria-hidden>{categoryIcon(cat.slug)}</span>
+                    <EmojiIcon icon={getIconForVendorCategory(cat.slug)} size="md" />
                     {categoryLabel(cat.slug, categories)}
                   </button>
                 </li>

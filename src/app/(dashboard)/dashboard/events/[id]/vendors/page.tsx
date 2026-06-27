@@ -3,6 +3,7 @@ import { getVendorFoundationSnapshot } from "@/lib/vendors/queries";
 import { VendorsWorkspace } from "@/components/vendors/vendors-workspace";
 import { VendorsPageShell } from "@/components/vendors/vendors-page-shell";
 import { AnimatedPage } from "@/components/layout/animated-page";
+import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { ro } from "@/lib/i18n/ro";
 
 export const dynamic = "force-dynamic";
@@ -23,15 +24,13 @@ export default async function VendorsPage({
   ]);
 
   return (
-    <AnimatedPage className="mx-auto max-w-[1200px]">
-      <VendorsPageShell className="space-y-[var(--dash-section-gap,3rem)] pb-8">
-        <header className="space-y-3 pb-6">
-          <h1 className="vk-page-title">{ro.vendors.workspace.pageTitle}</h1>
-          <p className="vk-page-desc">
-            {ro.vendors.workspace.pageSubtitle.replace("{title}", event.title)}
-          </p>
-        </header>
+    <AnimatedPage className="space-y-6">
+      <DashboardHeader
+        title={ro.vendors.workspace.pageTitle}
+        description={ro.vendors.workspace.pageSubtitle.replace("{title}", event.title)}
+      />
 
+      <VendorsPageShell>
         <VendorsWorkspace
           eventId={id}
           snapshot={snapshot}

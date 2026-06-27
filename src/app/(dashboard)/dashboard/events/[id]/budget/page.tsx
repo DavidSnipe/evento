@@ -1,7 +1,10 @@
 import { requireEventPermission } from "@/lib/events/verify-event";
-import { getBudgetItems } from "@/lib/budget/queries";
+import { getBudgetSnapshot } from "@/lib/budget/queries";
+import { getVendorFoundationSnapshot } from "@/lib/vendors/queries";
 import { BudgetClient } from "@/components/budget/budget-client";
 import { AnimatedPage } from "@/components/layout/animated-page";
+import { DashboardHeader } from "@/components/layout/dashboard-header";
+import { ro } from "@/lib/i18n/ro";
 
 export const dynamic = "force-dynamic";
 
@@ -15,22 +18,28 @@ export default async function BudgetPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { event } = await requireEventPermission(id, (p) => p.canEditBudget);
-
-  const budgetItems = await getBudgetItems(id);
+  const [{ event, access }, snapshot, vendorSnapshot] = await Promise.all([
+    requireEventPermission(id, (p) => p.canEditBudget),
+    getBudgetSnapshot(id),
+    getVendorFoundationSnapshot(id),
+  ]);
 
   return (
-    <AnimatedPage className="mx-auto max-w-5xl space-y-8">
-      <div>
-        <h1 className="font-serif text-3xl font-bold tracking-tight">
-          Buget & Cheltuieli
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Urmărește costurile pentru {event.title}.
-        </p>
-      </div>
+    <AnimatedPage className="space-y-6">
+      <DashboardHeader
+        title={ro.budgetModule.pageTitle}
+        description={ro.budgetModule.pageSubtitle.replace("{title}", event.title)}
+      />
 
-      <BudgetClient eventId={id} initialItems={budgetItems} />
+      <BudgetClient
+        eventId={id}
+        snapshot={snapshot}
+        vendorCategories={vendorSnapshot.categories}
+        activeCategorySlugs={vendorSnapshot.activeCategorySlugs}
+        migrationReady={vendorSnapshot.migrationReady}
+        canEdit={access.permissions.canEditBudget}
+        canManage={access.permissions.canManageVendors}
+      />
     </AnimatedPage>
   );
 }

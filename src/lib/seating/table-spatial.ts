@@ -317,69 +317,37 @@ function legacyPixelsToFootprintMeters(
  */
 
 export function resolveFootprintMeters(
-
   meta: TableMetadata,
-
   shape?: string
-
 ): FootprintMeters {
+  if (meta.widthM != null && meta.heightM != null) {
+    return {
+      widthM: meta.widthM,
+      heightM: meta.heightM,
+      physicalWidthM: meta.diameterM ?? undefined,
+      physicalHeightM: undefined,
+    };
+  }
 
   if (meta.objectType) {
-
     const preset = OBJECT_PRESETS_M[meta.objectType];
-
     if (preset) {
-
       return { widthM: preset.widthM, heightM: preset.heightM };
-
     }
-
     return { widthM: 2, heightM: 1 };
-
   }
-
-
 
   const tableShape = resolveStandardTableShape(meta, shape);
-
   if (tableShape) {
-
     return specToFootprintMeters(TABLE_FOOTPRINT_SPECS[tableShape]);
-
   }
-
-
-
-  if (meta.widthM != null && meta.heightM != null) {
-
-    return {
-
-      widthM: meta.widthM,
-
-      heightM: meta.heightM,
-
-      physicalWidthM: meta.diameterM ?? undefined,
-
-      physicalHeightM: undefined,
-
-    };
-
-  }
-
-
 
   const legacy = legacyPixelsToFootprintMeters(meta);
-
   if (legacy) {
-
     return legacy;
-
   }
 
-
-
   return specToFootprintMeters(TABLE_FOOTPRINT_SPECS.rectangular);
-
 }
 
 
@@ -442,6 +410,34 @@ export function getTableFootprintPx(
 
   return footprintMetersToPixels(resolveFootprintMeters(meta, shape), ppm);
 
+}
+
+export type TableVisualBoundsPx = {
+  widthPx: number;
+  heightPx: number;
+  widthM: number;
+  heightM: number;
+  /** 1 for standard tables; VISUAL_RENDER_SCALE for room objects. */
+  renderScale: number;
+};
+
+/** Canvas pixel bounds matching TableVisual's rendered outer box (top-left at pos_x/pos_y). */
+export function getTableVisualBoundsPx(
+  meta: TableMetadata,
+  shape?: string,
+  ppm: number = PIXELS_PER_METER
+): TableVisualBoundsPx {
+  const fp = getTableFootprintPx(meta, shape, ppm);
+  const meters = resolveFootprintMeters(meta, shape);
+  const renderScale = meta.objectType ? VISUAL_RENDER_SCALE : 1;
+
+  return {
+    widthPx: Math.round(fp.footprintWidthPx * renderScale),
+    heightPx: Math.round(fp.footprintHeightPx * renderScale),
+    widthM: meters.widthM,
+    heightM: meters.heightM,
+    renderScale,
+  };
 }
 
 

@@ -10,7 +10,10 @@ type SeatingPageProps = {
 
 export default async function SeatingPage({ params }: SeatingPageProps) {
   const { id } = await params;
-  const { tables, unassigned, allGuests } = await getSeatingPlan(id);
+  const { tables, unassigned, allGuests, roomWidthM, roomHeightM } = await getSeatingPlan(id);
+  const totalConfirmedGuests = allGuests.filter(
+    (guest) => guest.rsvp_status === "accepted" || guest.rsvp_status === "pending"
+  ).length;
 
   return (
     <AnimatedPage className="flex min-h-0 flex-1 flex-col">
@@ -19,6 +22,9 @@ export default async function SeatingPage({ params }: SeatingPageProps) {
         tables={tables}
         unassigned={unassigned}
         allGuests={allGuests}
+        totalConfirmedGuests={totalConfirmedGuests}
+        roomWidthM={roomWidthM}
+        roomHeightM={roomHeightM}
       />
     </AnimatedPage>
   );

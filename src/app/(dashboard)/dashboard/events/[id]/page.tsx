@@ -3,6 +3,10 @@ import { Calendar, MapPin, Pencil, Settings, Users, UtensilsCrossed } from "luci
 
 import { setActiveEvent } from "@/app/(dashboard)/dashboard/events/actions";
 import { DeleteEventButton } from "@/components/events/delete-event-button";
+import {
+  EventNextSteps,
+  shouldShowEventNextSteps,
+} from "@/components/dashboard/event-next-steps";
 import { DashboardPage } from "@/components/layout/animated-page";
 import { PageHeader } from "@/components/nuntiki/page-header";
 import { SectionCard } from "@/components/nuntiki/section-card";
@@ -43,6 +47,11 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
   const isActive = activeEventId === event.id;
   const showOwnerActions = canManageCollaborators(access);
   const showDelete = canDeleteEvent(access);
+  const showNextSteps = shouldShowEventNextSteps({
+    createdAt: event.created_at,
+    guestCount: guestStats.total,
+    tableCount: seating.tables.length,
+  });
 
   const headerActions = (
     <div className="flex flex-wrap items-center gap-2">
@@ -117,6 +126,8 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
           {ro.events.errors.deleteFailed}
         </p>
       ) : null}
+
+      {showNextSteps ? <EventNextSteps eventId={id} /> : null}
 
       <SectionCard title={ro.events.detail.overview}>
         <div className="space-y-3.5 text-xs text-[var(--dash-text-secondary)]">

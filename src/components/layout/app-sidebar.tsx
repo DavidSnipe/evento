@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { Heart, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { Heart, LogOut, ChevronLeft, ChevronRight, Settings } from "lucide-react";
 
 import { signOut } from "@/app/(auth)/actions";
+import { AccountModeSwitcher } from "@/components/layout/account-mode-switcher";
 import { getMainNav } from "@/config/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -13,10 +14,22 @@ import { ro } from "@/lib/i18n/ro";
 import { cn } from "@/lib/utils";
 
 type AppSidebarProps = {
+  userDisplayName?: string | null;
   userEmail?: string | null;
   activeEventId?: string | null;
   activeEventTitle?: string | null;
+  isPlanner?: boolean;
+  isVendor?: boolean;
+  pendingGalleryCount?: number;
 };
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
 
 const isHighPriorityRoute = (href: string) => {
   const match = href.match(/^\/dashboard(?:\/events(?:\/[^/]+(?:\/(guests|seating|vendors|budget))?)?)?$/);
@@ -24,9 +37,13 @@ const isHighPriorityRoute = (href: string) => {
 };
 
 export function AppSidebar({
+  userDisplayName,
   userEmail,
   activeEventId,
   activeEventTitle,
+  isPlanner = true,
+  isVendor = false,
+  pendingGalleryCount = 0,
 }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -47,7 +64,9 @@ export function AppSidebar({
     localStorage.setItem("sidebar-collapsed", String(next));
   };
 
-  const initials = userEmail?.slice(0, 2).toUpperCase() ?? "EV";
+  const displayName = userDisplayName ?? userEmail ?? ro.nav.guest;
+  const initials = getInitials(displayName);
+  const isProfileActive = pathname === "/dashboard/profile";
 
   const eventIdMatch = pathname.match(/^\/dashboard\/events\/([^/]+)/);
   const isNewEvent = pathname === "/dashboard/events/new";
@@ -167,6 +186,12 @@ export function AppSidebar({
         </div>
       ) : null}
 
+      <AccountModeSwitcher
+        isPlanner={isPlanner}
+        isVendor={isVendor}
+        collapsed={isCollapsed}
+      />
+
       {/* Navigation */}
       <nav className="flex-1 space-y-0.5 px-2">
         {navItems.map((item) => {
@@ -197,6 +222,9 @@ export function AppSidebar({
 
           const isCurrentlyLoading = loadingHref === item.href;
 
+          const isGalleryItem = item.href.includes("/gallery");
+          const showGalleryBadge = isGalleryItem && pendingGalleryCount > 0;
+
           return (
             <Link
               key={item.href + item.title}
@@ -217,8 +245,22 @@ export function AppSidebar({
               )}
               title={isCollapsed ? item.title : undefined}
             >
-              <Icon className={cn("h-4 w-4 shrink-0", isActive && "text-[var(--dash-accent-text)]")} />
-              {!isCollapsed ? <span className="truncate">{item.title}</span> : null}
+              <span className="relative shrink-0">
+                <Icon className={cn("h-4 w-4", isActive && "text-[var(--dash-accent-text)]")} />
+                {showGalleryBadge && isCollapsed ? (
+                  <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--dash-ivory)]" />
+                ) : null}
+              </span>
+              {!isCollapsed ? (
+                <span className="flex min-w-0 flex-1 items-center gap-2 truncate">
+                  <span className="truncate">{item.title}</span>
+                  {showGalleryBadge ? (
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                      {pendingGalleryCount > 9 ? "9+" : pendingGalleryCount}
+                    </span>
+                  ) : null}
+                </span>
+              ) : null}
             </Link>
           );
         })}
@@ -226,11 +268,14 @@ export function AppSidebar({
 
       {/* Footer */}
       <div className="mt-auto border-t border-[var(--dash-hairline)] p-3">
-        <div
+        <Link
+          href="/dashboard/profile"
           className={cn(
-            "flex items-center gap-3 rounded-[12px] px-2 py-2",
-            isCollapsed && "justify-center"
+            "flex items-center gap-3 rounded-[12px] px-2 py-2 transition-colors hover:bg-[var(--dash-blush)]/20",
+            isCollapsed && "justify-center",
+            isProfileActive && "bg-[var(--dash-blush)]/25"
           )}
+          title={isCollapsed ? ro.profile.title : undefined}
         >
           <Avatar className="h-8 w-8 shrink-0 border border-[var(--dash-hairline)] bg-[var(--dash-surface)]">
             <AvatarFallback className="bg-[var(--dash-blush)]/40 text-[11px] font-semibold text-[var(--dash-accent-text)]">
@@ -240,12 +285,13 @@ export function AppSidebar({
           {!isCollapsed ? (
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-medium text-[var(--dash-text)]">{ro.nav.planner}</p>
-              <p className="truncate text-[10px] text-[var(--dash-text-muted)]">
-                {userEmail ?? ro.nav.guest}
-              </p>
+              <p className="truncate text-[10px] text-[var(--dash-text-muted)]">{displayName}</p>
             </div>
           ) : null}
-        </div>
+          {!isCollapsed ? (
+            <Settings className="h-3.5 w-3.5 shrink-0 text-[var(--dash-text-muted)]" />
+          ) : null}
+        </Link>
         <form action={signOut} className="mt-2">
           <Button
             type="submit"

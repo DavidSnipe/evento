@@ -62,8 +62,10 @@ type ObjectTypePreset = {
 };
 
 const objectTypes: ObjectTypePreset[] = [
-  { value: "dance_floor", label: "Ring de Dans", icon: Music, defaultShape: "round" },
+  { value: "dance_floor", label: "Ring de Dans", icon: Music, defaultShape: "rectangular" },
+  { value: "dance_floor_round", label: "Ring de Dans (rotund)", icon: Music, defaultShape: "round" },
   { value: "stage", label: "Scenă", icon: Mic, defaultShape: "rectangular" },
+  { value: "stage_semicircle", label: "Scenă (semicerc)", icon: Mic, defaultShape: "rectangular" },
   { value: "dj_booth", label: "DJ Booth", icon: Sliders, defaultShape: "rectangular" },
   { value: "bar", label: "Cocktail Bar", icon: GlassWater, defaultShape: "rectangular" },
   { value: "candy_bar", label: "Candy Bar", icon: Cake, defaultShape: "rectangular" },
@@ -84,11 +86,29 @@ export function AddTableDialog({ eventId, open, tables, onClose, onAddOptimistic
       return false;
     }
   });
+  const hasDanceFloorRound = tables.some((t) => {
+    try {
+      const meta = JSON.parse(t.notes || "{}");
+      const actualMeta = meta.metadata || meta;
+      return actualMeta.objectType === "dance_floor_round";
+    } catch {
+      return false;
+    }
+  });
   const hasStage = tables.some((t) => {
     try {
       const meta = JSON.parse(t.notes || "{}");
       const actualMeta = meta.metadata || meta;
       return actualMeta.objectType === "stage";
+    } catch {
+      return false;
+    }
+  });
+  const hasStageSemicircle = tables.some((t) => {
+    try {
+      const meta = JSON.parse(t.notes || "{}");
+      const actualMeta = meta.metadata || meta;
+      return actualMeta.objectType === "stage_semicircle";
     } catch {
       return false;
     }
@@ -388,7 +408,9 @@ export function AddTableDialog({ eventId, open, tables, onClose, onAddOptimistic
                   {objectTypes.map((o) => {
                     const isLocked =
                       (o.value === "dance_floor" && hasDanceFloor) ||
+                      (o.value === "dance_floor_round" && hasDanceFloorRound) ||
                       (o.value === "stage" && hasStage) ||
+                      (o.value === "stage_semicircle" && hasStageSemicircle) ||
                       (o.value === "dj_booth" && hasDjBooth);
 
                     return (

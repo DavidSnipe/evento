@@ -31,13 +31,13 @@ export default async function PublicRsvpPage({ params }: PublicRsvpPageProps) {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#FDFBF7] text-foreground font-sans relative overflow-x-hidden">
+    <div className="evento-public-page min-h-[100dvh] font-sans relative overflow-x-hidden">
       <div
         className="pointer-events-none absolute inset-0 overflow-hidden"
         aria-hidden
       >
-        <div className="absolute -top-[15%] -left-[20%] h-[45%] w-[70%] rounded-full bg-primary/8 blur-[90px]" />
-        <div className="absolute -bottom-[10%] -right-[15%] h-[50%] w-[65%] rounded-full bg-orange-100/40 blur-[100px]" />
+        <div className="absolute -top-[15%] -left-[20%] h-[45%] w-[70%] rounded-full bg-[var(--color-blush-light)]/35 blur-[90px]" />
+        <div className="absolute -bottom-[10%] -right-[15%] h-[50%] w-[65%] rounded-full bg-[var(--color-dash-warm-gray)]/60 blur-[100px]" />
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-lg flex-col px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-6">

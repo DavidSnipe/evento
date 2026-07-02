@@ -4,13 +4,11 @@ import { revalidatePath } from "next/cache";
 
 import {
   getPublicEventByRsvpSlug,
-  getPublicHouseholdBundle,
   searchPublicHouseholds,
   type PublicHouseholdSearchHit,
 } from "@/lib/rsvp/public-queries";
+import { getPublicHouseholdBundle } from "@/lib/rsvp/queries";
 import type { InvitationHouseholdBundle } from "@/types/rsvp";
-import { deriveHouseholdInvitationStatus } from "@/lib/rsvp/sync";
-import { attendanceToGuestRsvpStatus } from "@/lib/rsvp/sync";
 import type { RsvpAttendanceStatus } from "@/types/rsvp";
 import { createClient } from "@/lib/supabase/server";
 
@@ -46,8 +44,10 @@ export async function loadPublicRsvpHousehold(
 ): Promise<{ bundle: InvitationHouseholdBundle | null; error?: string }> {
   const event = await getPublicEventByRsvpSlug(rsvpSlug);
   if (!event) return { bundle: null, error: "Eveniment negăsit." };
-  const bundle = await getPublicHouseholdBundle(event.id, householdId);
-  if (!bundle) return { bundle: null, error: "Grup negăsit." };
+  const bundle = await getPublicHouseholdBundle(householdId);
+  if (!bundle || bundle.event_id !== event.id) {
+    return { bundle: null, error: "Grup negăsit." };
+  }
   return { bundle };
 }
 
@@ -68,8 +68,8 @@ export async function submitPublicHouseholdRsvp(
     }
   }
 
-  const bundle = await getPublicHouseholdBundle(event.id, householdId);
-  if (!bundle) {
+  const bundle = await getPublicHouseholdBundle(householdId);
+  if (!bundle || bundle.event_id !== event.id) {
     return { error: "Grupul selectat nu a fost găsit." };
   }
 
@@ -98,32 +98,11 @@ export async function submitPublicHouseholdRsvp(
       console.error("submitPublicHouseholdRsvp:", error);
       return { error: "Nu am putut salva răspunsul. Încearcă din nou." };
     }
-
-    const member = bundle.members.find((m) => m.id === input.memberId);
-    if (member?.guest_id) {
-      await supabase
-        .from("guests")
-        .update({
-          rsvp_status: attendanceToGuestRsvpStatus(input.attendance_status),
-        })
-        .eq("id", member.guest_id);
-    }
   }
-
-  const statuses = members.map((m) => m.attendance_status);
-  const derived = deriveHouseholdInvitationStatus(statuses);
-  const hasResponse = statuses.some((s) => s !== "pending");
-
-  await supabase
-    .from("invitation_households")
-    .update({
-      invitation_status: derived,
-      responded_at: hasResponse ? new Date().toISOString() : null,
-    })
-    .eq("id", householdId);
 
   revalidatePath(`/rsvp/${rsvpSlug}`);
   revalidatePath(`/dashboard/events/${event.id}/rsvp`);
+  revalidatePath(`/dashboard/events/${event.id}/guests`);
 
   return { success: true };
 }

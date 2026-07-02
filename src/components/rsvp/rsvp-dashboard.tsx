@@ -85,8 +85,29 @@ export function RsvpDashboard({
     });
   };
 
+  const needsHouseholdSync = stats.householdCount === 0;
+
   return (
     <div className="space-y-6">
+      {needsHouseholdSync ? (
+        <div
+          className="rounded-[14px] border border-amber-300/80 bg-amber-50 px-4 py-4 text-sm text-amber-950"
+          role="alert"
+        >
+          <p className="font-semibold">{ro.rsvp.prep.syncRequiredTitle}</p>
+          <p className="mt-1.5 text-amber-900/90">{ro.rsvp.prep.syncRequiredBody}</p>
+          <Button
+            type="button"
+            className="mt-3 rounded-xl"
+            disabled={isPending}
+            onClick={handleSync}
+          >
+            <RefreshCw className={cn("mr-2 h-4 w-4", isPending && "animate-spin")} />
+            {ro.rsvp.prep.syncRequiredCta}
+          </Button>
+        </div>
+      ) : null}
+
       <Card className="border-[#FCEAEF]/80 bg-gradient-to-br from-[#FEF8F9] to-white">
         <CardHeader className="pb-2">
           <div className="flex items-start gap-3">
@@ -128,6 +149,11 @@ export function RsvpDashboard({
           <CardContent className="space-y-3">
             {rsvpSlug && publicPath ? (
               <>
+                {needsHouseholdSync ? (
+                  <p className="text-sm font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    {ro.rsvp.prep.syncRequiredBody}
+                  </p>
+                ) : null}
                 <p className="text-xs font-mono text-text-secondary break-all bg-slate-50 rounded-lg px-3 py-2 border">
                   {publicPath}
                 </p>
@@ -137,6 +163,7 @@ export function RsvpDashboard({
                     variant="outline"
                     size="sm"
                     className="rounded-lg gap-1.5"
+                    disabled={needsHouseholdSync}
                     onClick={handleCopy}
                   >
                     <Copy className="h-3.5 w-3.5" />
@@ -151,7 +178,7 @@ export function RsvpDashboard({
                   >
                     <a href={publicPath} target="_blank" rel="noopener noreferrer">
                       <ExternalLink className="h-3.5 w-3.5" />
-                      Preview
+                      {ro.rsvp.publicLink.preview}
                     </a>
                   </Button>
                 </div>
@@ -183,7 +210,7 @@ export function RsvpDashboard({
           <CardContent className="space-y-3">
             <Button
               type="button"
-              variant="outline"
+              variant={needsHouseholdSync ? "default" : "outline"}
               className="rounded-xl gap-2 w-full sm:w-auto"
               disabled={isPending}
               onClick={handleSync}

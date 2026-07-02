@@ -19,6 +19,7 @@ import {
 import type { TableMetadata } from "@/lib/seating/utils";
 import { buildMetadataNotesUpdate } from "@/lib/seating/planner-mutations";
 import type { GuestWithTable } from "@/types/guests";
+import { ro } from "@/lib/i18n/ro";
 
 type UpdateTablePayload = {
   name?: string;
@@ -183,7 +184,7 @@ export function usePlannerTables(
             return { ok: true, skipped: true };
           }
         }
-        return { ok: false, error: "Table not found" };
+        return { ok: false, error: ro.seating.errors.tableNotFound };
       }
 
       const pendingKeys = [
@@ -314,7 +315,7 @@ export function usePlannerTables(
             return [...prev, restored];
           });
         }
-        return { ok: false as const, error: "Delete failed" };
+        return { ok: false as const, error: ro.seating.errors.deleteFailed };
       }
     },
     [eventId, resolveServerTableId]

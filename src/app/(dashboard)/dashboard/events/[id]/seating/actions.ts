@@ -569,13 +569,18 @@ function resolveTemplateDbShape(element: TemplateElement): TableShape {
   return "rectangular";
 }
 
+function resolveObjectCustomShape(objectType: string): TableMetadata["customShape"] {
+  if (objectType === "dance_floor") return "square";
+  if (objectType === "dance_floor_round") return "round";
+  return "rectangular";
+}
+
 function buildTemplateInsertMetadata(element: TemplateElement): string {
   const rotation = element.rotation ?? 0;
   const isLocked = false;
 
   if (element.type === "room_object" && element.objectType) {
-    const customShape =
-      element.objectType === "dance_floor" ? "square" : "rectangular";
+    const customShape = resolveObjectCustomShape(element.objectType);
     return serializeTableMetadata(
       patchMeterDimensions(
         {

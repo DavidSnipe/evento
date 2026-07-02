@@ -35,6 +35,41 @@ export async function getMediaUploads(eventId: string): Promise<MediaUpload[]> {
   return data;
 }
 
+export async function getPendingGalleryCount(eventId: string): Promise<number> {
+  const supabase = await createClient();
+
+  const { count, error } = await supabase
+    .from("media_uploads")
+    .select("id", { count: "exact", head: true })
+    .eq("event_id", eventId)
+    .eq("approved", false);
+
+  if (error) {
+    console.error("[getPendingGalleryCount]", error.message);
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
+export async function getApprovedMediaUploads(eventId: string): Promise<MediaUpload[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("media_uploads")
+    .select("*")
+    .eq("event_id", eventId)
+    .eq("approved", true)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching approved media:", error);
+    return [];
+  }
+
+  return data;
+}
+
 // Public query using slug
 export async function getEventBySlug(slug: string) {
   const supabase = await createClient();

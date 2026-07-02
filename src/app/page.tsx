@@ -1,12 +1,35 @@
 import Link from "next/link";
 import { ArrowRight, Heart, Sparkles } from "lucide-react";
 
+import { VendorCard } from "@/components/marketplace/vendor-card";
 import { Button } from "@/components/ui/button";
+import { getFeaturedVendors } from "@/lib/marketplace/queries";
 import { ro } from "@/lib/i18n/ro";
 import { getServerUser } from "@/lib/supabase/server-auth";
 
+function MarketplacePlaceholderCards() {
+  return (
+    <div className="grid gap-5 md:grid-cols-3">
+      {[1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className="overflow-hidden rounded-2xl border border-border/70 bg-white shadow-sm"
+        >
+          <div className="aspect-[16/9] bg-gradient-to-br from-[hsl(350,35%,92%)] to-[hsl(30,40%,90%)]" />
+          <div className="space-y-2 p-5">
+            <div className="h-4 w-2/3 rounded bg-muted" />
+            <div className="h-3 w-1/2 rounded bg-muted/70" />
+            <p className="text-sm text-muted-foreground">{ro.marketplace.empty}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default async function HomePage() {
   const user = await getServerUser();
+  const featured = await getFeaturedVendors(3);
 
   const features = [
     ro.landing.features.guests,
@@ -22,6 +45,9 @@ export default async function HomePage() {
           <span className="font-serif text-2xl font-semibold">Evento</span>
         </div>
         <nav className="flex items-center gap-3">
+          <Button variant="ghost" asChild>
+            <Link href="/marketplace">{ro.landing.marketplace}</Link>
+          </Button>
           {user ? (
             <Button asChild>
               <Link href="/dashboard">{ro.landing.goDashboard}</Link>
@@ -65,6 +91,31 @@ export default async function HomePage() {
           </div>
         </section>
 
+        <section className="mt-24">
+          <div className="mb-8 text-center">
+            <h2 className="font-serif text-3xl font-semibold">
+              {ro.landing.marketplaceSection.title}
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+              {ro.landing.marketplaceSection.subtitle}
+            </p>
+          </div>
+          {featured.length > 0 ? (
+            <div className="grid gap-5 md:grid-cols-3">
+              {featured.map((vendor) => (
+                <VendorCard key={vendor.id} vendor={vendor} />
+              ))}
+            </div>
+          ) : (
+            <MarketplacePlaceholderCards />
+          )}
+          <div className="mt-8 text-center">
+            <Button asChild size="lg">
+              <Link href="/marketplace">{ro.landing.marketplaceSection.explore}</Link>
+            </Button>
+          </div>
+        </section>
+
         <section className="mt-24 grid gap-6 md:grid-cols-3">
           {features.map((feature) => (
             <article key={feature.title} className="glass-panel p-8 transition hover:shadow-xl">
@@ -72,6 +123,14 @@ export default async function HomePage() {
               <p className="mt-3 text-sm text-muted-foreground">{feature.body}</p>
             </article>
           ))}
+        </section>
+
+        <section className="mt-24 rounded-3xl border border-border/60 bg-white/70 p-10 text-center shadow-sm">
+          <h2 className="font-serif text-2xl font-semibold md:text-3xl">{ro.landing.vendorCta.title}</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">{ro.landing.vendorCta.subtitle}</p>
+          <Button asChild size="lg" className="mt-8">
+            <Link href="/signup?role=vendor">{ro.landing.vendorCta.button}</Link>
+          </Button>
         </section>
       </main>
     </div>

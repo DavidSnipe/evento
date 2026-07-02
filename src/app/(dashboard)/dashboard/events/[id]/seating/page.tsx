@@ -1,5 +1,6 @@
 import { SeatingPlannerDynamic } from "@/components/seating/seating-planner-dynamic";
 import { AnimatedPage } from "@/components/layout/animated-page";
+import { getEventAccessContext } from "@/lib/events/verify-event";
 import { getSeatingPlan } from "@/lib/seating/queries";
 
 export const dynamic = "force-dynamic";
@@ -10,10 +11,12 @@ type SeatingPageProps = {
 
 export default async function SeatingPage({ params }: SeatingPageProps) {
   const { id } = await params;
-  const { tables, unassigned, allGuests, roomWidthM, roomHeightM } = await getSeatingPlan(id);
+  const [{ access }, { tables, unassigned, allGuests, roomWidthM, roomHeightM }] =
+    await Promise.all([getEventAccessContext(id), getSeatingPlan(id)]);
   const totalConfirmedGuests = allGuests.filter(
     (guest) => guest.rsvp_status === "accepted" || guest.rsvp_status === "pending"
   ).length;
+  const isReadOnly = !access.permissions.canEditSeating;
 
   return (
     <AnimatedPage className="flex min-h-0 flex-1 flex-col">
@@ -25,6 +28,7 @@ export default async function SeatingPage({ params }: SeatingPageProps) {
         totalConfirmedGuests={totalConfirmedGuests}
         roomWidthM={roomWidthM}
         roomHeightM={roomHeightM}
+        isReadOnly={isReadOnly}
       />
     </AnimatedPage>
   );

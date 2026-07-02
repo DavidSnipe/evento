@@ -23,15 +23,27 @@ import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
 
 type MobileNavProps = {
+  userDisplayName?: string | null;
   userEmail?: string | null;
   activeEventId?: string | null;
   activeEventTitle?: string | null;
+  pendingGalleryCount?: number;
 };
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
 export function MobileNav({
+  userDisplayName,
   userEmail,
   activeEventId,
   activeEventTitle,
+  pendingGalleryCount = 0,
 }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -63,7 +75,8 @@ export function MobileNav({
   }, [isOpen]);
 
   const close = useCallback(() => setIsOpen(false), []);
-  const initials = userEmail?.slice(0, 2).toUpperCase() ?? "EV";
+  const displayName = userDisplayName ?? userEmail ?? ro.nav.guest;
+  const initials = getInitials(displayName);
 
   // Check which page is currently active
   const isDashboardActive = pathname === "/dashboard";
@@ -174,14 +187,19 @@ export function MobileNav({
             href={galleryHref}
             onClick={close}
             className={cn(
-              "flex flex-col items-center justify-center p-4 rounded-2xl border transition-all text-center gap-2 active:scale-95",
+              "relative flex flex-col items-center justify-center p-4 rounded-2xl border transition-all text-center gap-2 active:scale-95",
               isGalleryActive 
                 ? "bg-[#FEF0F3] border-[#B8516B] text-[#B8516B]" 
                 : "bg-white border-border-rose-18 text-text-secondary active:bg-slate-50"
             )}
           >
-            <div className="p-2 rounded-xl bg-slate-50 text-text-secondary">
+            <div className="relative p-2 rounded-xl bg-slate-50 text-text-secondary">
               <ImageIcon size={18} className={cn(isGalleryActive && "text-[#B8516B]")} />
+              {pendingGalleryCount > 0 ? (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                  {pendingGalleryCount > 9 ? "9+" : pendingGalleryCount}
+                </span>
+              ) : null}
             </div>
             <span className="text-[11px] font-medium leading-none">Galerie</span>
           </Link>
@@ -189,17 +207,18 @@ export function MobileNav({
 
         {/* ── User & Logout ── */}
         <div className="border-t border-border-rose-18 pt-4 flex flex-col gap-3">
-          <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-br from-[#FDFAF9] to-[#FCEAEF]/40 border border-border-rose-18 p-3">
+          <Link
+            href="/dashboard/profile"
+            className="flex items-center gap-3 rounded-2xl bg-gradient-to-br from-[#FDFAF9] to-[#FCEAEF]/40 border border-border-rose-18 p-3 transition-colors active:bg-[#FCEAEF]/50"
+          >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] text-xs font-bold text-[#B8516B] border border-border-rose-22">
               {initials}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-text-secondary">{ro.nav.planner}</p>
-              <p className="truncate text-[10px] text-text-subtle">
-                {userEmail ?? ro.nav.guest}
-              </p>
+              <p className="truncate text-[10px] text-text-subtle">{displayName}</p>
             </div>
-          </div>
+          </Link>
           <form action={signOut}>
             <button
               type="submit"

@@ -230,12 +230,13 @@ export function TableResizeHandles({
   );
 
   useEffect(() => {
+    const overlay = overlayRef.current;
     return () => {
       const session = sessionRef.current;
       if (session) {
         clearResizeCollisionDOM(
           session.tableId,
-          overlayRef.current,
+          overlay,
           session.collisionMarkedIds
         );
         onResizeActiveChange(null);

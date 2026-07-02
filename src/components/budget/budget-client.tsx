@@ -138,6 +138,9 @@ export function BudgetClient({
     }
   }, [snapshot.categories, selectedSlug]);
 
+  const needsVendorSetup =
+    snapshot.categories.length === 0 && activeCategorySlugs.length === 0;
+
   if (snapshot.categories.length === 0) {
     return (
       <div className="space-y-4">
@@ -146,8 +149,10 @@ export function BudgetClient({
           <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-border-rose-18 bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] text-[#B8516B] shadow-sm">
             <PiggyBank className="h-7 w-7" />
           </div>
-          <h3 className="text-lg font-semibold text-[#1A0E14]">{ro.budgetModule.noCategories}</h3>
-          {canManage && migrationReady && vendorCategories.length > 0 ? (
+          <h3 className="text-lg font-semibold text-[#1A0E14]">
+            {needsVendorSetup ? ro.budgetModule.vendorSetupEmpty : ro.budgetModule.noCategories}
+          </h3>
+          {canManage && migrationReady && vendorCategories.length > 0 && !needsVendorSetup ? (
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
@@ -160,8 +165,8 @@ export function BudgetClient({
               href={`/dashboard/events/${eventId}/vendors`}
               className="mt-6 inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] px-5 py-2.5 text-xs font-bold text-white shadow-primary-btn"
             >
-              {ro.budgetModule.noCategoriesCta}
-              <ExternalLink className="h-3.5 w-3.5" />
+              {needsVendorSetup ? ro.budgetModule.vendorSetupCta : ro.budgetModule.noCategoriesCta}
+              {!needsVendorSetup ? <ExternalLink className="h-3.5 w-3.5" /> : null}
             </Link>
           )}
         </div>

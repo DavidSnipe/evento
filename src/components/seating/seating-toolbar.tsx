@@ -17,6 +17,8 @@ import {
   Lock,
   Unlock,
   Layers,
+  ImagePlus,
+  Sparkles,
 } from "lucide-react";
 
 import { autoSeatGuestsAction } from "@/app/(dashboard)/dashboard/events/[id]/seating/actions";
@@ -28,6 +30,7 @@ type SeatingToolbarProps = {
   totalGuests: number;
   totalCapacity: number;
   onAddTable: () => void;
+  onOpenImportPlan?: () => void;
   onOpenExport: () => void;
   onOpenLayouts: () => void;
   printSort: "alpha" | "table";
@@ -35,6 +38,7 @@ type SeatingToolbarProps = {
   globalLock: boolean;
   onToggleGlobalLock: () => void;
   onRunAutoSeat?: (strategy: "family" | "even") => Promise<void>;
+  onOpenAiSeating?: () => void;
   onToggleTemplateMenu: (show: boolean) => void;
   applyingTemplate?: boolean;
   workspaceMode: boolean;
@@ -43,6 +47,7 @@ type SeatingToolbarProps = {
   onViewModeChange?: (mode: "canvas" | "list") => void;
   onToggleWorkspaceMode?: () => void;
   previewMode?: boolean;
+  isReadOnly?: boolean;
 };
 
 export function SeatingToolbar({
@@ -51,6 +56,7 @@ export function SeatingToolbar({
   totalGuests,
   totalCapacity,
   onAddTable,
+  onOpenImportPlan,
   onOpenExport,
   onOpenLayouts,
   printSort,
@@ -58,14 +64,17 @@ export function SeatingToolbar({
   globalLock,
   onToggleGlobalLock,
   onRunAutoSeat,
+  onOpenAiSeating,
   workspaceMode,
   isFloating = false,
   viewMode = "canvas",
   onViewModeChange,
   onToggleWorkspaceMode,
   previewMode = false,
+  isReadOnly = false,
 }: SeatingToolbarProps) {
   const router = useRouter();
+  const editDisabled = previewMode;
   const [assigning, setAssigning] = useState(false);
   const [showPrintMenu, setShowPrintMenu] = useState(false);
   const [showAutoSeatMenu, setShowAutoSeatMenu] = useState(false);
@@ -244,13 +253,17 @@ export function SeatingToolbar({
 
       <div style={{ flex: 1, minWidth: 8 }} />
 
+      {!isReadOnly ? (
+        <>
       <button
         type="button"
-        onClick={previewMode ? undefined : onToggleGlobalLock}
-        disabled={previewMode}
+        onClick={editDisabled ? undefined : onToggleGlobalLock}
+        disabled={editDisabled}
         title={
-          previewMode
-            ? "Indisponibil în previzualizare"
+          editDisabled
+            ? isReadOnly
+              ? "Mod doar citire"
+              : "Indisponibil în previzualizare"
             : globalLock
               ? "Deblochează editarea layout-ului"
               : "Blochează mutarea/redimensionarea meselor"
@@ -271,8 +284,8 @@ export function SeatingToolbar({
             ? "linear-gradient(145deg, #FEF0F3, #FCE8EE)"
             : "rgba(255,255,255,0.7)",
           color: globalLock ? "#B8516B" : "#8A7080",
-          cursor: previewMode ? "not-allowed" : "pointer",
-          opacity: previewMode ? 0.45 : 1,
+          cursor: editDisabled ? "not-allowed" : "pointer",
+          opacity: editDisabled ? 0.45 : 1,
           flexShrink: 0,
         }}
       >
@@ -300,8 +313,8 @@ export function SeatingToolbar({
           <div style={{ position: "relative" }}>
             <button
               type="button"
-              onClick={previewMode ? undefined : () => setShowAutoSeatMenu(!showAutoSeatMenu)}
-              disabled={previewMode}
+              onClick={editDisabled ? undefined : () => setShowAutoSeatMenu(!showAutoSeatMenu)}
+              disabled={editDisabled}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -311,8 +324,8 @@ export function SeatingToolbar({
                 background: "linear-gradient(135deg, #E8748A, #B8516B)",
                 color: "white",
                 border: "none",
-                cursor: previewMode ? "not-allowed" : "pointer",
-                opacity: previewMode ? 0.45 : 1,
+                cursor: editDisabled ? "not-allowed" : "pointer",
+                opacity: editDisabled ? 0.45 : 1,
                 fontSize: 12,
                 fontWeight: 700,
                 fontFamily: "Inter, sans-serif",
@@ -357,6 +370,38 @@ export function SeatingToolbar({
                   >
                     Alege Strategia
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAutoSeatMenu(false);
+                      onOpenAiSeating?.();
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      textAlign: "left",
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      background: "linear-gradient(135deg, #FEF0F3, #FCE8EE)",
+                      color: "#B8516B",
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      border: "1px solid rgba(184,81,107,0.2)",
+                      cursor: "pointer",
+                      width: "100%",
+                    }}
+                  >
+                    <Sparkles size={13} />
+                    Auto-Așezare AI
+                  </button>
+                  <div
+                    style={{
+                      height: 1,
+                      background: "rgba(210,170,185,0.2)",
+                      margin: "2px 0",
+                    }}
+                  />
                   <button
                     type="button"
                     onClick={() => setStrategy("family")}
@@ -414,8 +459,8 @@ export function SeatingToolbar({
           </div>
           <button
             type="button"
-            onClick={previewMode ? undefined : onAddTable}
-            disabled={previewMode}
+            onClick={editDisabled ? undefined : onAddTable}
+            disabled={editDisabled}
             style={{
               display: "flex",
               alignItems: "center",
@@ -425,8 +470,8 @@ export function SeatingToolbar({
               background: "transparent",
               border: "none",
               color: "#8A7080",
-              cursor: previewMode ? "not-allowed" : "pointer",
-              opacity: previewMode ? 0.45 : 1,
+              cursor: editDisabled ? "not-allowed" : "pointer",
+              opacity: editDisabled ? 0.45 : 1,
               fontSize: 12,
               fontWeight: 500,
               fontFamily: "Inter, sans-serif",
@@ -435,15 +480,47 @@ export function SeatingToolbar({
             <Plus size={13} />
             <span className="hidden sm:inline">Nou</span>
           </button>
+          {onOpenImportPlan ? (
+            <button
+              type="button"
+              onClick={editDisabled ? undefined : onOpenImportPlan}
+              disabled={editDisabled}
+              title="Import plan din poză"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "5px 10px",
+                borderRadius: 8,
+                background: "transparent",
+                border: "none",
+                color: "#8A7080",
+                cursor: editDisabled ? "not-allowed" : "pointer",
+                opacity: editDisabled ? 0.45 : 1,
+                fontSize: 12,
+                fontWeight: 500,
+                fontFamily: "Inter, sans-serif",
+              }}
+            >
+              <ImagePlus size={13} />
+              <span className="hidden sm:inline">Import plan</span>
+            </button>
+          ) : null}
         </div>
       </div>
 
       <div style={{ flex: 1, minWidth: 8 }} />
+        </>
+      ) : (
+        <div style={{ flex: 1, minWidth: 8 }} />
+      )}
 
       {/* Right actions */}
       <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }}>
         <GhostBtn icon={<Share2 size={13} />} label="Partajează" onClick={handleShare} />
-        <GhostBtn icon={<Layers size={13} />} label="Layout-uri" onClick={onOpenLayouts} />
+        {!isReadOnly ? (
+          <GhostBtn icon={<Layers size={13} />} label="Layout-uri" onClick={onOpenLayouts} />
+        ) : null}
         <GhostBtn icon={<Download size={13} />} label="Exportă" onClick={onOpenExport} />
         <div style={{ position: "relative" }}>
           <GhostBtn

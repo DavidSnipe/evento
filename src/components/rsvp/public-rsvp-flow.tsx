@@ -182,13 +182,13 @@ export function PublicRsvpFlow({ rsvpSlug, invitation }: PublicRsvpFlowProps) {
     <section
       ref={sectionRef}
       id="rsvp"
-      className="scroll-mt-6 rounded-3xl border border-[#FCEAEF]/60 bg-white/80 p-5 shadow-[0_8px_32px_rgba(180,100,120,0.08)] backdrop-blur-sm sm:p-6"
+      className="scroll-mt-6 rounded-3xl border border-[var(--color-blush-end)]/60 bg-white/80 p-5 shadow-[0_8px_32px_rgba(180,100,120,0.08)] backdrop-blur-sm sm:p-6"
     >
       <header className="mb-6 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-subtle">
           RSVP
         </p>
-        <h2 className="mt-1 font-serif text-xl font-semibold text-[#1A0E14]">
+        <h2 className="mt-1 font-serif text-xl font-semibold text-[var(--color-dash-text)]">
           {t.welcome}
         </h2>
         <p className="mt-1 text-xs text-text-secondary">{t.searchHint}</p>
@@ -210,7 +210,7 @@ export function PublicRsvpFlow({ rsvpSlug, invitation }: PublicRsvpFlowProps) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t.searchPlaceholder}
-                className="h-12 rounded-2xl border-[#FCEAEF] bg-[#FDFBF7] pl-11 text-base"
+                className="h-12 rounded-2xl border-[var(--color-blush-end)] bg-[var(--color-dash-ivory)] pl-11 text-base"
                 autoComplete="off"
                 enterKeyHint="search"
               />
@@ -243,14 +243,14 @@ export function PublicRsvpFlow({ rsvpSlug, invitation }: PublicRsvpFlowProps) {
                   disabled={isPending}
                   onClick={() => selectHousehold(hit.householdId)}
                   className={cn(
-                    "flex w-full min-h-[56px] items-center gap-3 rounded-2xl border border-[#FCEAEF]/50",
+                    "flex w-full min-h-[56px] items-center gap-3 rounded-2xl border border-[var(--color-blush-end)]/50",
                     "bg-white px-4 py-3.5 text-left transition-colors",
-                    "hover:border-[#FCEAEF] hover:bg-[#FEF8F9] active:scale-[0.99]",
+                    "hover:border-[var(--color-blush-end)] hover:bg-[var(--color-blush-light)]/40 active:scale-[0.99]",
                     "disabled:opacity-60"
                   )}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-[#1A0E14]">
+                    <p className="font-semibold text-[var(--color-dash-text)]">
                       {hit.displayName}
                     </p>
                     {hit.memberPreview && (
@@ -259,7 +259,7 @@ export function PublicRsvpFlow({ rsvpSlug, invitation }: PublicRsvpFlowProps) {
                       </p>
                     )}
                   </div>
-                  <ChevronRight className="h-5 w-5 shrink-0 text-[#B8516B]/60" />
+                  <ChevronRight className="h-5 w-5 shrink-0 text-primary/60" />
                 </button>
               </li>
             ))}
@@ -269,11 +269,11 @@ export function PublicRsvpFlow({ rsvpSlug, invitation }: PublicRsvpFlowProps) {
 
       {step === "form" && bundle && (
         <div className="space-y-5 animate-in fade-in duration-300">
-          <div className="text-center border-b border-[#FCEAEF]/50 pb-4">
+          <div className="text-center border-b border-[var(--color-blush-end)]/50 pb-4">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-text-subtle">
               {t.yourGroup}
             </p>
-            <h3 className="mt-1 font-serif text-lg font-semibold text-[#1A0E14]">
+            <h3 className="mt-1 font-serif text-lg font-semibold text-[var(--color-dash-text)]">
               {bundle.display_name}
             </h3>
           </div>
@@ -281,9 +281,9 @@ export function PublicRsvpFlow({ rsvpSlug, invitation }: PublicRsvpFlowProps) {
           {members.map((m) => (
             <article
               key={m.memberId}
-              className="space-y-4 rounded-2xl border border-[#FCEAEF]/40 bg-[#FDFBF7]/80 p-4"
+              className="space-y-4 rounded-2xl border border-[var(--color-blush-end)]/40 bg-[var(--color-dash-ivory)]/80 p-4"
             >
-              <p className="font-semibold text-[#1A0E14]">{m.displayName}</p>
+              <p className="font-semibold text-[var(--color-dash-text)]">{m.displayName}</p>
 
               <div>
                 <p className="mb-2 text-[11px] font-semibold uppercase text-text-subtle">
@@ -302,7 +302,7 @@ export function PublicRsvpFlow({ rsvpSlug, invitation }: PublicRsvpFlowProps) {
                         m.attendance_status === s
                           ? s === "declined"
                             ? "border-slate-300 bg-slate-100 text-slate-700"
-                            : "border-[#FCEAEF] bg-[#FEF0F3] text-[#B8516B]"
+                            : "border-[var(--color-blush-end)] bg-[var(--color-blush-light)] text-primary"
                           : "border-slate-200/80 bg-white text-text-secondary"
                       )}
                     >
@@ -328,7 +328,7 @@ export function PublicRsvpFlow({ rsvpSlug, invitation }: PublicRsvpFlowProps) {
                       >
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded border-slate-300 text-[#B8516B]"
+                          className="h-4 w-4 rounded border-slate-300 text-primary"
                           checked={m[key]}
                           onChange={(e) =>
                             updateMember(m.memberId, { [key]: e.target.checked })
@@ -365,7 +365,7 @@ export function PublicRsvpFlow({ rsvpSlug, invitation }: PublicRsvpFlowProps) {
                       updateMember(m.memberId, { notes: e.target.value })
                     }
                     rows={2}
-                    className="w-full resize-none rounded-xl border border-input bg-white px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8516B]/15"
+                    className="w-full resize-none rounded-xl border border-input bg-white px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/15"
                   />
                 </>
               )}

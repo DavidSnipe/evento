@@ -86,7 +86,31 @@ const ROOM_CONFIG: Record<
 };
 
 function getFigmaRoomConfig(type: string) {
+  if (type === "dance_floor_round") return ROOM_CONFIG.dance_floor;
+  if (type === "stage_semicircle") return ROOM_CONFIG.stage;
   return ROOM_CONFIG[type] ?? ROOM_CONFIG.stage;
+}
+
+function getSemicircleBorderRadius(rotation: number): string {
+  const normalized = ((rotation % 360) + 360) % 360;
+  if (normalized === 90) return "50% 0 0 50%";
+  if (normalized === 180) return "0 0 50% 50%";
+  if (normalized === 270) return "0 50% 50% 0";
+  return "50% 50% 0 0";
+}
+
+function getRoomObjectBorderRadius(
+  objectType: string,
+  rotation: number,
+  isLarge: boolean
+): string | number {
+  if (objectType === "dance_floor_round") return "50%";
+  if (objectType === "stage_semicircle") return getSemicircleBorderRadius(rotation);
+  return isLarge ? 18 : 12;
+}
+
+function isDanceFloorObjectType(objectType: string): boolean {
+  return objectType === "dance_floor" || objectType === "dance_floor_round";
 }
 
 type TableVisualProps = {
@@ -220,10 +244,14 @@ function getObjectLabel(type: string): string {
   switch (type) {
     case "dance_floor":
       return "Ring de dans";
+    case "dance_floor_round":
+      return "Ring de dans (rotund)";
     case "dj_booth":
       return "DJ Booth";
     case "stage":
       return "Scenă";
+    case "stage_semicircle":
+      return "Scenă (semicerc)";
     case "bar":
       return "Cocktail Bar";
     case "candy_bar":
@@ -914,8 +942,9 @@ export function TableVisual({
     const width = Math.round(footprint.widthPx * VISUAL_RENDER_SCALE);
     const height = Math.round(footprint.heightPx * VISUAL_RENDER_SCALE);
     const rotation = getDisplayRotationDeg(metadata, shape);
-    const isLarge = objectType === "dance_floor";
+    const isLarge = isDanceFloorObjectType(objectType);
     const showLabel = LOD.showRoomLabel(scale);
+    const borderRadius = getRoomObjectBorderRadius(objectType, rotation, isLarge);
 
     return (
       <div
@@ -936,7 +965,7 @@ export function TableVisual({
           transform: rotation ? `rotate(${rotation}deg)` : undefined,
           background: cfg.gradient,
           border: `1.5px solid ${cfg.border}`,
-          borderRadius: isLarge ? 18 : 12,
+          borderRadius,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -960,7 +989,7 @@ export function TableVisual({
           }
           color={cfg.color}
           strokeWidth={isLarge ? 1.5 : 1.8}
-          fill={objectType === "dance_floor" ? `${cfg.color}22` : "none"}
+          fill={isDanceFloorObjectType(objectType) ? `${cfg.color}22` : "none"}
         />
         {showLabel && (
           <span

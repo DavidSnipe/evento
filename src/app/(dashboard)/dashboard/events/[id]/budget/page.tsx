@@ -31,6 +31,13 @@ export default async function BudgetPage({
         description={ro.budgetModule.pageSubtitle.replace("{title}", event.title)}
       />
 
+      {!vendorSnapshot.migrationReady ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-medium">{ro.vendors.foundation.migrationRequired}</p>
+          <p className="mt-1 text-amber-800">{ro.vendors.foundation.migrationHint}</p>
+        </div>
+      ) : null}
+
       <BudgetClient
         eventId={id}
         snapshot={snapshot}

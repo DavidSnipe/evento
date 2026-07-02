@@ -23,6 +23,7 @@ type GuestSidebarProps = {
   onSelectGuest: (guestId: string | null) => void;
   onDragStart?: (guestId: string) => void;
   onDragEnd?: () => void;
+  readOnly?: boolean;
   className?: string;
   headerAction?: React.ReactNode;
 };
@@ -61,6 +62,7 @@ export function GuestSidebar({
   onSelectGuest,
   onDragStart,
   onDragEnd,
+  readOnly = false,
   className,
   headerAction,
 }: GuestSidebarProps) {
@@ -215,14 +217,14 @@ export function GuestSidebar({
         boxShadow: '2px 0 16px rgba(160,80,110,0.06)',
       }}
     >
-      {/* ── Header: Title & Info ── */}
+      {/* ?? Header: Title & Info ?? */}
       <div style={{ padding: '18px 18px 14px', borderBottom: '1px solid var(--ev-border-soft)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--ev-text-primary)', fontFamily: 'Inter, sans-serif', margin: 0, letterSpacing: '-0.3px', lineHeight: 1 }}>
-            Lista Invitați
+            Lista Invita?i
           </h3>
           <p style={{ fontSize: 11, color: 'var(--ev-text-muted)', margin: '5px 0 0', fontFamily: 'Inter, sans-serif', letterSpacing: '0.01em' }}>
-            {totalGuests} persoane · {unassigned} nealocate
+            {totalGuests} persoane � {unassigned} nealocate
           </p>
         </div>
         {headerAction}
@@ -242,7 +244,7 @@ export function GuestSidebar({
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={ro.seating.search.placeholder || "Caută invitat..."}
+          placeholder={ro.seating.search.placeholder || "Caut? invitat..."}
           style={{
             border: 'none', background: 'transparent', outline: 'none',
             fontSize: 13, color: 'var(--ev-text-primary)', fontFamily: 'Inter, sans-serif', flex: 1,
@@ -250,13 +252,13 @@ export function GuestSidebar({
         />
       </div>
 
-      {/* Tab filters (Toți / Confirmați / Așteptare / Nealocați) */}
+      {/* Tab filters (To?i / Confirma?i / A?teptare / Nealoca?i) */}
       <div style={{ display: 'flex', gap: 5, padding: '0 14px 10px', flexWrap: 'wrap' }}>
         {[
-          { key: "all", label: "Toți", count: guests.length },
-          { key: "confirmed", label: "Confirmați", count: guests.filter(g => g.rsvp_status === "accepted").length },
-          { key: "pending", label: "Așteptare", count: guests.filter(g => g.rsvp_status === "pending").length },
-          { key: "unassigned", label: "Nealocați", count: guests.filter(g => !g.table_id).length },
+          { key: "all", label: "To?i", count: guests.length },
+          { key: "confirmed", label: "Confirma?i", count: guests.filter(g => g.rsvp_status === "accepted").length },
+          { key: "pending", label: "A?teptare", count: guests.filter(g => g.rsvp_status === "pending").length },
+          { key: "unassigned", label: "Nealoca?i", count: guests.filter(g => !g.table_id).length },
         ].map(tab => (
           <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} style={{
             padding: '3px 9px', borderRadius: 20,
@@ -289,19 +291,19 @@ export function GuestSidebar({
           <option value="last_name">Nume familie</option>
           <option value="first_name">Prenume</option>
           <option value="rsvp">Status RSVP</option>
-          <option value="table">După masă</option>
+          <option value="table">Dup? mas?</option>
         </select>
       </div>
 
-      {/* ── Guest List ── */}
+      {/* ?? Guest List ?? */}
       <div className="flex-1 overflow-y-auto px-2 py-1" style={{ background: 'rgba(249, 244, 241, 0.45)' }}>
         {displayedGuestsList.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
             <Users className="h-10 w-10 text-slate-300" />
             <p className="text-sm font-medium text-slate-400">
               {search.trim()
-                ? `Niciun invitat pentru „${search.trim()}”`
-                : "Nu s-au găsit invitați."}
+                ? `Niciun invitat pentru �${search.trim()}�`
+                : "Nu s-au g?sit invita?i."}
             </p>
           </div>
         ) : (
@@ -321,8 +323,12 @@ export function GuestSidebar({
 
                   <button
                     type="button"
-                    draggable
+                    draggable={!readOnly}
                     onDragStart={(e) => {
+                      if (readOnly) {
+                        e.preventDefault();
+                        return;
+                      }
                       e.dataTransfer.setData("text/plain", guest.id);
                       e.dataTransfer.setData("guestId", guest.id);
                       setDraggingId(guest.id);
@@ -332,7 +338,7 @@ export function GuestSidebar({
                       setDraggingId(null);
                       onDragEnd?.();
                     }}
-                    onClick={() => onSelectGuest(isSelected ? null : guest.id)}
+                    onClick={() => !readOnly && onSelectGuest(isSelected ? null : guest.id)}
                     style={{
                       margin: '3px 6px',
                       padding: '9px 12px',
@@ -345,7 +351,7 @@ export function GuestSidebar({
                         : '1px solid var(--ev-border-soft)',
                       boxShadow: isDragging ? 'var(--ev-shadow-md)' : 'var(--ev-shadow-sm)',
                       display: 'flex', alignItems: 'center', gap: 10,
-                      cursor: 'grab', transition: 'all 0.12s ease',
+                      cursor: readOnly ? 'default' : 'grab', transition: 'all 0.12s ease',
                       opacity: isDragging ? 0.85 : 1,
                       transform: isDragging ? 'scale(1.02) rotate(0.5deg)' : 'none',
                       width: '100%',
@@ -416,7 +422,7 @@ export function GuestSidebar({
                       </div>
                     </div>
 
-                    {/* Badge masă / Liber */}
+                    {/* Badge mas? / Liber */}
                     <span style={{
                       padding: '2px 8px', borderRadius: 12,
                       fontSize: 10.5, fontWeight: 600,

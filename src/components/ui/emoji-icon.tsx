@@ -43,6 +43,8 @@ export function EmojiIcon({ icon, size = "md", className }: EmojiIconProps) {
   }
 
   return (
+    // External SVG assets from the icon registry; next/image does not add value here.
+    // eslint-disable-next-line @next/next/no-img-element -- lazy-loaded registry SVGs with unicode fallback on error
     <img
       src={getIconAssetPath(icon)}
       alt={meta.labelRo}

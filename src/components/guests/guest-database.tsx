@@ -517,15 +517,15 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             </div>
 
             {/* Tag Filters */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-text-subtle mr-1">Tag:</span>
-              {GUEST_TAGS.slice(0, 5).map((t) => (
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+              <span className="shrink-0 text-[11px] font-bold uppercase tracking-wider text-text-subtle mr-1">Tag:</span>
+              {GUEST_TAGS.map((t) => (
                 <button
                   key={t.value}
                   type="button"
                   onClick={() => setTagFilter(tagFilter === t.value ? null : t.value)}
                   className={cn(
-                    "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-all cursor-pointer",
+                    "shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-all cursor-pointer",
                     tagFilter === t.value
                       ? "bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] border-[#B8516B] text-[#B8516B] shadow-xs"
                       : "bg-[#F3F3F5] border-transparent text-text-secondary hover:text-[#B8516B]"

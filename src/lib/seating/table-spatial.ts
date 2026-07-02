@@ -160,9 +160,13 @@ export const OBJECT_PRESETS_M: Record<
 
 > = {
 
-  dance_floor: { widthM: 3.2, heightM: 3.2, shape: "round" },
+  dance_floor: { widthM: 3.2, heightM: 3.2, shape: "rectangular" },
+
+  dance_floor_round: { widthM: 3.2, heightM: 3.2, shape: "round" },
 
   stage: { widthM: 3.2, heightM: 1.2, shape: "rectangular" },
+
+  stage_semicircle: { widthM: 3.2, heightM: 1.6, shape: "rectangular" },
 
   dj_booth: { widthM: 1.6, heightM: 0.8, shape: "rectangular" },
 

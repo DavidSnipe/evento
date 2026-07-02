@@ -3,7 +3,7 @@ import type { TableWithGuests } from "@/lib/seating/queries";
 export interface TableMetadata {
   isLocked?: boolean;
   customShape?: "round" | "rectangular" | "square" | "long_banquet" | "sweetheart";
-  objectType?: "dance_floor" | "dj_booth" | "stage" | "candy_bar" | "photo_booth" | "bar" | "entrance" | "sweet_table";
+  objectType?: "dance_floor" | "dance_floor_round" | "dj_booth" | "stage" | "stage_semicircle" | "candy_bar" | "photo_booth" | "bar" | "entrance" | "sweet_table";
   /** Legacy pixel dimensions (kept in sync when saving meter fields) */
   width?: number;
   height?: number;

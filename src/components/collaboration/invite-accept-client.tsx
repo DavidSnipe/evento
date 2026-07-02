@@ -99,13 +99,13 @@ export function InviteAcceptClient({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl bg-[#FEF8F9] border border-[#FCEAEF] px-4 py-3 text-sm text-text-secondary space-y-1">
+      <div className="rounded-xl bg-[var(--color-blush-light)]/50 border border-[var(--color-blush-end)] px-4 py-3 text-sm text-text-secondary space-y-1">
         <p>
-          <span className="font-semibold text-[#1A0E14]">{eventTitle}</span>
+          <span className="font-semibold text-[var(--color-dash-text)]">{eventTitle}</span>
         </p>
         <p>
           {ro.collaboration.invite.roleLabel}{" "}
-          <span className="font-medium text-[#B8516B]">{role}</span>
+          <span className="font-medium text-primary">{role}</span>
         </p>
       </div>
 
@@ -146,12 +146,12 @@ export function InviteAcceptClient({
 
 export function InvitePageShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#FEF8F9] via-white to-[#FFF5F7] px-4 py-12">
-      <div className="mb-8 flex items-center gap-2 text-[#1A0E14]">
-        <Heart className="h-6 w-6 fill-[#FCEAEF] text-[#B8516B]" />
+    <div className="evento-public-page flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[var(--color-dash-ivory)] via-white to-[var(--color-blush-light)]/40 px-4 py-12">
+      <div className="mb-8 flex items-center gap-2 text-dash-text">
+        <Heart className="h-6 w-6 fill-[var(--color-blush-end)] text-[var(--color-rose-dark)]" />
         <span className="font-serif text-2xl font-semibold">Evento</span>
       </div>
-      <div className="w-full max-w-md rounded-2xl border border-[rgba(210,170,185,0.25)] bg-white p-6 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl border border-border-rose-18 bg-white p-6 shadow-card">
         {children}
       </div>
     </div>

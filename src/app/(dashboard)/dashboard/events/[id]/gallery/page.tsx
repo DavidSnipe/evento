@@ -39,10 +39,11 @@ export default async function GalleryAdminPage({
         </p>
       </div>
 
-      <GalleryClient 
-        eventId={id} 
-        initialQrSlug={info.qr_slug} 
-        initialMedia={media} 
+      <GalleryClient
+        eventId={id}
+        eventTitle={event.title}
+        initialQrSlug={info.qr_slug}
+        initialMedia={media}
       />
     </AnimatedPage>
   );

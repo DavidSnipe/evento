@@ -107,7 +107,40 @@ export async function getVendors(eventId: string): Promise<EventVendor[]> {
     return [];
   }
 
-  return (data ?? []) as EventVendor[];
+  const vendors = (data ?? []) as EventVendor[];
+  return enrichVendorsWithMarketplaceSlugs(vendors);
+}
+
+async function enrichVendorsWithMarketplaceSlugs(
+  vendors: EventVendor[]
+): Promise<EventVendor[]> {
+  const marketplaceIds = [
+    ...new Set(
+      vendors.map((v) => v.marketplace_vendor_id).filter((id): id is string => Boolean(id))
+    ),
+  ];
+
+  if (marketplaceIds.length === 0) return vendors;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("marketplace_vendors")
+    .select("id, slug")
+    .in("id", marketplaceIds);
+
+  if (error) {
+    console.error("enrichVendorsWithMarketplaceSlugs:", error);
+    return vendors;
+  }
+
+  const slugById = new Map((data ?? []).map((row) => [row.id as string, row.slug as string]));
+
+  return vendors.map((vendor) => ({
+    ...vendor,
+    marketplace_slug: vendor.marketplace_vendor_id
+      ? (slugById.get(vendor.marketplace_vendor_id) ?? null)
+      : null,
+  }));
 }
 
 async function getOffersByEvent(eventId: string): Promise<VendorOffer[]> {

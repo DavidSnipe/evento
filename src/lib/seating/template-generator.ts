@@ -20,7 +20,7 @@ export type TemplateWizardConfig = Omit<TemplateLayoutConfig, "totalConfirmedGue
 export type TemplateElement = {
   type: "table" | "room_object";
   name: string;
-  shape: "round" | "rectangular" | "long_banquet" | "sweetheart";
+  shape: "round" | "rectangular" | "square" | "long_banquet" | "sweetheart";
   capacity?: number;
   objectType?: string;
   widthM?: number;

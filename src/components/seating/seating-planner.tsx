@@ -49,6 +49,8 @@ import {
   captureFloorPlanPreview,
   downloadFloorPlanExport,
 } from "@/components/seating/export/export-floor-plan";
+import { FloorPlanImportDialog } from "@/components/seating/floor-plan-import-dialog";
+import { AiSeatingDialog } from "@/components/seating/ai-seating-dialog";
 import { GuestSidebar } from "@/components/seating/guest-sidebar";
 import { SeatingToolbar } from "@/components/seating/seating-toolbar";
 import { TableAssignView } from "@/components/seating/table-assign-view";
@@ -203,6 +205,7 @@ type SeatingPlannerProps = {
   totalConfirmedGuests: number;
   roomWidthM: number;
   roomHeightM: number;
+  isReadOnly?: boolean;
 };
 
 export function SeatingPlanner({
@@ -213,6 +216,7 @@ export function SeatingPlanner({
   totalConfirmedGuests,
   roomWidthM: initialRoomWidthM,
   roomHeightM: initialRoomHeightM,
+  isReadOnly = false,
 }: SeatingPlannerProps) {
   const router = useRouter();
   const isMountedRef = useRef(true);
@@ -311,6 +315,10 @@ export function SeatingPlanner({
   const [draggingGuestId, setDraggingGuestId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [importPlanDialogOpen, setImportPlanDialogOpen] = useState(false);
+  const [aiSeatingDialogOpen, setAiSeatingDialogOpen] = useState(false);
+  const [aiSeatToast, setAiSeatToast] = useState<string | null>(null);
+  const [importPlanToast, setImportPlanToast] = useState<string | null>(null);
   const [layoutSidebarOpen, setLayoutSidebarOpen] = useState(false);
   const [layoutListRefreshKey, setLayoutListRefreshKey] = useState(0);
   const layoutSidebarOpenRef = useRef(false);
@@ -330,6 +338,7 @@ export function SeatingPlanner({
   const [mobileSidebar, setMobileSidebar] = useState<"guests" | null>(null);
   const [printSort, setPrintSort] = useState<"alpha" | "table">("table");
   const [viewMode, setViewMode] = useState<"canvas" | "list">("canvas");
+  const [readOnlyBannerDismissed, setReadOnlyBannerDismissed] = useState(false);
 
   // Lifted templates browser state
   const [, setApplyingTemplate] = useState(false);
@@ -417,6 +426,7 @@ export function SeatingPlanner({
   const [cameraRevision, setCameraRevision] = useState(0);
   const cameraNotifyScheduledRef = useRef(false);
   const [globalLock, setGlobalLock] = useState(false);
+  const effectiveGlobalLock = globalLock || isReadOnly;
   const canvasResizingTableIdRef = useRef<string | null>(null);
   const dragPositionRef = useRef<{ tableId: string; x: number; y: number } | null>(
     null
@@ -818,7 +828,7 @@ export function SeatingPlanner({
   );
 
   // Auto-Seating animation state
-  const [autoSeatingProgress, setAutoSeatingProgress] = useState<{ current: number; total: number; strategy: "family" | "even" } | null>(null);
+  const [autoSeatingProgress, setAutoSeatingProgress] = useState<{ current: number; total: number; strategy: "family" | "even" | "ai" } | null>(null);
   const [autoSeatingSummary, setAutoSeatingSummary] = useState<{ seatedCount: number; tablesCount: number } | null>(null);
   const skipAnimationRef = useRef(false);
 
@@ -1048,58 +1058,49 @@ export function SeatingPlanner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleRunAutoSeat = async (strategy: "family" | "even") => {
-    skipAnimationRef.current = false;
-    setAutoSeatingSummary(null);
-    
-    // Initialize temporary UI progress
-    setAutoSeatingProgress({
-      current: 0,
-      total: 100,
-      strategy
-    });
-
-    const result = await autoSeatGuestsAction(eventId, strategy);
-    
-    if (!result.success || !result.updates || result.updates.length === 0) {
+  const runAutoSeatAnimation = useCallback((
+    updates: { id: string; table_id: string }[],
+    strategy: "family" | "even" | "ai"
+  ) => {
+    const L = updates.length;
+    if (L === 0) {
       setAutoSeatingProgress(null);
-      if (result.error) {
-        alert(result.error);
-      }
       return;
     }
 
-    const updates = result.updates;
-    const L = updates.length;
-
-    // Batching to prevent React rerendering lag
     const batchSize = Math.max(1, Math.ceil(L / 50));
     const totalSteps = Math.ceil(L / batchSize);
     const delay = Math.max(20, Math.min(100, 2000 / totalSteps));
 
     const applyBatch = (batch: { id: string; table_id: string }[]) => {
-      const batchGuestIds = new Set(batch.map(u => u.id));
-      
-      setLocalAllGuests(prev => prev.map(g => {
-        const match = batch.find(u => u.id === g.id);
-        return match ? { ...g, table_id: match.table_id } : g;
-      }));
+      const batchGuestIds = new Set(batch.map((u) => u.id));
 
-      setLocalUnassigned(prev => prev.filter(g => !batchGuestIds.has(g.id)));
+      setLocalAllGuests((prev) =>
+        prev.map((g) => {
+          const match = batch.find((u) => u.id === g.id);
+          return match ? { ...g, table_id: match.table_id } : g;
+        })
+      );
 
-      setLocalTables(prev => prev.map(t => {
-        const tableUpdates = batch.filter(u => u.table_id === t.id);
-        if (tableUpdates.length === 0) return t;
+      setLocalUnassigned((prev) => prev.filter((g) => !batchGuestIds.has(g.id)));
 
-        const newGuests = tableUpdates.map(u => allGuests.find(g => g.id === u.id)).filter(Boolean) as GuestWithTable[];
-        const existingIds = new Set(t.guests.map(g => g.id));
-        const toAdd = newGuests.filter(g => !existingIds.has(g.id));
+      setLocalTables((prev) =>
+        prev.map((t) => {
+          const tableUpdates = batch.filter((u) => u.table_id === t.id);
+          if (tableUpdates.length === 0) return t;
 
-        return {
-          ...t,
-          guests: [...t.guests, ...toAdd]
-        };
-      }));
+          const newGuests = tableUpdates
+            .map((u) => allGuests.find((g) => g.id === u.id))
+            .filter(Boolean) as GuestWithTable[];
+          const existingIds = new Set(t.guests.map((g) => g.id));
+          const toAdd = newGuests.filter((g) => !existingIds.has(g.id));
+
+          return {
+            ...t,
+            guests: [...t.guests, ...toAdd],
+          };
+        })
+      );
     };
 
     let currentStep = 0;
@@ -1108,32 +1109,36 @@ export function SeatingPlanner({
       if (!isMountedRef.current) return;
 
       if (skipAnimationRef.current) {
-        // Apply remaining updates immediately
         const remainingUpdates = updates.slice(currentStep * batchSize);
         applyBatch(remainingUpdates);
 
-        // Force complete final states
-        setLocalAllGuests(prev => prev.map(g => {
-          const match = updates.find(u => u.id === g.id);
-          return match ? { ...g, table_id: match.table_id } : g;
-        }));
-        setLocalUnassigned(prev => prev.filter(g => !updates.some(u => u.id === g.id)));
-        setLocalTables(prev => prev.map(t => {
-          const tableUpdates = updates.filter(u => u.table_id === t.id);
-          if (tableUpdates.length === 0) return t;
-          const newGuests = tableUpdates.map(u => allGuests.find(g => g.id === u.id)).filter(Boolean) as GuestWithTable[];
-          const existingIds = new Set(t.guests.map(g => g.id));
-          const toAdd = newGuests.filter(g => !existingIds.has(g.id));
-          return {
-            ...t,
-            guests: [...t.guests, ...toAdd]
-          };
-        }));
+        setLocalAllGuests((prev) =>
+          prev.map((g) => {
+            const match = updates.find((u) => u.id === g.id);
+            return match ? { ...g, table_id: match.table_id } : g;
+          })
+        );
+        setLocalUnassigned((prev) => prev.filter((g) => !updates.some((u) => u.id === g.id)));
+        setLocalTables((prev) =>
+          prev.map((t) => {
+            const tableUpdates = updates.filter((u) => u.table_id === t.id);
+            if (tableUpdates.length === 0) return t;
+            const newGuests = tableUpdates
+              .map((u) => allGuests.find((g) => g.id === u.id))
+              .filter(Boolean) as GuestWithTable[];
+            const existingIds = new Set(t.guests.map((g) => g.id));
+            const toAdd = newGuests.filter((g) => !existingIds.has(g.id));
+            return {
+              ...t,
+              guests: [...t.guests, ...toAdd],
+            };
+          })
+        );
 
         setAutoSeatingProgress(null);
         setAutoSeatingSummary({
           seatedCount: updates.length,
-          tablesCount: Array.from(new Set(updates.map(u => u.table_id))).length
+          tablesCount: Array.from(new Set(updates.map((u) => u.table_id))).length,
         });
         if (isMountedRef.current) {
           router.refresh();
@@ -1151,7 +1156,7 @@ export function SeatingPlanner({
       setAutoSeatingProgress({
         current: Math.min(endIdx, L),
         total: L,
-        strategy
+        strategy,
       });
 
       if (endIdx < L) {
@@ -1160,7 +1165,7 @@ export function SeatingPlanner({
         setAutoSeatingProgress(null);
         setAutoSeatingSummary({
           seatedCount: updates.length,
-          tablesCount: Array.from(new Set(updates.map(u => u.table_id))).length
+          tablesCount: Array.from(new Set(updates.map((u) => u.table_id))).length,
         });
         if (isMountedRef.current) {
           router.refresh();
@@ -1169,7 +1174,52 @@ export function SeatingPlanner({
     };
 
     runStep();
+  }, [allGuests, router, setLocalAllGuests, setLocalTables, setLocalUnassigned]);
+
+  const handleRunAutoSeat = async (strategy: "family" | "even") => {
+    skipAnimationRef.current = false;
+    setAutoSeatingSummary(null);
+
+    setAutoSeatingProgress({
+      current: 0,
+      total: 100,
+      strategy,
+    });
+
+    const result = await autoSeatGuestsAction(eventId, strategy);
+
+    if (!result.success || !result.updates || result.updates.length === 0) {
+      setAutoSeatingProgress(null);
+      if (result.error) {
+        alert(result.error);
+      }
+      return;
+    }
+
+    runAutoSeatAnimation(result.updates, strategy);
   };
+
+  const handleAiSeatingApplied = useCallback((
+    assignments: { guestId: string; tableId: string }[],
+    count: number
+  ) => {
+    setAiSeatToast(`${count} invitați au fost asignați cu succes`);
+    window.setTimeout(() => setAiSeatToast(null), 4000);
+
+    skipAnimationRef.current = false;
+    setAutoSeatingSummary(null);
+    setAutoSeatingProgress({
+      current: 0,
+      total: 100,
+      strategy: "ai",
+    });
+
+    const updates = assignments.map((a) => ({
+      id: a.guestId,
+      table_id: a.tableId,
+    }));
+    runAutoSeatAnimation(updates, "ai");
+  }, [runAutoSeatAnimation]);
 
   const updatePanFromMiniMap = (clientX: number, clientY: number, currentTarget: HTMLElement) => {
     if (!viewportRef.current) return;
@@ -1593,6 +1643,10 @@ export function SeatingPlanner({
       const dropGuestId = e ? (e.dataTransfer.getData("guestId") || e.dataTransfer.getData("text/plain")) : null;
       const targetGuestId = dropGuestId || selectedGuestId;
 
+      if (isReadOnly && targetGuestId) {
+        return;
+      }
+
       if (targetGuestId) {
         const guest = localAllGuests.find(g => g.id === targetGuestId);
         if (guest) {
@@ -1643,7 +1697,7 @@ export function SeatingPlanner({
         setSelectedTableId((prev) => (prev === tableId ? null : tableId));
       }
     },
-    [selectedGuestId, eventId, localAllGuests, allGuests, unassigned, tables, setLocalAllGuests, setLocalUnassigned, setLocalTables]
+    [selectedGuestId, isReadOnly, eventId, localAllGuests, allGuests, unassigned, tables, setLocalAllGuests, setLocalUnassigned, setLocalTables]
   );
 
   const handleTableDragStop = async (
@@ -2041,9 +2095,10 @@ export function SeatingPlanner({
             <GuestSidebar
               guests={localAllGuests}
               selectedGuestId={selectedGuestId}
-              onSelectGuest={setSelectedGuestId}
-              onDragStart={setDraggingGuestId}
-              onDragEnd={() => setDraggingGuestId(null)}
+              onSelectGuest={isReadOnly ? () => {} : setSelectedGuestId}
+              onDragStart={isReadOnly ? undefined : setDraggingGuestId}
+              onDragEnd={isReadOnly ? undefined : () => setDraggingGuestId(null)}
+              readOnly={isReadOnly}
               className={cn("h-full transition-all duration-300", workspaceMode && "rounded-none border-none")}
               headerAction={
                 <Button
@@ -2058,6 +2113,7 @@ export function SeatingPlanner({
               }
             />
             {/* Drag Resize Handle */}
+            {!isReadOnly ? (
             <div
               onPointerDown={handleResizeStart}
               onPointerMove={handleResizeMove}
@@ -2065,6 +2121,7 @@ export function SeatingPlanner({
               onPointerLeave={handleResizeStop}
               className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors z-50 rounded-r-md"
             />
+            ) : null}
           </aside>
         )}
 
@@ -2083,6 +2140,7 @@ export function SeatingPlanner({
               totalGuests={localAllGuests.length}
               totalCapacity={totalCapacity}
               onAddTable={() => setShowAddDialog(true)}
+              onOpenImportPlan={() => setImportPlanDialogOpen(true)}
               onOpenExport={() => setExportDialogOpen(true)}
               onOpenLayouts={() => {
                 setLayoutSidebarOpen((prev) => {
@@ -2097,9 +2155,10 @@ export function SeatingPlanner({
               }}
               printSort={printSort}
               onTogglePrintSort={() => setPrintSort(s => s === "alpha" ? "table" : "alpha")}
-              globalLock={globalLock}
+              globalLock={effectiveGlobalLock}
               onToggleGlobalLock={() => setGlobalLock((v) => !v)}
               onRunAutoSeat={handleRunAutoSeat}
+              onOpenAiSeating={() => setAiSeatingDialogOpen(true)}
               onToggleTemplateMenu={setShowTemplateMenu}
               workspaceMode={workspaceMode}
               isFloating={false}
@@ -2107,8 +2166,24 @@ export function SeatingPlanner({
               onViewModeChange={setViewMode}
               onToggleWorkspaceMode={() => setWorkspaceMode((prev) => !prev)}
               previewMode={isPreviewMode}
+              isReadOnly={isReadOnly}
             />
           </div>
+
+          {isReadOnly && !readOnlyBannerDismissed ? (
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-amber-200/80 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 print:hidden">
+              <span>{ro.seating.readOnlyBanner}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 shrink-0 rounded-lg text-xs text-amber-800 hover:bg-amber-100/80"
+                onClick={() => setReadOnlyBannerDismissed(true)}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ) : null}
 
           {isPreviewMode && previewSnapshot ? (
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[rgba(210,170,185,0.35)] bg-[#FFFBF8] px-4 py-2.5 print:hidden z-[25]">
@@ -2196,12 +2271,13 @@ export function SeatingPlanner({
                 <GuestSidebar
                   guests={localAllGuests}
                   selectedGuestId={selectedGuestId}
-                  onSelectGuest={(id) => {
+                  onSelectGuest={isReadOnly ? () => {} : (id) => {
                     setSelectedGuestId(id);
                     setMobileSidebar(null);
                   }}
-                  onDragStart={setDraggingGuestId}
-                  onDragEnd={() => setDraggingGuestId(null)}
+                  onDragStart={isReadOnly ? undefined : setDraggingGuestId}
+                  onDragEnd={isReadOnly ? undefined : () => setDraggingGuestId(null)}
+                  readOnly={isReadOnly}
                   className="max-h-80"
                 />
               </div>
@@ -2209,7 +2285,7 @@ export function SeatingPlanner({
           )}
 
           {/* Selected guest visual floating indicator */}
-          {selectedGuestId && (
+          {selectedGuestId && !isReadOnly && (
             <div className={cn(
               "flex items-center gap-2 text-sm print:hidden animate-bounce transition-all duration-350",
               workspaceMode 
@@ -2357,7 +2433,7 @@ export function SeatingPlanner({
                       ? canTableAccommodateGuest(table, activeId, localAllGuests)
                       : { allowed: true };
 
-                    return isPreviewMode ? (
+                    return isPreviewMode || isReadOnly ? (
                       <ReadOnlyTableWrapper
                         key={table.renderKey}
                         table={table}
@@ -2371,7 +2447,7 @@ export function SeatingPlanner({
                         table={table}
                         readCamera={readCameraForDrag}
                         lodScale={cameraScale}
-                        globalLock={globalLock}
+                        globalLock={effectiveGlobalLock}
                         resizeActiveTableIdRef={canvasResizingTableIdRef}
                         isMobile={isMobile}
                         isSpacePressed={isSpacePressed}
@@ -2399,12 +2475,12 @@ export function SeatingPlanner({
                       />
                     );
                   })}
-                  {!isPreviewMode ? (
+                  {!isPreviewMode && !isReadOnly ? (
                   <TableResizeHandles
                     selectedTableId={selectedTableId}
                     tables={localTables}
                     zoom={cameraScale}
-                    globalLock={globalLock}
+                    globalLock={effectiveGlobalLock}
                     readCamera={readCameraForDrag}
                     dragPositionRef={dragPositionRef}
                     checkResizeAssist={checkResizeAssist}
@@ -2497,7 +2573,7 @@ export function SeatingPlanner({
                     setRoomHeightM(heightM);
                     markLayoutDirty();
                   }}
-                  disabled={globalLock}
+                  disabled={effectiveGlobalLock}
                 />
                 <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-slate-650 hover:bg-slate-100" onClick={handleZoomIn} title="Zoom In">
                   <ZoomIn className="h-3.5 w-3.5" />
@@ -2666,6 +2742,7 @@ export function SeatingPlanner({
                 tables={localTables}
                 onAssignGuest={handleAssignGuestFromList}
                 onRemoveGuest={handleRemoveGuestFromList}
+                readOnly={isReadOnly}
               />
             </div>
           )}
@@ -2710,7 +2787,7 @@ export function SeatingPlanner({
               table={selectedTable}
               allGuests={localAllGuests}
               actions={selectedTableActions!}
-              globalLock={globalLock}
+              globalLock={effectiveGlobalLock}
               onClose={() => setSelectedTableId(null)}
               className={cn("h-full transition-all duration-300", workspaceMode && "rounded-none border-none")}
             />
@@ -2735,7 +2812,7 @@ export function SeatingPlanner({
               table={selectedTable}
               allGuests={localAllGuests}
               actions={selectedTableActions!}
-              globalLock={globalLock}
+              globalLock={effectiveGlobalLock}
               onClose={() => setSelectedTableId(null)}
             />
           </div>
@@ -2763,7 +2840,81 @@ export function SeatingPlanner({
           onExportFloorPlan={exportFloorPlan}
           onCaptureFloorPlanPreview={captureFloorPlanPreviewUrl}
         />
+        <FloorPlanImportDialog
+          eventId={eventId}
+          open={importPlanDialogOpen}
+          onOpenChange={setImportPlanDialogOpen}
+          roomWidthM={roomWidthM}
+          roomHeightM={roomHeightM}
+          hasExistingTables={localTables.length > 0}
+          onCaptureThumbnail={captureFloorPlanPreviewUrl}
+          onApplied={({ layoutName, previousPlanSaveFailed, snapshotSaveFailed, hadExistingTables }) => {
+            markLayoutDirty();
+            setLayoutListRefreshKey((key) => key + 1);
+            setSelectedTableId(null);
+
+            if (snapshotSaveFailed) {
+              setImportPlanToast(
+                "Planul a fost aplicat dar nu a putut fi salvat ca snapshot."
+              );
+            } else if (previousPlanSaveFailed) {
+              setImportPlanToast(
+                `Plan importat ca „${layoutName}”. Planul anterior nu a putut fi salvat automat.`
+              );
+            } else if (hadExistingTables) {
+              setImportPlanToast(
+                `Plan importat și salvat ca „${layoutName}”. Planul anterior a fost păstrat în Layout-uri.`
+              );
+            } else {
+              setImportPlanToast(`Plan importat și salvat ca „${layoutName}”.`);
+            }
+
+            window.setTimeout(() => setImportPlanToast(null), 5000);
+
+            window.setTimeout(() => {
+              void (async () => {
+                try {
+                  const thumbnail = await captureFloorPlanPreviewUrl();
+                  await upsertCurrentPlanSnapshot(eventId, thumbnail);
+                } catch {
+                  await upsertCurrentPlanSnapshot(eventId);
+                }
+                setLayoutListRefreshKey((key) => key + 1);
+              })();
+            }, 2000);
+          }}
+        />
+        <AiSeatingDialog
+          eventId={eventId}
+          open={aiSeatingDialogOpen}
+          onOpenChange={setAiSeatingDialogOpen}
+          allGuests={localAllGuests}
+          tables={localTables.map((table) => ({
+            id: table.id,
+            name: table.name,
+            capacity: table.capacity,
+            notes: table.notes,
+            guests: table.guests,
+          }))}
+          onApplied={handleAiSeatingApplied}
+        />
       </div>
+
+      {importPlanToast ? (
+        <div className="fixed left-1/2 top-20 z-[100] -translate-x-1/2 animate-in fade-in slide-in-from-top-2 duration-200 print:hidden">
+          <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/95 px-4 py-3 text-sm font-medium text-emerald-900 shadow-lg backdrop-blur-sm max-w-md text-center">
+            {importPlanToast}
+          </div>
+        </div>
+      ) : null}
+
+      {aiSeatToast ? (
+        <div className="fixed left-1/2 top-20 z-[100] -translate-x-1/2 animate-in fade-in slide-in-from-top-2 duration-200 print:hidden">
+          <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/95 px-4 py-3 text-sm font-medium text-emerald-900 shadow-lg backdrop-blur-sm">
+            {aiSeatToast}
+          </div>
+        </div>
+      ) : null}
 
       {/* Auto-Seating Summary Modal */}
       {autoSeatingSummary && (

@@ -1,9 +1,14 @@
+import { Suspense } from "react";
 import { GeistSans } from "geist/font/sans";
 
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { VendorAccessNotice } from "@/components/layout/vendor-access-notice";
+import { VendorHintBanner } from "@/components/layout/vendor-hint-banner";
 import { reconcileActiveEventAccess } from "@/lib/events/active-event-access";
 import { getEventById } from "@/lib/events/queries";
+import { getPendingGalleryCount } from "@/lib/gallery/queries";
+import { getProfileForUser } from "@/lib/auth/profile";
 import { getServerUser } from "@/lib/supabase/server-auth";
 import { cn } from "@/lib/utils";
 
@@ -16,15 +21,28 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [user, activeEventId] = await Promise.all([
-    getServerUser(),
+  const user = await getServerUser();
+  const [activeEventId, profileRow] = await Promise.all([
     reconcileActiveEventAccess(),
+    user ? getProfileForUser(user.id) : Promise.resolve(null),
   ]);
+  const profile = profileRow
+    ? {
+        is_admin: profileRow.is_admin,
+        is_planner: profileRow.is_planner,
+        is_vendor: profileRow.is_vendor,
+      }
+    : null;
   const activeEvent = activeEventId ? await getEventById(activeEventId) : null;
-  const userEmail =
+  const pendingGalleryCount = activeEventId
+    ? await getPendingGalleryCount(activeEventId)
+    : 0;
+  const userDisplayName =
+    profileRow?.full_name?.trim() ||
     user?.user_metadata?.full_name ||
     user?.user_metadata?.name ||
     user?.email;
+  const userEmail = user?.email;
 
   return (
     <div
@@ -37,9 +55,13 @@ export default async function DashboardLayout({
       {/* Desktop Sidebar */}
       <div className="hidden md:flex print:hidden dashboard-sidebar-container">
         <AppSidebar
+          userDisplayName={userDisplayName}
           userEmail={userEmail}
           activeEventId={activeEventId}
           activeEventTitle={activeEvent?.title ?? null}
+          isPlanner={profile?.is_planner ?? true}
+          isVendor={profile?.is_vendor ?? false}
+          pendingGalleryCount={pendingGalleryCount}
         />
       </div>
 
@@ -68,14 +90,20 @@ export default async function DashboardLayout({
             </div>
           </div>
           <MobileNav
+            userDisplayName={userDisplayName}
             userEmail={userEmail}
             activeEventId={activeEventId}
             activeEventTitle={activeEvent?.title ?? null}
+            pendingGalleryCount={pendingGalleryCount}
           />
         </div>
 
         {/* Page Content */}
         <div className="mx-auto max-w-6xl print:max-w-none print:p-0 print:m-0 dashboard-content-container">
+          <Suspense fallback={null}>
+            <VendorAccessNotice />
+            <VendorHintBanner />
+          </Suspense>
           {children}
         </div>
       </main>

@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   MailCheck,
   MapPin,
+  Store,
   Users,
   UtensilsCrossed,
   type LucideIcon,
@@ -27,6 +28,7 @@ export function getMainNav(activeEventId?: string | null): NavItem[] {
   return [
     { title: ro.nav.dashboard, href: "/dashboard", icon: LayoutDashboard },
     { title: ro.nav.events, href: "/dashboard/events", icon: CalendarHeart },
+    { title: ro.nav.marketplace, href: "/dashboard/marketplace", icon: Store },
     {
       title: ro.nav.guests,
       href: eventBase ? `${eventBase}/guests` : "/dashboard/events",

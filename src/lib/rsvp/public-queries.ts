@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getHouseholdBundlesByEvent } from "@/lib/rsvp/queries";
+import { getPublicHouseholdBundlesByEvent } from "@/lib/rsvp/queries";
 import { getPublicInvitationViewBySlug } from "@/lib/invitation/queries";
 import { matchRank } from "@/lib/rsvp/fuzzy-search";
 import type { PublicInvitationView } from "@/lib/invitation/resolve-invitation";
@@ -67,7 +67,7 @@ export async function searchPublicHouseholds(
   const q = query.trim();
   if (q.length < 2) return [];
 
-  const bundles = await getHouseholdBundlesByEvent(eventId);
+  const bundles = await getPublicHouseholdBundlesByEvent(eventId);
   const hits: PublicHouseholdSearchHit[] = [];
 
   for (const household of bundles) {
@@ -93,11 +93,11 @@ export async function searchPublicHouseholds(
     .slice(0, 12);
 }
 
-export async function getPublicHouseholdBundle(
+export async function getPublicHouseholdBundleForEvent(
   eventId: string,
   householdId: string
 ): Promise<InvitationHouseholdBundle | null> {
-  const bundles = await getHouseholdBundlesByEvent(eventId);
+  const bundles = await getPublicHouseholdBundlesByEvent(eventId);
   return bundles.find((b) => b.id === householdId) ?? null;
 }
 
@@ -114,7 +114,7 @@ export type RsvpOverviewStats = {
 export async function getRsvpOverviewStats(
   eventId: string
 ): Promise<RsvpOverviewStats> {
-  const bundles = await getHouseholdBundlesByEvent(eventId);
+  const bundles = await getPublicHouseholdBundlesByEvent(eventId);
   let memberCount = 0;
   let confirmed = 0;
   let declined = 0;

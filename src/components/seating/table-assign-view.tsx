@@ -12,6 +12,7 @@ type TableAssignViewProps = {
   tables: TableWithGuests[];
   onAssignGuest: (guestId: string, tableId: string) => void;
   onRemoveGuest: (guestId: string) => void;
+  readOnly?: boolean;
 };
 
 function getAvatarHexColors(name: string): { color1: string; color2: string } {
@@ -40,6 +41,7 @@ export function TableAssignView({
   tables,
   onAssignGuest,
   onRemoveGuest,
+  readOnly = false,
 }: TableAssignViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [rsvpFilter, setRsvpFilter] = useState<"all" | "confirmed" | "pending" | "unassigned">("all");
@@ -180,6 +182,7 @@ export function TableAssignView({
                 onToggle={() => handleToggle(table.id)}
                 onAssignGuest={onAssignGuest}
                 onRemoveGuest={onRemoveGuest}
+                readOnly={readOnly}
               />
             ))}
           </div>
@@ -198,6 +201,7 @@ interface TableCardProps {
   onToggle: () => void;
   onAssignGuest: (guestId: string, tableId: string) => void;
   onRemoveGuest: (guestId: string) => void;
+  readOnly?: boolean;
 }
 
 function TableCard({
@@ -207,6 +211,7 @@ function TableCard({
   onToggle,
   onAssignGuest,
   onRemoveGuest,
+  readOnly = false,
 }: TableCardProps) {
   const [addSearch, setAddSearch] = useState("");
 
@@ -365,6 +370,7 @@ function TableCard({
                           )}
                         </div>
                       </div>
+                      {!readOnly ? (
                       <button
                         onClick={() => onRemoveGuest(g.id)}
                         className="p-1 rounded-lg text-text-subtle cursor-pointer transition-colors"
@@ -373,6 +379,7 @@ function TableCard({
                       >
                         <UserMinus className="h-3.5 w-3.5" />
                       </button>
+                      ) : null}
                     </div>
                   );
                 })}
@@ -381,7 +388,7 @@ function TableCard({
           </div>
 
           {/* Add Guests Section */}
-          {!isFull && (
+          {!isFull && !readOnly ? (
             <div className="p-4 pt-0 border-t border-border-rose-18/10">
               <div className="flex items-center justify-between mb-2 mt-3 text-[9px] font-bold uppercase tracking-wider text-text-subtle">
                 <span className="flex items-center gap-1">
@@ -463,7 +470,7 @@ function TableCard({
                 )}
               </div>
             </div>
-          )}
+          ) : null}
 
           {isFull && (
             <div className="p-4 pt-0 border-t border-border-rose-18/10 flex justify-center mt-3">

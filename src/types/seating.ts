@@ -2,6 +2,31 @@ import type { TableShape } from "@/types/guests";
 
 export const CURRENT_PLAN_SNAPSHOT_NAME = "Plan curent";
 
+export type ExtractedFloorPlanElement = {
+  elementType: "table" | "room_object";
+  shape: "round" | "rectangular" | "square" | "long_banquet" | "sweetheart";
+  objectType?:
+    | "dance_floor"
+    | "dance_floor_round"
+    | "dj_booth"
+    | "stage"
+    | "stage_semicircle"
+    | "candy_bar"
+    | "photo_booth"
+    | "bar"
+    | "entrance"
+    | "sweet_table";
+  tableNumber?: number;
+  tableName?: string;
+  capacity?: number;
+  posX_normalized: number;
+  posY_normalized: number;
+  widthNormalized?: number;
+  heightNormalized?: number;
+  confidence: "high" | "medium" | "low";
+  rawLabel?: string;
+};
+
 export interface SnapshotTable {
   /** Original seating_tables.id (reference only, not reused on activate) */
   id: string;

@@ -66,6 +66,9 @@ export type EventVendor = {
   category: string;
   category_id: string | null;
   service_id: string | null;
+  marketplace_vendor_id: string | null;
+  /** Populated when joined from marketplace_vendors */
+  marketplace_slug?: string | null;
   name: string;
   website: string | null;
   contact_person: string | null;

@@ -5,6 +5,7 @@ import { useDropzone, type FileRejection } from "react-dropzone";
 import { UploadCloud, CheckCircle2, Loader2, X, ImagePlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { ro } from "@/lib/i18n/ro";
 
 // Limite: 20MB poze, 150MB video (în bytes)
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024;
@@ -90,6 +91,7 @@ export function UploadClient({ eventId }: { eventId: string }) {
             mime_type: file.type,
             size: file.size,
             uploaded_by: guestName.trim() || "Invitat Anomin",
+            approved: false,
           });
 
         if (dbError) throw dbError;
@@ -116,12 +118,12 @@ export function UploadClient({ eventId }: { eventId: string }) {
         <div className="mx-auto w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
           <CheckCircle2 className="w-8 h-8 text-emerald-600" />
         </div>
-        <h2 className="text-2xl font-serif font-bold text-foreground mb-2">Amintiri Salvate!</h2>
-        <p className="text-muted-foreground mb-8">
-          Îți mulțumim că ai contribuit la albumul acestui eveniment!
-        </p>
+        <h2 className="text-2xl font-serif font-bold text-foreground mb-2">
+          {ro.gallery.upload.successTitle}
+        </h2>
+        <p className="text-muted-foreground mb-8">{ro.gallery.upload.successMessage}</p>
         <Button onClick={() => setSuccess(false)} variant="outline" className="rounded-xl w-full h-12 text-base shadow-sm">
-          Încarcă Mai Multe
+          {ro.gallery.upload.uploadMore}
         </Button>
       </div>
     );

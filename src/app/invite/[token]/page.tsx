@@ -32,7 +32,7 @@ export default async function CollaboratorInvitePage({ params }: InvitePageProps
 
   return (
     <InvitePageShell>
-      <h1 className="font-serif text-xl font-semibold text-[#1A0E14] text-center mb-2">
+      <h1 className="font-serif text-xl font-semibold text-dash-text text-center mb-2">
         {ro.collaboration.invite.title}
       </h1>
       <p className="text-sm text-text-secondary text-center mb-6">

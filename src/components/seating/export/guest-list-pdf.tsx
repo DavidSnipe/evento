@@ -13,7 +13,6 @@ import {
 import { PdfPosterHeader } from "./pdf-branding";
 import { PDF_PLAYFAIR_FAMILY } from "./pdf-fonts";
 
-const TEXT_PRIMARY = "#1c1816";
 const TEXT_GUEST = "#3a3532";
 const TEXT_SECTION_HEADING = "#4a4038";
 

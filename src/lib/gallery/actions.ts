@@ -69,5 +69,6 @@ export async function deleteMedia(
   }
 
   revalidatePath(`/dashboard/events/${eventId}/gallery`);
+  revalidatePath("/", "layout");
   return { success: true };
 }

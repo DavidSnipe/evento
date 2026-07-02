@@ -93,6 +93,8 @@ export function useVendorsOptimistic(
         category: input.categoryId,
         category_id: input.categoryId,
         service_id: input.serviceId ?? null,
+        marketplace_vendor_id: null,
+        marketplace_slug: null,
         name: input.name,
         website: input.website ?? null,
         contact_person: input.contactPerson ?? null,

@@ -19,9 +19,10 @@ import { cn } from "@/lib/utils";
 type EventCardActionsProps = {
   eventId: string;
   className?: string;
+  onEdit?: () => void;
 };
 
-export function EventCardActions({ eventId, className }: EventCardActionsProps) {
+export function EventCardActions({ eventId, className, onEdit }: EventCardActionsProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -34,6 +35,10 @@ export function EventCardActions({ eventId, className }: EventCardActionsProps) 
 
   function handleEdit() {
     setMenuOpen(false);
+    if (onEdit) {
+      onEdit();
+      return;
+    }
     router.push(`/dashboard/events/${eventId}/edit`);
   }
 

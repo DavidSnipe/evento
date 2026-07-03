@@ -1,4 +1,5 @@
 import { formatEventDate } from "@/lib/events/utils";
+import { isWeddingType, normalizeEventType } from "@/lib/events/event-types";
 import {
   DEFAULT_INVITATION_SECTIONS,
   mergeContentDraft,
@@ -95,8 +96,9 @@ export function resolvePublicInvitationView(
 
   const visibleSchedule = filterScheduleBySections(content.schedule, sections);
 
+  const normalizedType = normalizeEventType(base.eventType);
   const showCeremonyToggles =
-    base.eventType === "wedding" &&
+    Boolean(normalizedType && isWeddingType(normalizedType)) &&
     (sections.civilCeremony || sections.religiousCeremony || sections.party);
 
   return {
@@ -148,8 +150,9 @@ export function previewInvitationView(
 ): PublicInvitationView {
   const sections = mergeSections(state.sections);
   const visibleSchedule = filterScheduleBySections(state.content.schedule, sections);
+  const normalizedType = normalizeEventType(eventMeta.eventType);
   const showCeremonyToggles =
-    eventMeta.eventType === "wedding" &&
+    Boolean(normalizedType && isWeddingType(normalizedType)) &&
     (sections.civilCeremony || sections.religiousCeremony || sections.party);
 
   return {

@@ -3,19 +3,22 @@
 import { useState } from "react";
 
 import { eventTypeOptions } from "@/lib/events/config";
+import { normalizeEventType } from "@/lib/events/event-types";
 import { cn } from "@/lib/utils";
 import type { EventType } from "@/types";
 
 type EventTypePickerProps = {
   name?: string;
-  defaultValue?: EventType;
+  defaultValue?: EventType | string;
 };
 
 export function EventTypePicker({
   name = "event_type",
-  defaultValue = "wedding",
+  defaultValue = "nunta",
 }: EventTypePickerProps) {
-  const [selected, setSelected] = useState<EventType>(defaultValue);
+  const [selected, setSelected] = useState<EventType>(
+    normalizeEventType(defaultValue) ?? "nunta"
+  );
 
   return (
     <div>

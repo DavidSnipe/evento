@@ -1,4 +1,5 @@
 import { formatEventDate } from "@/lib/events/utils";
+import { isWeddingType, normalizeEventType } from "@/lib/events/event-types";
 import type { EventType } from "@/types";
 
 export type PublicScheduleItem = {
@@ -162,13 +163,14 @@ export function buildPublicInvitationContent(
   const godparentsLine = deriveGodparentsLine(guests);
 
   let schedule = parsed.schedule;
-  if (schedule.length === 0 && event.event_type === "wedding") {
+  const normalizedType = normalizeEventType(event.event_type);
+  if (schedule.length === 0 && normalizedType && isWeddingType(normalizedType)) {
     schedule = defaultWeddingSchedule(event.venue);
   }
 
   return {
     eventId: event.id,
-    eventType: event.event_type,
+    eventType: (normalizedType ?? event.event_type) as EventType,
     title: event.title,
     coupleNames,
     invitationText: parsed.invitationText,
@@ -179,6 +181,6 @@ export function buildPublicInvitationContent(
     dressCode: parsed.dressCode,
     parentsLine: parsed.parentsLine,
     godparentsLine,
-    showCeremonyToggles: event.event_type === "wedding",
+    showCeremonyToggles: Boolean(normalizedType && isWeddingType(normalizedType)),
   };
 }

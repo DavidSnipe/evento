@@ -1,5 +1,10 @@
 import type { EventType } from "@/types";
-import { isBaptismType, isWeddingType } from "@/types/events";
+import {
+  isBaptismType,
+  isMajoratType,
+  isWeddingType,
+  usesManualTitle,
+} from "@/lib/events/event-types";
 
 export function buildEventTitleFromForm(
   eventType: EventType,
@@ -10,6 +15,7 @@ export function buildEventTitleFromForm(
     parent1FirstName?: string;
     parent2FirstName?: string;
     parentLastName?: string;
+    childFirstName?: string;
     babyFirstName?: string;
   }
 ): string {
@@ -23,20 +29,33 @@ export function buildEventTitleFromForm(
   }
 
   if (isBaptismType(eventType)) {
-    const baby = fields.babyFirstName?.trim() ?? "";
-    if (baby) return `Botezul ${baby}`;
-    const mother = fields.parent1FirstName?.trim() ?? "";
-    const father = fields.parent2FirstName?.trim() ?? "";
-    if (mother && father) return `${mother} & ${father}`;
+    const child =
+      fields.childFirstName?.trim() || fields.babyFirstName?.trim() || "";
+    if (child) return `Botezul lui ${child}`;
     const lastName = fields.parentLastName?.trim() ?? "";
-    if (lastName) return `Familia ${lastName}`;
+    if (lastName) return `Botez ${lastName}`;
     return "";
+  }
+
+  if (isMajoratType(eventType)) {
+    const name = fields.groomFirstName?.trim() ?? "";
+    if (name) return `Majorat ${name}`;
+    return "";
+  }
+
+  if (usesManualTitle(eventType)) {
+    return fields.title?.trim() ?? "";
   }
 
   return fields.title?.trim() ?? "";
 }
 
 export function parseNameFieldsFromFormData(formData: FormData) {
+  const childFirst =
+    String(formData.get("child_first_name") ?? "").trim() ||
+    String(formData.get("baby_first_name") ?? "").trim() ||
+    null;
+
   return {
     groom_first_name: String(formData.get("groom_first_name") ?? "").trim() || null,
     groom_last_name: String(formData.get("groom_last_name") ?? "").trim() || null,
@@ -46,5 +65,12 @@ export function parseNameFieldsFromFormData(formData: FormData) {
     parent1_last_name: String(formData.get("parent1_last_name") ?? "").trim() || null,
     parent2_first_name: String(formData.get("parent2_first_name") ?? "").trim() || null,
     parent2_last_name: String(formData.get("parent2_last_name") ?? "").trim() || null,
+    child_first_name: childFirst,
+    godparent1_name:
+      String(formData.get("godfather_name") ?? formData.get("godparent1_name") ?? "").trim() ||
+      null,
+    godparent2_name:
+      String(formData.get("godmother_name") ?? formData.get("godparent2_name") ?? "").trim() ||
+      null,
   };
 }

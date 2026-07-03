@@ -1,4 +1,13 @@
 import type { EventType } from "@/types";
+import {
+  DIALOG_EVENT_TYPE_OPTIONS,
+  isBaptismType,
+  isMajoratType,
+  isWeddingType,
+  usesGodparentsSection,
+  usesManualTitle,
+  usesSmartNameFields,
+} from "@/lib/events/event-types";
 
 export type EventRow = {
   id: string;
@@ -26,44 +35,25 @@ export type EventRow = {
   parent1_last_name?: string | null;
   parent2_first_name?: string | null;
   parent2_last_name?: string | null;
+  child_first_name?: string | null;
+  godparent1_name?: string | null;
+  godparent2_name?: string | null;
   created_at: string;
   updated_at: string;
 };
 
-export const EVENT_TYPES: EventType[] = [
-  "wedding",
-  "civil_wedding",
-  "baptism",
-  "birthday",
-  "anniversary",
-  "major",
-  "private",
-  "corporate",
-  "public_event",
-];
+export const EVENT_TYPES: EventType[] = DIALOG_EVENT_TYPE_OPTIONS.map((o) => o.value);
 
-export const CREATE_EVENT_TYPES: EventType[] = [
-  "wedding",
-  "civil_wedding",
-  "baptism",
-  "major",
-  "birthday",
-  "corporate",
-  "public_event",
-];
+export const CREATE_EVENT_TYPES: EventType[] = [...EVENT_TYPES];
 
-export function isWeddingType(type: EventType): boolean {
-  return type === "wedding" || type === "civil_wedding";
-}
-
-export function isBaptismType(type: EventType): boolean {
-  return type === "baptism";
-}
+export {
+  isBaptismType,
+  isMajoratType,
+  isWeddingType,
+  usesManualTitle,
+  usesSmartNameFields,
+};
 
 export function usesGodparentsAtCreate(type: EventType): boolean {
-  return isWeddingType(type) || isBaptismType(type);
-}
-
-export function usesSmartNameFields(type: EventType): boolean {
-  return isWeddingType(type) || isBaptismType(type);
+  return usesGodparentsSection(type);
 }

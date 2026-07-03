@@ -1,7 +1,14 @@
 import { cache } from "react";
 
+import { getBudgetSnapshot } from "@/lib/budget/queries";
 import { createClient } from "@/lib/supabase/server";
 import type { EventRow } from "@/types/events";
+
+export type EventListStats = {
+  guestsCount: number;
+  tablesCount: number;
+  budgetSpent: number;
+};
 
 export async function getUserEvents(): Promise<EventRow[]> {
   const supabase = await createClient();
@@ -49,4 +56,41 @@ export async function getPrimaryEvent(events: EventRow[]): Promise<EventRow | nu
     );
 
   return upcoming[0] ?? events[0];
+}
+
+export async function getEventListStats(
+  eventIds: string[]
+): Promise<Record<string, EventListStats>> {
+  const stats: Record<string, EventListStats> = {};
+  if (eventIds.length === 0) return stats;
+
+  for (const id of eventIds) {
+    stats[id] = { guestsCount: 0, tablesCount: 0, budgetSpent: 0 };
+  }
+
+  const supabase = await createClient();
+
+  const [guestsResult, tablesResult, ...budgetSnapshots] = await Promise.all([
+    supabase.from("guests").select("event_id").in("event_id", eventIds),
+    supabase.from("seating_tables").select("event_id").in("event_id", eventIds),
+    ...eventIds.map((id) => getBudgetSnapshot(id)),
+  ]);
+
+  for (const row of guestsResult.data ?? []) {
+    if (row.event_id && stats[row.event_id]) {
+      stats[row.event_id].guestsCount += 1;
+    }
+  }
+
+  for (const row of tablesResult.data ?? []) {
+    if (row.event_id && stats[row.event_id]) {
+      stats[row.event_id].tablesCount += 1;
+    }
+  }
+
+  eventIds.forEach((id, index) => {
+    stats[id].budgetSpent = budgetSnapshots[index]?.totals.actual ?? 0;
+  });
+
+  return stats;
 }

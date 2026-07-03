@@ -705,6 +705,10 @@ export const ro = {
       continue: "Continuă",
       saveChanges: "Salvează modificările",
       titlePreviewLabel: 'Preview titlu: "{title}"',
+      autoTitleGenerated: "Titlu generat automat",
+      placeholderAniversare: "ex: Aniversare 10 ani împreună",
+      placeholderCorporate: "ex: Conferința anuală 2027",
+      birthdayFirstName: "Prenume (opțional)",
     },
     types: {
       nunta: "Nuntă",

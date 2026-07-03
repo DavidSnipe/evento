@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { ro as roLocale } from "date-fns/locale";
-import { CalendarIcon, Check } from "lucide-react";
+import { CalendarIcon, Check, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 
@@ -23,7 +23,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { buildEventTitleFromForm } from "@/lib/events/event-title";
 import {
   DIALOG_EVENT_TYPE_OPTIONS,
   getEventTypeIconFile,
@@ -32,8 +31,6 @@ import {
   isWeddingType,
   normalizeEventType,
   usesGodparentsSection,
-  usesManualTitle,
-  usesSmartNameFields,
 } from "@/lib/events/event-types";
 import { ro } from "@/lib/i18n/ro";
 import { cn } from "@/lib/utils";
@@ -51,6 +48,35 @@ const initialState: EventFormState = {};
 
 const textareaClassName =
   "flex min-h-[100px] w-full rounded-[10px] border border-[rgba(210,170,185,0.25)] bg-[#F3F3F5] px-3.5 py-2.5 text-[12.5px] transition-all duration-200 ease-out placeholder:text-text-subtle focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#B8516B]/10 focus-visible:border-[#B8516B]/40 disabled:cursor-not-allowed disabled:opacity-50 text-[#1A0E14]";
+
+function AutoTitlePreviewCard({ title }: { title: string }) {
+  if (!title) return null;
+  return (
+    <div className="mt-2 rounded-lg bg-[#FEF0F3] px-3 py-3 text-sm text-[#1A0E14]">
+      ✨ {ro.events.form.autoTitleGenerated}: {title}
+    </div>
+  );
+}
+
+function ReadOnlyEventTitleField({ title }: { title: string }) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{ro.events.form.titlePreview}</Label>
+      <div className="relative">
+        <Input
+          value={title}
+          readOnly
+          disabled
+          className="bg-[#F3F3F5] pr-10 text-[#1A0E14] disabled:opacity-100"
+        />
+        <Lock
+          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden
+        />
+      </div>
+    </div>
+  );
+}
 
 export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDialogProps) {
   const router = useRouter();
@@ -78,11 +104,18 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
   const [childFirstName, setChildFirstName] = useState(event?.child_first_name ?? "");
 
   const [celebratedGender, setCelebratedGender] = useState<"male" | "female">("male");
-  const [manualTitle, setManualTitle] = useState(
-    event && usesManualTitle(normalizeEventType(event.event_type) ?? "nunta")
-      ? event.title
-      : ""
-  );
+  const [manualTitle, setManualTitle] = useState(() => {
+    if (!event) return "";
+    const type = normalizeEventType(event.event_type);
+    if (!type) return "";
+    if (type === "aniversare" || type === "corporate" || type === "eveniment_public") {
+      return event.title;
+    }
+    if (type === "zi_de_nastere" && !event.groom_first_name) {
+      return event.title;
+    }
+    return "";
+  });
 
   const [venue, setVenue] = useState(event?.venue ?? "");
   const [description, setDescription] = useState(event?.description ?? "");
@@ -106,7 +139,13 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
       setFatherFirstName(event.parent2_first_name ?? "");
       setFamilyLastName(event.parent1_last_name ?? "");
       setChildFirstName(event.child_first_name ?? "");
-      setManualTitle(type && usesManualTitle(type) ? event.title : "");
+      if (type === "aniversare" || type === "corporate" || type === "eveniment_public") {
+        setManualTitle(event.title);
+      } else if (type === "zi_de_nastere" && !event.groom_first_name) {
+        setManualTitle(event.title);
+      } else {
+        setManualTitle("");
+      }
       setVenue(event.venue ?? "");
       setDescription(event.description ?? "");
       setHasGodparents(Boolean(event.godparent1_name || event.godparent2_name));
@@ -140,29 +179,47 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
     }
   }, [state.success, onOpenChange, router]);
 
-  const titlePreview = useMemo(() => {
+  const autoTitle = useMemo(() => {
     if (!eventType) return "";
-    if (usesSmartNameFields(eventType)) {
-      return buildEventTitleFromForm(eventType, {
-        groomFirstName,
-        brideFirstName,
-        parent1FirstName: motherFirstName,
-        parent2FirstName: fatherFirstName,
-        parentLastName: familyLastName,
-        childFirstName,
-      });
+
+    if (isWeddingType(eventType)) {
+      return [brideFirstName.trim(), groomFirstName.trim()].filter(Boolean).join(" & ");
     }
+
+    if (isBaptismType(eventType)) {
+      const child = childFirstName.trim();
+      return child ? `Botez ${child}` : "Botez";
+    }
+
+    if (isMajoratType(eventType)) {
+      const name = groomFirstName.trim();
+      return name ? `Majorat ${name}` : "Majorat";
+    }
+
+    if (eventType === "zi_de_nastere") {
+      const name = groomFirstName.trim();
+      if (name) return `Zi de naștere ${name}`;
+      return manualTitle.trim();
+    }
+
     return manualTitle.trim();
   }, [
     eventType,
-    groomFirstName,
     brideFirstName,
-    motherFirstName,
-    fatherFirstName,
-    familyLastName,
+    groomFirstName,
     childFirstName,
     manualTitle,
   ]);
+
+  const submittedTitle = autoTitle;
+  const birthdayUsesAutoTitle = eventType === "zi_de_nastere" && Boolean(groomFirstName.trim());
+
+  const manualTitlePlaceholder =
+    eventType === "aniversare"
+      ? ro.events.form.placeholderAniversare
+      : eventType === "corporate"
+        ? ro.events.form.placeholderCorporate
+        : ro.events.form.titlePlaceholder;
 
   const showDifferentLastNamesWarning =
     eventType &&
@@ -190,6 +247,12 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
       ? ro.events.form.saveChanges
       : ro.events.form.save;
 
+  const titleRequiredForSubmit =
+    eventType === "aniversare" ||
+    eventType === "corporate" ||
+    eventType === "eveniment_public" ||
+    (eventType === "zi_de_nastere" && !groomFirstName.trim());
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -210,6 +273,7 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
           <input type="hidden" name="skip_redirect" value="true" />
           <input type="hidden" name="event_type" value={eventType ?? ""} />
           <input type="hidden" name="event_date" value={date ? format(date, "yyyy-MM-dd") : ""} />
+          <input type="hidden" name="title" value={submittedTitle} />
 
           {/* 1. Event type */}
           <section className="space-y-3">
@@ -331,6 +395,8 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
                       </div>
                     </div>
                   </div>
+                  <ReadOnlyEventTitleField title={autoTitle} />
+                  <AutoTitlePreviewCard title={autoTitle} />
                 </>
               ) : null}
 
@@ -385,6 +451,7 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
                       disabled={pending}
                     />
                   </div>
+                  <AutoTitlePreviewCard title={autoTitle} />
                 </>
               ) : null}
 
@@ -422,28 +489,54 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
                       {ro.events.form.celebratedFemale}
                     </label>
                   </div>
+                  <AutoTitlePreviewCard title={autoTitle} />
                 </div>
               ) : null}
 
-              {usesManualTitle(eventType) ? (
+              {eventType === "zi_de_nastere" ? (
+                <>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="dlg_birthday_first_name">{ro.events.form.birthdayFirstName}</Label>
+                    <Input
+                      id="dlg_birthday_first_name"
+                      name="groom_first_name"
+                      value={groomFirstName}
+                      onChange={(e) => setGroomFirstName(e.target.value)}
+                      disabled={pending}
+                    />
+                  </div>
+                  {birthdayUsesAutoTitle ? (
+                    <AutoTitlePreviewCard title={autoTitle} />
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="dlg_manual_title">{ro.events.form.eventTitleLabel}</Label>
+                      <Input
+                        id="dlg_manual_title"
+                        value={manualTitle}
+                        onChange={(e) => setManualTitle(e.target.value)}
+                        placeholder={ro.events.form.titlePlaceholder}
+                        required
+                        disabled={pending}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : null}
+
+              {eventType === "aniversare" ||
+              eventType === "corporate" ||
+              eventType === "eveniment_public" ? (
                 <div className="space-y-1.5">
                   <Label htmlFor="dlg_manual_title">{ro.events.form.eventTitleLabel}</Label>
                   <Input
                     id="dlg_manual_title"
-                    name="title"
                     value={manualTitle}
                     onChange={(e) => setManualTitle(e.target.value)}
-                    placeholder={ro.events.form.titlePlaceholder}
+                    placeholder={manualTitlePlaceholder}
                     required
                     disabled={pending}
                   />
                 </div>
-              ) : null}
-
-              {titlePreview ? (
-                <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-                  {ro.events.form.titlePreviewLabel.replace("{title}", titlePreview)}
-                </p>
               ) : null}
             </section>
           ) : null}
@@ -561,7 +654,17 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
             >
               {ro.events.form.cancel}
             </Button>
-            <Button type="submit" className="w-full" disabled={pending || !eventType || !date}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={
+                pending ||
+                !eventType ||
+                !date ||
+                (titleRequiredForSubmit && !submittedTitle) ||
+                (isWeddingType(eventType!) && !autoTitle)
+              }
+            >
               {submitLabel}
             </Button>
           </div>

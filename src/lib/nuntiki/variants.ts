@@ -1,17 +1,16 @@
 import { cva, type VariantProps } from "class-variance-authority";
 
-/** Shared panel shell — matches Guests glass-panel cards. */
+/** Shared panel shell — solid white cards, quiet luxury. */
 export const panelShellVariants = cva(
-  "rounded-[18px] border border-border-rose-18 bg-white/70 shadow-card backdrop-blur-md",
+  "rounded-[16px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)] shadow-[var(--dash-shadow-card)]",
   {
     variants: {
       tone: {
         default: "",
-        solid: "bg-white/95",
-        muted: "bg-[#F3F3F5]/40 border-border-rose-18/30",
-        highlight:
-          "border-[var(--dash-blush)]/60 bg-gradient-to-br from-[var(--dash-blush)]/30 to-white/90",
-        ghost: "border-dashed border-border-rose-18/40 bg-white/40 shadow-none",
+        solid: "",
+        muted: "bg-[var(--dash-ivory)] border-[var(--dash-border)]",
+        highlight: "border-[var(--dash-blush)]/50 bg-[var(--dash-accent-soft)]",
+        ghost: "border-dashed border-[var(--dash-border)] bg-transparent shadow-none",
       },
     },
     defaultVariants: {
@@ -54,11 +53,11 @@ export const pageHeaderVariants = cva("space-y-2", {
 
 /** Apple-style display title — Geist only. */
 export const pageHeaderTitleVariants = cva(
-  "font-semibold tracking-[-0.022em] text-[var(--dash-text)]",
+  "font-bold tracking-[-0.025em] text-[var(--dash-text)]",
   {
     variants: {
       size: {
-        default: "text-[2rem] leading-[1.15]",
+        default: "text-[2.25rem] leading-[1.15]",
         compact: "text-2xl leading-tight",
       },
     },
@@ -84,9 +83,9 @@ export const statsGridVariants = cva("grid gap-3", {
   variants: {
     columns: {
       2: "grid-cols-2",
-      3: "grid-cols-1 sm:grid-cols-3",
-      4: "grid-cols-2 sm:grid-cols-4",
-      5: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5",
+      3: "grid-cols-2 lg:grid-cols-3",
+      4: "grid-cols-2 lg:grid-cols-4",
+      5: "grid-cols-2 lg:grid-cols-5",
     },
   },
   defaultVariants: {
@@ -94,16 +93,34 @@ export const statsGridVariants = cva("grid gap-3", {
   },
 });
 
-/** Matches guest-database stats row exactly. */
-export const statsCardVariants = cva(
-  "glass-panel border bg-white p-4 shadow-card rounded-[18px]",
+export const statsCardVariants = cva("evento-stat-card overflow-hidden border-0 shadow-none", {
+  variants: {
+    accent: {
+      default: "",
+      primary: "bg-[var(--dash-accent-soft)]",
+      success: "bg-[rgba(137,162,147,0.08)]",
+      warning: "bg-[rgba(255,159,10,0.06)]",
+    },
+  },
+  defaultVariants: {
+    accent: "default",
+  },
+});
+
+export const statsLabelVariants = cva(
+  "text-[11px] font-semibold uppercase tracking-wide text-[var(--dash-text-muted)]"
+);
+
+export const statsValueVariants = cva(
+  "mt-1 truncate text-[32px] font-bold leading-none tracking-tight",
   {
     variants: {
       accent: {
-        default: "",
-        primary: "bg-[var(--dash-blush)]/20 border-[var(--dash-blush)]/40",
-        success: "border-[var(--dash-sage)]/30 bg-[var(--dash-sage)]/8",
-        warning: "border-[#FF9F0A]/20 bg-[#FF9F0A]/5",
+        default: "text-[var(--dash-text)]",
+        primary: "text-[var(--dash-accent-text)]",
+        success: "text-[var(--dash-sage)]",
+        warning: "text-pending-orange",
+        rose: "text-[var(--dash-accent-text)]",
       },
     },
     defaultVariants: {
@@ -111,25 +128,6 @@ export const statsCardVariants = cva(
     },
   }
 );
-
-export const statsLabelVariants = cva(
-  "text-[9.5px] font-bold uppercase tracking-wider text-text-subtle"
-);
-
-export const statsValueVariants = cva("mt-1.5 font-sans text-2xl font-bold", {
-  variants: {
-    accent: {
-      default: "text-[#1A0E14]",
-      primary: "text-[var(--dash-accent-text)]",
-      success: "text-[var(--dash-sage)]",
-      warning: "text-pending-orange",
-      rose: "text-[var(--dash-accent-text)]",
-    },
-  },
-  defaultVariants: {
-    accent: "default",
-  },
-});
 
 export const emptyStateVariants = cva(
   "flex flex-col items-center justify-center text-center rounded-[18px] border border-dashed border-border-rose-18/40 bg-white/40",
@@ -149,19 +147,19 @@ export const emptyStateVariants = cva(
 
 /** Matches guest-table-view shell exactly. */
 export const dataTableShellVariants = cva(
-  "overflow-hidden rounded-[18px] border border-border-rose-18 bg-white/70 shadow-card backdrop-blur-md"
+  "overflow-hidden rounded-[16px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)] shadow-[var(--dash-shadow-card)]"
 );
 
 export const dataTableHeadCellVariants = cva(
-  "h-auto px-3 py-2.5 text-left align-middle text-[9.5px] font-bold uppercase tracking-wider text-text-subtle border-r border-border-rose-18/20 last:border-r-0 bg-[#F3F3F5]/40"
+  "h-auto px-4 py-3 text-left align-middle text-[11px] font-semibold uppercase tracking-wide text-[var(--dash-text-muted)] border-r border-[var(--dash-hairline)] last:border-r-0 bg-[var(--dash-ivory)]"
 );
 
 export const dataTableCellVariants = cva(
-  "px-3 py-2 align-middle text-xs border-r border-border-rose-18/20 last:border-r-0"
+  "px-4 py-3.5 align-middle text-sm border-r border-[var(--dash-hairline)] last:border-r-0 min-h-[56px]"
 );
 
 export const dataTableRowVariants = cva(
-  "border-b border-border-rose-18/20 transition-all duration-200 hover:bg-[#FEF0F3]/12 data-[state=selected]:bg-[#FEF0F3]/60 data-[state=muted]:opacity-50",
+  "border-b border-[var(--dash-hairline)] transition-colors duration-200 hover:bg-[var(--dash-accent-soft)] data-[state=selected]:bg-[var(--dash-accent-soft)] data-[state=muted]:opacity-50",
   {
     variants: {
       interactive: {

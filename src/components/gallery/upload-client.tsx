@@ -2,9 +2,19 @@
 
 import { useState, useCallback } from "react";
 import { useDropzone, type FileRejection } from "react-dropzone";
-import { UploadCloud, CheckCircle2, Loader2, X, ImagePlus } from "lucide-react";
+import { UploadCloud, Loader2, X, ImagePlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ro } from "@/lib/i18n/ro";
 
 // Limite: 20MB poze, 150MB video (în bytes)
@@ -12,7 +22,19 @@ const MAX_IMAGE_SIZE = 20 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 150 * 1024 * 1024;
 const MAX_FILES = 20;
 
-export function UploadClient({ eventId }: { eventId: string }) {
+type UploadClientProps = {
+  eventId: string;
+  qrSlug?: string;
+  onViewGallery?: () => void;
+};
+
+function markUploaded(qrSlug?: string) {
+  if (!qrSlug || typeof window === "undefined") return;
+  localStorage.setItem(`evento_gallery_${qrSlug}_uploaded`, "true");
+  localStorage.setItem(`evento_gallery_${qrSlug}_view`, "gallery");
+}
+
+export function UploadClient({ eventId, qrSlug, onViewGallery }: UploadClientProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -110,27 +132,51 @@ export function UploadClient({ eventId }: { eventId: string }) {
     setUploading(false);
     setSuccess(true);
     setFiles([]);
+    markUploaded(qrSlug);
   };
 
-  if (success) {
-    return (
-      <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-xl border border-white/40 text-center animate-in zoom-in duration-500">
-        <div className="mx-auto w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
-          <CheckCircle2 className="w-8 h-8 text-emerald-600" />
-        </div>
-        <h2 className="text-2xl font-serif font-bold text-foreground mb-2">
-          {ro.gallery.upload.successTitle}
-        </h2>
-        <p className="text-muted-foreground mb-8">{ro.gallery.upload.successMessage}</p>
-        <Button onClick={() => setSuccess(false)} variant="outline" className="rounded-xl w-full h-12 text-base shadow-sm">
-          {ro.gallery.upload.uploadMore}
-        </Button>
-      </div>
-    );
-  }
+  const handleViewGallery = () => {
+    setSuccess(false);
+    onViewGallery?.();
+  };
+
+  const handleUploadMore = () => {
+    setSuccess(false);
+  };
 
   return (
-    <div className="space-y-6">
+    <>
+      <AlertDialog open={success} onOpenChange={setSuccess}>
+        <AlertDialogContent className="max-w-sm rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-center font-serif text-xl">
+              {ro.gallery.upload.successModalTitle}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-sm">
+              {ro.gallery.upload.successModalBody}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+            <AlertDialogAction
+              className="min-h-11 w-full rounded-xl"
+              onClick={(e) => {
+                e.preventDefault();
+                handleViewGallery();
+              }}
+            >
+              {ro.gallery.upload.viewGallery}
+            </AlertDialogAction>
+            <AlertDialogCancel
+              className="mt-0 min-h-10 w-full border-0 bg-transparent text-sm text-muted-foreground shadow-none hover:bg-transparent"
+              onClick={handleUploadMore}
+            >
+              {ro.gallery.upload.uploadMoreLink}
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="space-y-6">
       {/* Upload Area */}
       <div 
         {...getRootProps()} 
@@ -218,5 +264,6 @@ export function UploadClient({ eventId }: { eventId: string }) {
         </div>
       )}
     </div>
+    </>
   );
 }

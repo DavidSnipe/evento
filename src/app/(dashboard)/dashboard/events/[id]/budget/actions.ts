@@ -24,6 +24,8 @@ export async function createBudgetItem(
   const estimatedCost = parseFloat(formData.get("estimated_cost") as string) || 0;
   const actualCost = parseFloat(formData.get("actual_cost") as string) || 0;
   const paidAmount = parseFloat(formData.get("paid_amount") as string) || 0;
+  const avans = parseFloat(formData.get("avans") as string) || 0;
+  const status = (formData.get("status") as string) || "unpaid";
   const dueDate = formData.get("due_date") as string;
 
   if (!title || !categorySlug) {
@@ -41,6 +43,8 @@ export async function createBudgetItem(
     estimated_cost: estimatedCost,
     actual_cost: actualCost,
     paid_amount: paidAmount,
+    avans: avans || null,
+    status: ["unpaid", "deposit_paid", "fully_paid"].includes(status) ? status : "unpaid",
     due_date: dueDate || null,
   });
 
@@ -66,6 +70,8 @@ export async function updateBudgetItem(
   const estimatedCost = parseFloat(formData.get("estimated_cost") as string) || 0;
   const actualCost = parseFloat(formData.get("actual_cost") as string) || 0;
   const paidAmount = parseFloat(formData.get("paid_amount") as string) || 0;
+  const avans = parseFloat(formData.get("avans") as string) || 0;
+  const status = (formData.get("status") as string) || "unpaid";
   const dueDate = formData.get("due_date") as string;
 
   const supabase = await createClient();
@@ -80,6 +86,8 @@ export async function updateBudgetItem(
       estimated_cost: estimatedCost,
       actual_cost: actualCost,
       paid_amount: paidAmount,
+      avans: avans || null,
+      status: ["unpaid", "deposit_paid", "fully_paid"].includes(status) ? status : "unpaid",
       due_date: dueDate || null,
     })
     .eq("id", itemId)
@@ -91,6 +99,48 @@ export async function updateBudgetItem(
   }
 
   revalidatePath(`/dashboard/events/${eventId}/budget`);
+  return { success: true };
+}
+
+export async function deleteVendorBudgetExpense(
+  eventId: string,
+  vendorId: string,
+  serviceId?: string | null
+): Promise<BudgetActionResult> {
+  const accessDenied = await requireBudgetEdit(eventId);
+  if (accessDenied) return accessDenied;
+
+  const supabase = await createClient();
+
+  const { error: vendorError } = await supabase
+    .from("vendors")
+    .update({ selected_offer_id: null, status: "negotiating" })
+    .eq("id", vendorId)
+    .eq("event_id", eventId);
+
+  if (vendorError) {
+    console.error("deleteVendorBudgetExpense vendor:", vendorError);
+    return { error: "Nu am putut deselecta oferta furnizorului." };
+  }
+
+  if (serviceId) {
+    const { error: serviceError } = await supabase
+      .from("event_vendor_services")
+      .update({
+        selected_offer_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", serviceId)
+      .eq("event_id", eventId);
+
+    if (serviceError) {
+      console.error("deleteVendorBudgetExpense service:", serviceError);
+      return { error: "Nu am putut deselecta oferta din serviciu." };
+    }
+  }
+
+  revalidatePath(`/dashboard/events/${eventId}/budget`);
+  revalidatePath(`/dashboard/events/${eventId}/vendors`);
   return { success: true };
 }
 

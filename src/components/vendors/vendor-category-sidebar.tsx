@@ -46,7 +46,7 @@ export function VendorCategorySidebar({
 }: VendorCategorySidebarProps) {
   return (
     <aside className="flex w-full min-w-0 flex-col">
-      <div className="glass-panel rounded-[18px] border bg-white/70 p-3 shadow-card backdrop-blur-md">
+      <div className="evento-card rounded-[16px] p-3">
         {canManage ? <AddCategoryLink onClick={onAddCategory} /> : null}
 
         <nav

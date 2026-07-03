@@ -16,6 +16,7 @@ import {
   generateEventRsvpSlug,
   syncGuestsToRsvpGroups,
 } from "@/app/(dashboard)/dashboard/events/[id]/rsvp/actions";
+import { StatsCard } from "@/components/nuntiki/stats-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ro } from "@/lib/i18n/ro";
@@ -98,7 +99,7 @@ export function RsvpDashboard({
           <p className="mt-1.5 text-amber-900/90">{ro.rsvp.prep.syncRequiredBody}</p>
           <Button
             type="button"
-            className="mt-3 rounded-xl"
+            className="mt-3 min-h-11 rounded-xl"
             disabled={isPending}
             onClick={handleSync}
           >
@@ -108,25 +109,25 @@ export function RsvpDashboard({
         </div>
       ) : null}
 
-      <Card className="border-[#FCEAEF]/80 bg-gradient-to-br from-[#FEF8F9] to-white">
+      <Card className="rounded-[16px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)] shadow-[var(--dash-shadow-card)]">
         <CardHeader className="pb-2">
           <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FEF0F3] border border-[#FCEAEF]">
-              <Sparkles className="h-4 w-4 text-[#B8516B]" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--dash-hairline)] bg-[var(--dash-accent-soft)]">
+              <Sparkles className="h-4 w-4 text-[var(--dash-accent-text)]" />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               <CardTitle className="text-base">{ro.rsvp.invitation.title}</CardTitle>
               <CardDescription className="mt-1">{ro.rsvp.invitation.desc}</CardDescription>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button size="sm" className="rounded-xl h-8" asChild>
+                <Button size="sm" className="h-11 min-h-11 rounded-xl" asChild>
                   <Link href={`/dashboard/events/${eventId}/rsvp/invitation`}>
                     {ro.rsvp.invitation.edit}
                   </Link>
                 </Button>
                 {rsvpSlug && (
-                  <Button size="sm" variant="outline" className="rounded-xl h-8" asChild>
+                  <Button size="sm" variant="outline" className="h-11 min-h-11 rounded-xl" asChild>
                     <Link href={`/rsvp/${rsvpSlug}`} target="_blank">
-                      <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                      <ExternalLink className="mr-1 h-3.5 w-3.5" />
                       {ro.rsvp.invitation.preview}
                     </Link>
                   </Button>
@@ -138,10 +139,10 @@ export function RsvpDashboard({
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+        <Card className="rounded-[16px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)] shadow-[var(--dash-shadow-card)]">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Link2 className="h-4 w-4 text-[#B8516B]" />
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Link2 className="h-4 w-4 text-[var(--dash-accent-text)]" />
               {ro.rsvp.publicLink.title}
             </CardTitle>
             <CardDescription>{ro.rsvp.publicLink.desc}</CardDescription>
@@ -149,12 +150,7 @@ export function RsvpDashboard({
           <CardContent className="space-y-3">
             {rsvpSlug && publicPath ? (
               <>
-                {needsHouseholdSync ? (
-                  <p className="text-sm font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    {ro.rsvp.prep.syncRequiredBody}
-                  </p>
-                ) : null}
-                <p className="text-xs font-mono text-text-secondary break-all bg-slate-50 rounded-lg px-3 py-2 border">
+                <p className="break-all rounded-lg border border-[var(--dash-hairline)] bg-[var(--dash-ivory)] px-3 py-2 font-mono text-xs text-[var(--dash-text-secondary)]">
                   {publicPath}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -162,7 +158,7 @@ export function RsvpDashboard({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="rounded-lg gap-1.5"
+                    className="min-h-11 gap-1.5 rounded-lg"
                     disabled={needsHouseholdSync}
                     onClick={handleCopy}
                   >
@@ -173,7 +169,7 @@ export function RsvpDashboard({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="rounded-lg gap-1.5"
+                    className="min-h-11 gap-1.5 rounded-lg"
                     asChild
                   >
                     <a href={publicPath} target="_blank" rel="noopener noreferrer">
@@ -185,10 +181,10 @@ export function RsvpDashboard({
               </>
             ) : (
               <>
-                <p className="text-sm text-text-secondary">{ro.rsvp.publicLink.notActive}</p>
+                <p className="text-sm text-[var(--dash-text-secondary)]">{ro.rsvp.publicLink.notActive}</p>
                 <Button
                   type="button"
-                  className="rounded-xl"
+                  className="min-h-11 rounded-xl"
                   disabled={isPending}
                   onClick={handleActivate}
                 >
@@ -199,31 +195,33 @@ export function RsvpDashboard({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-[16px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)] shadow-[var(--dash-shadow-card)]">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4 text-[#B8516B]" />
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="h-4 w-4 text-[var(--dash-accent-text)]" />
               {ro.rsvp.prep.title}
             </CardTitle>
             <CardDescription>{ro.rsvp.prep.desc}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button
-              type="button"
-              variant={needsHouseholdSync ? "default" : "outline"}
-              className="rounded-xl gap-2 w-full sm:w-auto"
-              disabled={isPending}
-              onClick={handleSync}
-            >
-              <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
-              {ro.rsvp.prep.sync}
-            </Button>
+            {!needsHouseholdSync ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 w-full gap-2 rounded-xl sm:w-auto"
+                disabled={isPending}
+                onClick={handleSync}
+              >
+                <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
+                {ro.rsvp.prep.sync}
+              </Button>
+            ) : null}
             {syncMsg && (
-              <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">
+              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
                 {syncMsg}
               </p>
             )}
-            <Button asChild variant="link" className="h-auto p-0 text-[#B8516B]">
+            <Button asChild variant="link" className="h-auto p-0 text-[var(--dash-accent-text)]">
               <Link href={`/dashboard/events/${eventId}/guests`}>
                 Gestionează invitații →
               </Link>
@@ -232,37 +230,32 @@ export function RsvpDashboard({
         </Card>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: ro.rsvp.overview.households, value: stats.householdCount },
-          { label: ro.rsvp.overview.people, value: stats.memberCount },
-          { label: ro.rsvp.overview.confirmed, value: stats.confirmed },
-          { label: ro.rsvp.overview.pending, value: stats.pending },
+          { label: ro.rsvp.overview.households, value: stats.householdCount, accent: "default" as const },
+          { label: ro.rsvp.overview.people, value: stats.memberCount, accent: "default" as const },
+          { label: ro.rsvp.overview.confirmed, value: stats.confirmed, accent: "success" as const },
+          { label: ro.rsvp.overview.pending, value: stats.pending, accent: "warning" as const },
         ].map((s) => (
-          <Card key={s.label} className="p-4">
-            <p className="text-2xl font-bold text-[#1A0E14]">{s.value}</p>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-text-subtle mt-1">
-              {s.label}
-            </p>
-          </Card>
+          <StatsCard key={s.label} label={s.label} value={s.value} accent={s.accent} />
         ))}
       </div>
 
-      <Card>
+      <Card className="rounded-[16px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)] shadow-[var(--dash-shadow-card)]">
         <CardHeader>
           <CardTitle className="text-base">{ro.rsvp.responses.title}</CardTitle>
           <CardDescription>{eventTitle}</CardDescription>
         </CardHeader>
         <CardContent>
           {households.length === 0 ? (
-            <p className="text-sm text-text-secondary py-6 text-center">
+            <p className="py-6 text-center text-sm text-[var(--dash-text-secondary)]">
               {ro.rsvp.responses.empty}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-left text-[11px] uppercase tracking-wide text-text-subtle">
+                  <tr className="border-b border-[var(--dash-hairline)] text-left text-[11px] uppercase tracking-wide text-[var(--dash-text-muted)]">
                     <th className="pb-2 pr-4">{ro.rsvp.responses.group}</th>
                     <th className="pb-2 pr-4">{ro.rsvp.responses.members}</th>
                     <th className="pb-2">{ro.rsvp.responses.status}</th>
@@ -270,9 +263,9 @@ export function RsvpDashboard({
                 </thead>
                 <tbody>
                   {households.map((h) => (
-                    <tr key={h.id} className="border-b border-border-rose-18/15">
-                      <td className="py-3 pr-4 font-medium">{h.display_name}</td>
-                      <td className="py-3 pr-4 text-text-secondary">
+                    <tr key={h.id} className="border-b border-[var(--dash-hairline)]">
+                      <td className="min-h-[56px] py-4 pr-4 font-medium">{h.display_name}</td>
+                      <td className="min-h-[56px] py-4 pr-4 text-[var(--dash-text-secondary)]">
                         {h.members.map((m) => {
                           const st = m.rsvp_response?.attendance_status ?? "pending";
                           const icon =
@@ -291,8 +284,8 @@ export function RsvpDashboard({
                           );
                         })}
                       </td>
-                      <td className="py-3">
-                        <span className="text-xs font-semibold text-[#B8516B]">
+                      <td className="min-h-[56px] py-4">
+                        <span className="text-xs font-semibold text-[var(--dash-accent-text)]">
                           {groupStatusLabel(h)}
                         </span>
                       </td>

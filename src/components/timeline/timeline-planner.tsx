@@ -5,8 +5,8 @@ import {
   CalendarDays,
   Columns3,
   LayoutList,
+  ListChecks,
   Loader2,
-  Sparkles,
 } from "lucide-react";
 
 import { resolveTimezone } from "@/lib/calendar/format";
@@ -164,26 +164,26 @@ export function TimelinePlanner({
   return (
     <div className="space-y-6">
       {isEmpty ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-[#FCEAEF]/80 bg-gradient-to-br from-[#FEF8F9] to-white px-6 py-16 text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FEF0F3] border border-[#FCEAEF]">
-            <CalendarDays className="h-7 w-7 text-[#B8516B]" strokeWidth={1.5} />
+        <div className="evento-card flex flex-col items-center justify-center px-6 py-16 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--dash-accent-soft)]">
+            <CalendarDays className="h-7 w-7 text-[var(--dash-accent-text)]" strokeWidth={1.5} />
           </div>
-          <h2 className="font-serif text-xl font-semibold text-[#1A0E14]">
+          <h2 className="text-xl font-bold tracking-tight text-[var(--dash-text)]">
             {ro.timeline.empty.title}
           </h2>
-          <p className="mt-2 max-w-md text-sm text-text-secondary leading-relaxed">
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-[var(--dash-text-secondary)]">
             {ro.timeline.empty.desc}
           </p>
           <Button
             type="button"
-            className="mt-6"
+            className="mt-6 min-h-11"
             onClick={handleGenerateChecklist}
             disabled={isGeneratingChecklist || !eventDate}
           >
             {isGeneratingChecklist ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Sparkles className="h-4 w-4" />
+              <ListChecks className="h-4 w-4" />
             )}
             {ro.timeline.checklist.generate}
           </Button>
@@ -213,15 +213,15 @@ export function TimelinePlanner({
                   webcalUrl={subscriptionUrls.webcalUrl}
                 />
               )}
-              <div className="inline-flex rounded-xl border border-[rgba(210,170,185,0.25)] bg-white/80 p-1">
+              <div className="inline-flex rounded-xl border border-[var(--dash-hairline)] bg-[var(--dash-surface)] p-1">
                 <button
                   type="button"
                   onClick={() => setView("timeline")}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                    "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all",
                     view === "timeline"
-                      ? "bg-[#FEF0F3] text-[#B8516B]"
-                      : "text-text-secondary hover:text-[#B8516B]"
+                      ? "bg-[var(--dash-accent-text)] text-white"
+                      : "text-[var(--dash-text-secondary)] hover:text-[var(--dash-accent-text)]"
                   )}
                 >
                   <LayoutList className="h-3.5 w-3.5" />
@@ -231,10 +231,10 @@ export function TimelinePlanner({
                   type="button"
                   onClick={() => setView("kanban")}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                    "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all",
                     view === "kanban"
-                      ? "bg-[#FEF0F3] text-[#B8516B]"
-                      : "text-text-secondary hover:text-[#B8516B]"
+                      ? "bg-[var(--dash-accent-text)] text-white"
+                      : "text-[var(--dash-text-secondary)] hover:text-[var(--dash-accent-text)]"
                   )}
                 >
                   <Columns3 className="h-3.5 w-3.5" />
@@ -244,15 +244,16 @@ export function TimelinePlanner({
               {tasks.length < 12 && eventDate && (
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="outline"
                   size="sm"
+                  className="min-h-11"
                   onClick={handleGenerateChecklist}
                   disabled={isGeneratingChecklist}
                 >
                   {isGeneratingChecklist ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
+                    <ListChecks className="h-3.5 w-3.5" />
                   )}
                   {ro.timeline.checklist.generateShort}
                 </Button>

@@ -14,6 +14,9 @@ import type {
 } from "@/types/timeline";
 import { TIMELINE_EVENT_SEGMENTS } from "@/types/timeline";
 
+const fieldClass =
+  "flex h-11 min-h-11 w-full rounded-md border border-[var(--dash-hairline)] bg-[var(--dash-surface)] px-3 text-sm text-[var(--dash-text)]";
+
 type TimelineCreateFormProps = {
   categories: TimelineCategoryRow[];
   milestones: TimelineMilestoneRow[];
@@ -94,7 +97,7 @@ export function TimelineCreateForm({
       <Button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full sm:w-auto"
+        className="min-h-11 w-full sm:w-auto"
       >
         <Plus className="h-4 w-4" />
         {ro.timeline.actions.addTask}
@@ -103,12 +106,9 @@ export function TimelineCreateForm({
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded-2xl border border-[rgba(210,170,185,0.25)] bg-gradient-to-br from-[#FEF8F9] to-white p-4 shadow-sm space-y-3"
-    >
+    <form onSubmit={handleSubmit} className="evento-card space-y-3 p-4 sm:p-5">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-serif text-base font-semibold text-[#1A0E14]">
+        <h3 className="text-base font-semibold text-[var(--dash-text)]">
           {ro.timeline.form.newTask}
         </h3>
         <button
@@ -117,7 +117,7 @@ export function TimelineCreateForm({
             reset();
             setOpen(false);
           }}
-          className="rounded-lg p-1.5 text-text-subtle hover:bg-[#FEF0F3] hover:text-[#B8516B]"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[var(--dash-text-muted)] transition hover:bg-[var(--dash-accent-soft)] hover:text-[var(--dash-accent-text)]"
         >
           <X className="h-4 w-4" />
         </button>
@@ -127,6 +127,7 @@ export function TimelineCreateForm({
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder={ro.timeline.form.titlePlaceholder}
+        className="min-h-11"
         autoFocus
       />
 
@@ -134,7 +135,7 @@ export function TimelineCreateForm({
         <select
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
-          className="flex h-10 w-full rounded-[10px] border border-[rgba(210,170,185,0.25)] bg-[#F3F3F5] px-3 text-[12.5px]"
+          className={fieldClass}
         >
           <option value="">{ro.timeline.form.noCategory}</option>
           {categories.map((c) => (
@@ -146,7 +147,7 @@ export function TimelineCreateForm({
         <select
           value={milestoneId}
           onChange={(e) => setMilestoneId(e.target.value)}
-          className="flex h-10 w-full rounded-[10px] border border-[rgba(210,170,185,0.25)] bg-[#F3F3F5] px-3 text-[12.5px]"
+          className={fieldClass}
         >
           <option value="">{ro.timeline.form.noMilestone}</option>
           {milestones.map((m) => (
@@ -159,11 +160,12 @@ export function TimelineCreateForm({
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
+          className="min-h-11"
         />
         <select
           value={priority}
           onChange={(e) => setPriority(e.target.value as TimelineTaskPriority)}
-          className="flex h-10 w-full rounded-[10px] border border-[rgba(210,170,185,0.25)] bg-[#F3F3F5] px-3 text-[12.5px]"
+          className={fieldClass}
         >
           {(["low", "medium", "high", "critical"] as const).map((p) => (
             <option key={p} value={p}>
@@ -175,13 +177,14 @@ export function TimelineCreateForm({
           value={assignee}
           onChange={(e) => setAssignee(e.target.value)}
           placeholder={ro.timeline.form.assigneePlaceholder}
+          className="min-h-11"
         />
         <select
           value={eventSegment}
           onChange={(e) =>
             setEventSegment(e.target.value as TimelineEventSegment)
           }
-          className="flex h-10 w-full rounded-[10px] border border-[rgba(210,170,185,0.25)] bg-[#F3F3F5] px-3 text-[12.5px]"
+          className={fieldClass}
         >
           {TIMELINE_EVENT_SEGMENTS.map((seg) => (
             <option key={seg} value={seg}>
@@ -196,7 +199,7 @@ export function TimelineCreateForm({
         onChange={(e) => setNotes(e.target.value)}
         placeholder={ro.timeline.form.notesPlaceholder}
         rows={2}
-        className="w-full rounded-[10px] border border-[rgba(210,170,185,0.25)] bg-[#F3F3F5] px-3 py-2 text-[12.5px] resize-none"
+        className="w-full resize-none rounded-md border border-[var(--dash-hairline)] bg-[var(--dash-surface)] px-3 py-2 text-sm text-[var(--dash-text)]"
       />
 
       {error && (
@@ -204,7 +207,7 @@ export function TimelineCreateForm({
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" disabled={submitting}>
+        <Button type="submit" disabled={submitting} className="min-h-11">
           {submitting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
@@ -213,7 +216,8 @@ export function TimelineCreateForm({
         </Button>
         <Button
           type="button"
-          variant="secondary"
+          variant="outline"
+          className="min-h-11"
           onClick={() => {
             reset();
             setOpen(false);

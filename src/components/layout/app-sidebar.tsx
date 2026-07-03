@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { Heart, LogOut, ChevronLeft, ChevronRight, Settings } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, Settings } from "lucide-react";
 
 import { signOut } from "@/app/(auth)/actions";
 import { AccountModeSwitcher } from "@/components/layout/account-mode-switcher";
+import { SidebarActiveIndicator } from "@/components/motion/sidebar-active-indicator";
 import { getMainNav } from "@/config/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ export function AppSidebar({
   const prefetchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-collapsed");
@@ -117,26 +119,22 @@ export function AppSidebar({
       {/* Header row */}
       <div
         className={cn(
-          "flex items-center gap-3 px-4 py-6",
+          "flex items-center gap-3 border-b border-[var(--dash-hairline)] px-4 py-5",
           isCollapsed ? "justify-center px-2" : "px-5"
         )}
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[var(--dash-blush)]/50 text-[var(--dash-accent-text)]">
-          <Heart className="h-4 w-4 fill-[var(--dash-dusty-rose)]/30" strokeWidth={2} />
-        </div>
         {!isCollapsed ? (
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[0.9375rem] font-semibold tracking-[-0.015em] text-[var(--dash-text)]">
-              Evento
-            </p>
-            <p className="truncate text-[10px] text-[var(--dash-text-muted)]">{ro.brand.tagline}</p>
+            <p className="text-lg font-semibold tracking-tight text-[var(--dash-text)]">Evento</p>
           </div>
-        ) : null}
+        ) : (
+          <p className="text-sm font-semibold text-[var(--dash-text)]">E</p>
+        )}
         {!isCollapsed ? (
           <button
             type="button"
             onClick={toggleCollapse}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--dash-text-muted)] transition-colors hover:bg-[var(--dash-blush)]/30 hover:text-[var(--dash-text)]"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[var(--dash-text-muted)] transition-colors hover:bg-[var(--dash-accent-soft)] hover:text-[var(--dash-text)]"
             title="Restrânge meniul"
             aria-label="Restrânge meniul"
           >
@@ -159,17 +157,8 @@ export function AppSidebar({
 
       {/* Active event */}
       {activeEventTitle && !isCollapsed ? (
-        <div className="mx-3 mb-4 rounded-[14px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)] px-3.5 py-3 shadow-[var(--dash-shadow-sm)]">
-          <p className="dash-type-micro mb-1.5">Eveniment activ</p>
-          <div className="flex min-w-0 items-center gap-2">
-            <span
-              className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--dash-sage)]"
-              aria-hidden
-            />
-            <p className="truncate text-[0.8125rem] font-semibold text-[var(--dash-text)]">
-              {activeEventTitle}
-            </p>
-          </div>
+        <div className="mx-3 mb-3 rounded-full bg-[var(--dash-accent-soft)] px-3 py-2">
+          <p className="truncate text-xs font-semibold text-[var(--dash-accent-text)]">{activeEventTitle}</p>
         </div>
       ) : null}
 
@@ -193,7 +182,14 @@ export function AppSidebar({
       />
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-0.5 px-2">
+      <nav
+        ref={navRef}
+        className={cn(
+          "dash-sidebar-nav--motion relative flex-1 space-y-0.5 px-2",
+          isCollapsed && "dash-sidebar-nav--collapsed"
+        )}
+      >
+        <SidebarActiveIndicator navRef={navRef} pathname={pathname} collapsed={isCollapsed} />
         {navItems.map((item) => {
           const isActive =
             item.href === "/dashboard/events"
@@ -246,7 +242,7 @@ export function AppSidebar({
               title={isCollapsed ? item.title : undefined}
             >
               <span className="relative shrink-0">
-                <Icon className={cn("h-4 w-4", isActive && "text-[var(--dash-accent-text)]")} />
+                <Icon className={cn("h-[18px] w-[18px]", isActive && "text-[var(--dash-accent-text)]")} />
                 {showGalleryBadge && isCollapsed ? (
                   <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--dash-ivory)]" />
                 ) : null}

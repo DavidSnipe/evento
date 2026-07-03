@@ -49,8 +49,8 @@ export function TimelineSegmentTabs({
             className={cn(
               "shrink-0 rounded-full px-3.5 py-2 text-xs font-semibold transition-all",
               active
-                ? "bg-gradient-to-r from-[#E8748A] to-[#B8516B] text-white shadow-sm"
-                : "border border-[rgba(210,170,185,0.25)] bg-white/70 text-text-secondary hover:border-[#B8516B]/30 hover:text-[#B8516B]"
+                ? "bg-[var(--dash-accent-text)] text-white"
+                : "border border-[var(--dash-hairline)] bg-[var(--dash-surface)] text-[var(--dash-text-secondary)] hover:border-[var(--dash-accent-text)]/30 hover:text-[var(--dash-accent-text)]"
             )}
           >
             {tab.label}
@@ -58,7 +58,7 @@ export function TimelineSegmentTabs({
               <span
                 className={cn(
                   "ml-1.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px]",
-                  active ? "bg-white/20" : "bg-[#FEF0F3] text-[#B8516B]"
+                  active ? "bg-white/20" : "bg-[var(--dash-accent-soft)] text-[var(--dash-accent-text)]"
                 )}
               >
                 {count}

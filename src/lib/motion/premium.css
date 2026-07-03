@@ -1,0 +1,227 @@
+/*
+  Premium micro-motion — Emil Kowalski / Linear-inspired
+  Quiet luxury: short springs, subtle lift, no bounce.
+  Max duration 300ms. Respects prefers-reduced-motion.
+*/
+
+:root {
+  --motion-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-spring-snappy: cubic-bezier(0.32, 0.72, 0, 1);
+  --motion-duration-fast: 180ms;
+  --motion-duration: 250ms;
+  --motion-duration-slow: 280ms;
+  --motion-stagger-step: 45ms;
+}
+
+@layer utilities {
+  .motion-spring-interactive {
+    transition: transform var(--motion-duration-fast) var(--motion-spring),
+      box-shadow var(--motion-duration) var(--motion-spring),
+      background-color var(--motion-duration-fast) ease,
+      color var(--motion-duration-fast) ease,
+      border-color var(--motion-duration-fast) ease;
+    will-change: transform;
+  }
+
+  @media (hover: hover) {
+    .motion-spring-interactive:hover {
+      transform: scale(1.02);
+    }
+  }
+
+  .motion-spring-interactive:active {
+    transform: scale(0.98);
+    transition-duration: 120ms;
+  }
+
+  .motion-fade-up {
+    animation: motionFadeUp var(--motion-duration-slow) var(--motion-spring) both;
+  }
+
+  .motion-stagger-grid > .motion-stagger-item {
+    animation: motionFadeUp var(--motion-duration-slow) var(--motion-spring) both;
+  }
+
+  .motion-stagger-grid > .motion-stagger-item:nth-child(1) {
+    animation-delay: 0ms;
+  }
+  .motion-stagger-grid > .motion-stagger-item:nth-child(2) {
+    animation-delay: calc(var(--motion-stagger-step) * 1);
+  }
+  .motion-stagger-grid > .motion-stagger-item:nth-child(3) {
+    animation-delay: calc(var(--motion-stagger-step) * 2);
+  }
+  .motion-stagger-grid > .motion-stagger-item:nth-child(4) {
+    animation-delay: calc(var(--motion-stagger-step) * 3);
+  }
+  .motion-stagger-grid > .motion-stagger-item:nth-child(5) {
+    animation-delay: calc(var(--motion-stagger-step) * 4);
+  }
+  .motion-stagger-grid > .motion-stagger-item:nth-child(6) {
+    animation-delay: calc(var(--motion-stagger-step) * 5);
+  }
+
+  .motion-lift-card {
+    transition: transform var(--motion-duration) var(--motion-spring),
+      box-shadow var(--motion-duration) var(--motion-spring);
+  }
+
+  @media (hover: hover) {
+    .motion-lift-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-card-hover);
+    }
+  }
+
+  .motion-vendor-card {
+    transition: transform var(--motion-duration) var(--motion-spring),
+      box-shadow var(--motion-duration) var(--motion-spring),
+      border-color var(--motion-duration-fast) ease;
+  }
+
+  @media (hover: hover) {
+    .motion-vendor-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(28, 24, 22, 0.08);
+      border-color: rgba(28, 24, 22, 0.1);
+    }
+
+    .motion-vendor-card:hover .motion-vendor-card-media img {
+      transform: scale(1.03);
+    }
+  }
+
+  .motion-vendor-card-media {
+    overflow: hidden;
+  }
+
+  .motion-vendor-card-media img {
+    transition: transform var(--motion-duration-slow) var(--motion-spring);
+  }
+
+  .motion-filter-pill {
+    transition: background-color var(--motion-duration-fast) var(--motion-spring),
+      border-color var(--motion-duration-fast) var(--motion-spring),
+      color var(--motion-duration-fast) var(--motion-spring),
+      transform var(--motion-duration-fast) var(--motion-spring);
+  }
+
+  @media (hover: hover) {
+    .motion-filter-pill:hover {
+      transform: translateY(-1px);
+    }
+  }
+
+  .motion-filter-pill:active {
+    transform: scale(0.98);
+  }
+
+  .motion-filter-chip {
+    animation: motionScaleIn var(--motion-duration-fast) var(--motion-spring) both;
+  }
+
+  .motion-filter-toolbar {
+    animation: motionFadeIn var(--motion-duration-fast) var(--motion-spring) both;
+  }
+
+  .motion-marketplace-results {
+    animation: motionFadeUp var(--motion-duration-slow) var(--motion-spring) both;
+  }
+
+  .dash-sidebar-nav--motion {
+    position: relative;
+  }
+
+  .dash-sidebar-nav--motion .dash-sidebar-nav-item {
+    position: relative;
+    z-index: 1;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .dash-sidebar-nav--motion .dash-sidebar-nav-item[data-active="true"] {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .dash-sidebar-nav--motion.dash-sidebar-nav--collapsed .dash-sidebar-nav-item[data-active="true"] {
+    background: var(--dash-accent-soft);
+    box-shadow: inset 2px 0 0 var(--dash-accent);
+  }
+
+  .motion-sidebar-indicator {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 0;
+    border-radius: var(--dash-radius-md);
+    background: var(--dash-accent-soft);
+    box-shadow: inset 2px 0 0 var(--dash-accent);
+    pointer-events: none;
+    transition: transform var(--motion-duration-slow) var(--motion-spring),
+      height var(--motion-duration-slow) var(--motion-spring),
+      opacity var(--motion-duration-fast) ease;
+  }
+}
+
+@keyframes motionFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motionFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes motionScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-spring-interactive,
+  .motion-lift-card,
+  .motion-vendor-card,
+  .motion-vendor-card-media img,
+  .motion-filter-pill,
+  .motion-sidebar-indicator {
+    transition: none !important;
+  }
+
+  .motion-spring-interactive:hover,
+  .motion-spring-interactive:active,
+  .motion-lift-card:hover,
+  .motion-vendor-card:hover,
+  .motion-vendor-card:hover .motion-vendor-card-media img,
+  .motion-filter-pill:hover,
+  .motion-filter-pill:active {
+    transform: none !important;
+  }
+
+  .motion-fade-up,
+  .motion-stagger-grid > .motion-stagger-item,
+  .motion-filter-chip,
+  .motion-filter-toolbar,
+  .motion-marketplace-results {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

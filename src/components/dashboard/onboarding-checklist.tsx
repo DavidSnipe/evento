@@ -25,7 +25,7 @@ export function OnboardingChecklist() {
       label: t.stepEvent,
       state: "active",
       action: (
-        <Button asChild size="sm" className="mt-3">
+        <Button asChild size="sm" className="mt-3 min-h-11">
           <Link href="/dashboard/events/new">{t.createEvent}</Link>
         </Button>
       ),
@@ -37,37 +37,35 @@ export function OnboardingChecklist() {
   ];
 
   return (
-    <Card className="overflow-hidden rounded-[18px] border border-border-rose-18/40 bg-white shadow-card">
-      <div className="border-l-4 border-[var(--dash-accent)] bg-gradient-to-r from-[var(--dash-blush)]/20 to-white">
-        <CardContent className="p-6">
-          <h2 className="text-lg font-semibold text-[var(--dash-text)]">{t.title}</h2>
-          <p className="mt-1 text-sm text-[var(--dash-text-secondary)]">{t.subtitle}</p>
+    <Card className="overflow-hidden rounded-[16px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)] shadow-[var(--dash-shadow-card)]">
+      <CardContent className="p-6">
+        <h2 className="text-lg font-semibold text-[var(--dash-text)]">{t.title}</h2>
+        <p className="mt-1 text-sm text-[var(--dash-text-secondary)]">{t.subtitle}</p>
 
-          <ol className="mt-6 space-y-4">
-            {steps.map((step) => (
-              <li
-                key={step.label}
-                className={cn("flex gap-3", step.state === "todo" && "opacity-50")}
-              >
-                <StepIndicator state={step.state} />
-                <div className="min-w-0 flex-1 pt-0.5">
-                  <p
-                    className={cn(
-                      "text-sm font-medium",
-                      step.state === "active"
-                        ? "text-[var(--dash-accent-text)]"
-                        : "text-[var(--dash-text)]"
-                    )}
-                  >
-                    {step.label}
-                  </p>
-                  {step.action}
-                </div>
-              </li>
-            ))}
-          </ol>
-        </CardContent>
-      </div>
+        <ol className="mt-6 space-y-4">
+          {steps.map((step) => (
+            <li
+              key={step.label}
+              className={cn("flex gap-3", step.state === "todo" && "opacity-50")}
+            >
+              <StepIndicator state={step.state} />
+              <div className="min-w-0 flex-1 pt-0.5">
+                <p
+                  className={cn(
+                    "text-sm font-medium",
+                    step.state === "active"
+                      ? "text-[var(--dash-accent-text)]"
+                      : "text-[var(--dash-text)]"
+                  )}
+                >
+                  {step.label}
+                </p>
+                {step.action}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </CardContent>
     </Card>
   );
 }
@@ -83,13 +81,13 @@ function StepIndicator({ state }: { state: StepState }) {
 
   if (state === "active") {
     return (
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-[var(--dash-accent)] bg-[var(--dash-blush)]/40">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-[var(--dash-accent)] bg-[var(--dash-accent-soft)]">
         <span className="h-2 w-2 rounded-full bg-[var(--dash-accent)]" />
       </span>
     );
   }
 
   return (
-    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-[var(--dash-hairline)] bg-white" />
+    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-[var(--dash-hairline)] bg-[var(--dash-surface)]" />
   );
 }

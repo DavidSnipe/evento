@@ -8,18 +8,18 @@ import {
 import type {
   BudgetItem,
   BudgetLineItem,
-  BudgetLineStatus,
+  BudgetPaymentStatus,
   BudgetSnapshot,
   BudgetCategorySummary,
 } from "@/types/budget";
 import type { VendorCategoryRow, VendorFoundationSnapshot } from "@/types/vendors";
+import { derivePaymentStatus } from "@/lib/budget/payment-status";
 
-function lineStatus(line: Omit<BudgetLineItem, "status">): BudgetLineStatus {
-  if (line.source === "vendor") return "vendor_locked";
-  if (line.actual_cost <= 0 && line.paid_amount <= 0) return "unpaid";
-  if (line.actual_cost > 0 && line.paid_amount >= line.actual_cost) return "paid";
-  if (line.paid_amount > 0) return "partial";
-  return "unpaid";
+function lineStatus(
+  line: Omit<BudgetLineItem, "status">,
+  storedStatus?: string | null
+): BudgetPaymentStatus {
+  return derivePaymentStatus(line.actual_cost, line.paid_amount, line.avans, storedStatus);
 }
 
 function sumPaid(vendor: { payments: { paid_amount: number | string }[] }): number {
@@ -78,6 +78,7 @@ function buildVendorLineItems(snapshot: VendorFoundationSnapshot): BudgetLineIte
         estimated_cost: offerPrice,
         actual_cost: contractValue ?? offerPrice,
         paid_amount: sumPaid(vendor),
+        avans: null,
         due_date: null,
         created_at: sg.service.created_at,
         vendorId: vendor.id,
@@ -110,10 +111,11 @@ function buildManualLineItems(
       estimated_cost: Number(item.estimated_cost),
       actual_cost: Number(item.actual_cost),
       paid_amount: Number(item.paid_amount),
+      avans: item.avans != null ? Number(item.avans) : null,
       due_date: item.due_date,
       created_at: item.created_at,
     };
-    lines.push({ ...base, status: lineStatus(base) });
+    lines.push({ ...base, status: lineStatus(base, item.status) });
   }
   return lines;
 }

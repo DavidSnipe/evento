@@ -8,31 +8,107 @@ import {
   setActiveEventId,
 } from "@/lib/events/active-event";
 import { assertEventAccess, assertEventPermission } from "@/lib/events/assert-event-access";
+import { buildEventTitleFromForm, parseNameFieldsFromFormData } from "@/lib/events/event-title";
+import {
+  eventNameFieldsForDb,
+  insertEventWithCompatibility,
+  updateEventWithCompatibility,
+} from "@/lib/events/db-compat";
+import {
+  isBaptismType,
+  isMajoratType,
+  isWeddingType,
+  normalizeEventType,
+  usesGodparentsSection,
+  usesManualTitle,
+  usesSmartNameFields,
+} from "@/lib/events/event-types";
 import { ro } from "@/lib/i18n/ro";
 import { createClient } from "@/lib/supabase/server";
-import { EVENT_TYPES } from "@/types/events";
 import type { EventType } from "@/types";
+import { EVENT_TYPES } from "@/types/events";
 
 export type EventFormState = {
   error?: string;
+  success?: boolean;
 };
 
 function parseEventType(value: string): EventType | null {
-  return EVENT_TYPES.includes(value as EventType) ? (value as EventType) : null;
+  const normalized = normalizeEventType(value);
+  if (normalized && EVENT_TYPES.includes(normalized)) return normalized;
+  return null;
+}
+
+function shouldSkipRedirect(formData: FormData): boolean {
+  return formData.get("skip_redirect") === "true";
+}
+
+function buildTitleFromFormData(eventType: EventType, formData: FormData, nameFields: ReturnType<typeof parseNameFieldsFromFormData>): string {
+  if (usesSmartNameFields(eventType) || usesManualTitle(eventType)) {
+    return buildEventTitleFromForm(eventType, {
+      title: String(formData.get("title") ?? "").trim(),
+      groomFirstName: nameFields.groom_first_name ?? undefined,
+      brideFirstName: nameFields.bride_first_name ?? undefined,
+      parent1FirstName: nameFields.parent1_first_name ?? undefined,
+      parent2FirstName: nameFields.parent2_first_name ?? undefined,
+      parentLastName: nameFields.parent1_last_name ?? undefined,
+      childFirstName: nameFields.child_first_name ?? undefined,
+    });
+  }
+  return String(formData.get("title") ?? "").trim();
+}
+
+function validateNameFields(eventType: EventType, nameFields: ReturnType<typeof parseNameFieldsFromFormData>): string | null {
+  if (isWeddingType(eventType)) {
+    if (!nameFields.groom_first_name || !nameFields.groom_last_name) {
+      return "Completează numele mirelui.";
+    }
+    if (!nameFields.bride_first_name || !nameFields.bride_last_name) {
+      return "Completează numele miresei.";
+    }
+  }
+  if (isBaptismType(eventType)) {
+    if (!nameFields.parent1_first_name || !nameFields.parent2_first_name) {
+      return "Completează prenumele părinților.";
+    }
+    if (!nameFields.parent1_last_name) {
+      return "Completează numele de familie.";
+    }
+    nameFields.parent2_last_name = nameFields.parent1_last_name;
+  }
+  if (isMajoratType(eventType)) {
+    if (!nameFields.groom_first_name) {
+      return "Completează prenumele sărbătoritului.";
+    }
+  }
+  if (usesManualTitle(eventType)) {
+    return null;
+  }
+  return null;
 }
 
 export async function createEvent(
   _prevState: EventFormState,
   formData: FormData
 ): Promise<EventFormState> {
-  const title = String(formData.get("title") ?? "").trim();
   const eventType = parseEventType(String(formData.get("event_type") ?? ""));
-  const eventDate = String(formData.get("event_date") ?? "").trim() || null;
+  const eventDate = String(formData.get("event_date") ?? "").trim();
   const venue = String(formData.get("venue") ?? "").trim() || null;
   const description = String(formData.get("description") ?? "").trim() || null;
+  const nameFields = parseNameFieldsFromFormData(formData);
+  const skipRedirect = shouldSkipRedirect(formData);
 
-  if (!title) return { error: ro.events.errors.titleRequired };
   if (!eventType) return { error: ro.events.errors.typeRequired };
+  if (!eventDate) return { error: ro.events.errors.dateRequired };
+
+  const nameError = validateNameFields(eventType, nameFields);
+  if (nameError) return { error: nameError };
+
+  let title = buildTitleFromFormData(eventType, formData, nameFields);
+  if (usesManualTitle(eventType) && !title) {
+    title = String(formData.get("title") ?? "").trim();
+  }
+  if (!title) return { error: ro.events.errors.titleRequired };
 
   const supabase = await createClient();
   const {
@@ -41,35 +117,40 @@ export async function createEvent(
 
   if (!user) redirect("/login");
 
-  const { data, error } = await supabase
-    .from("events")
-    .insert({
-      user_id: user.id,
-      title,
-      event_type: eventType,
-      event_date: eventDate,
-      venue,
-      description,
-    })
-    .select("id")
-    .single();
+  const dbNameFields = eventNameFieldsForDb(nameFields);
+  const { data, error } = await insertEventWithCompatibility(supabase, eventType, {
+    user_id: user.id,
+    title,
+    event_date: eventDate,
+    venue,
+    description,
+    ...dbNameFields,
+  });
 
-  if (error) {
-    if (error.message.includes("relation") || error.code === "42P01") {
+  if (error || !data) {
+    if (error?.message?.includes("relation") || error?.code === "42P01") {
       return { error: ro.events.errors.tableMissing };
     }
     return { error: ro.events.errors.saveFailed };
   }
 
-  // Sync Godparents (Nași) global settings
-  const godparentsActive = formData.get("has_godparents") === "on";
-  const godfatherName = String(formData.get("godfather_name") ?? "").trim();
-  const godmotherName = String(formData.get("godmother_name") ?? "").trim();
-  await syncGodparents(data.id, godparentsActive, godfatherName, godmotherName);
+  const hasGodparents = formData.get("has_godparents") === "on";
+  const godfatherName = nameFields.godparent1_name ?? "";
+  const godmotherName = nameFields.godparent2_name ?? "";
+  const syncGodparentsActive =
+    usesGodparentsSection(eventType) &&
+    hasGodparents &&
+    (godfatherName.length > 0 || godmotherName.length > 0);
+  await syncGodparents(data.id, syncGodparentsActive, godfatherName, godmotherName);
 
   await setActiveEventId(data.id);
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/events");
+
+  if (skipRedirect) {
+    return { success: true };
+  }
+
   redirect(`/dashboard/events/${data.id}`);
 }
 
@@ -78,14 +159,24 @@ export async function updateEvent(
   _prevState: EventFormState,
   formData: FormData
 ): Promise<EventFormState> {
-  const title = String(formData.get("title") ?? "").trim();
   const eventType = parseEventType(String(formData.get("event_type") ?? ""));
-  const eventDate = String(formData.get("event_date") ?? "").trim() || null;
+  const eventDate = String(formData.get("event_date") ?? "").trim();
   const venue = String(formData.get("venue") ?? "").trim() || null;
   const description = String(formData.get("description") ?? "").trim() || null;
+  const nameFields = parseNameFieldsFromFormData(formData);
+  const skipRedirect = shouldSkipRedirect(formData);
 
-  if (!title) return { error: ro.events.errors.titleRequired };
   if (!eventType) return { error: ro.events.errors.typeRequired };
+  if (!eventDate) return { error: ro.events.errors.dateRequired };
+
+  const nameError = validateNameFields(eventType, nameFields);
+  if (nameError) return { error: nameError };
+
+  let title = buildTitleFromFormData(eventType, formData, nameFields);
+  if (usesManualTitle(eventType) && !title) {
+    title = String(formData.get("title") ?? "").trim();
+  }
+  if (!title) return { error: ro.events.errors.titleRequired };
 
   const auth = await assertEventPermission(
     eventId,
@@ -95,30 +186,37 @@ export async function updateEvent(
   if (!auth.ok) return { error: auth.error };
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("events")
-    .update({
-      title,
-      event_type: eventType,
-      event_date: eventDate,
-      venue,
-      description,
-    })
-    .eq("id", eventId);
+  const dbNameFields = eventNameFieldsForDb(nameFields);
+  const { error } = await updateEventWithCompatibility(supabase, eventId, eventType, {
+    title,
+    event_date: eventDate,
+    venue,
+    description,
+    ...dbNameFields,
+  });
 
   if (error) {
     return { error: ro.events.errors.saveFailed };
   }
 
-  // Sync Godparents (Nași) global settings
-  const godparentsActive = formData.get("has_godparents") === "on";
-  const godfatherName = String(formData.get("godfather_name") ?? "").trim();
-  const godmotherName = String(formData.get("godmother_name") ?? "").trim();
-  await syncGodparents(eventId, godparentsActive, godfatherName, godmotherName);
+  const hasGodparents = formData.get("has_godparents") === "on";
+  const godfatherName = nameFields.godparent1_name ?? "";
+  const godmotherName = nameFields.godparent2_name ?? "";
+  await syncGodparents(
+    eventId,
+    usesGodparentsSection(eventType) && hasGodparents,
+    godfatherName,
+    godmotherName
+  );
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/events");
   revalidatePath(`/dashboard/events/${eventId}`);
+
+  if (skipRedirect) {
+    return { success: true };
+  }
+
   redirect(`/dashboard/events/${eventId}`);
 }
 
@@ -164,7 +262,6 @@ async function syncGodparents(
 ) {
   const supabase = await createClient();
 
-  // Find existing godparents
   const { data: existingGuests } = await supabase
     .from("guests")
     .select("*")
@@ -175,7 +272,6 @@ async function syncGodparents(
   const existingGodmother = godparents.find(g => g.parent_id);
 
   if (!active) {
-    // If not active, delete any godparents that exist
     if (godparents.length > 0) {
       await supabase
         .from("guests")

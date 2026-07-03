@@ -4,8 +4,6 @@ import { VendorSidebar } from "@/components/layout/vendor-sidebar";
 import { getVendorPortalContext } from "@/lib/vendor/require-vendor";
 import { cn } from "@/lib/utils";
 
-import "@/components/layout/dashboard-foundation.css";
-
 export const dynamic = "force-dynamic";
 
 export default async function VendorLayout({

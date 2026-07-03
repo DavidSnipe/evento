@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { MarketplaceListing } from "@/components/marketplace/marketplace-listing";
+import { MarketplaceMotionShell } from "@/components/motion/marketplace-motion-shell";
 import { getMarketplaceCategoryOptions } from "@/lib/marketplace/categories";
 import {
   getFeaturedVendors,
@@ -58,22 +59,26 @@ export default async function MarketplacePage({ searchParams }: MarketplacePageP
     }),
   ]);
 
+  const filterKey = [search, categorySlugs.join(","), location, minRating, sort, page].join("|");
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
-      <MarketplaceListing
-        basePath="/marketplace"
-        categories={categories}
-        categorySlugs={categorySlugs}
-        location={location}
-        minRating={minRating}
-        sort={sort}
-        page={page}
-        search={search}
-        searchParams={params}
-        featured={featured}
-        listing={listing}
-        mode="public"
-      />
-    </div>
+    <MarketplaceMotionShell filterKey={filterKey}>
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+        <MarketplaceListing
+          basePath="/marketplace"
+          categories={categories}
+          categorySlugs={categorySlugs}
+          location={location}
+          minRating={minRating}
+          sort={sort}
+          page={page}
+          search={search}
+          searchParams={params}
+          featured={featured}
+          listing={listing}
+          mode="public"
+        />
+      </div>
+    </MarketplaceMotionShell>
   );
 }

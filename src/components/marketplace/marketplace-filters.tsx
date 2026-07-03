@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Filter } from "lucide-react";
@@ -15,13 +14,10 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import type { MarketplaceCategoryOption } from "@/lib/marketplace/categories";
 import type { MarketplaceSort } from "@/lib/marketplace/queries";
 import { ro } from "@/lib/i18n/ro";
 
 type MarketplaceFiltersProps = {
-  categories: MarketplaceCategoryOption[];
-  initialCategorySlugs: string[];
   initialLocation: string;
   initialMinRating: number;
   initialSort: MarketplaceSort;
@@ -31,7 +27,6 @@ type MarketplaceFiltersProps = {
 function buildParams(
   base: URLSearchParams,
   updates: {
-    categories?: string[];
     location?: string;
     minRating?: number;
     sort?: MarketplaceSort;
@@ -40,10 +35,6 @@ function buildParams(
   const params = new URLSearchParams(base.toString());
   params.delete("page");
 
-  if (updates.categories !== undefined) {
-    params.delete("category");
-    updates.categories.forEach((c) => params.append("category", c));
-  }
   if (updates.location !== undefined) {
     if (updates.location.trim()) params.set("location", updates.location.trim());
     else params.delete("location");
@@ -62,54 +53,22 @@ function buildParams(
 }
 
 function FilterForm({
-  categories,
-  selectedCategories,
   location,
   minRating,
   sort,
   onApply,
 }: {
-  categories: MarketplaceCategoryOption[];
-  selectedCategories: string[];
   location: string;
   minRating: number;
   sort: MarketplaceSort;
-  onApply: (data: {
-    categories: string[];
-    location: string;
-    minRating: number;
-    sort: MarketplaceSort;
-  }) => void;
+  onApply: (data: { location: string; minRating: number; sort: MarketplaceSort }) => void;
 }) {
-  const [cats, setCats] = useState<string[]>(selectedCategories);
   const [loc, setLoc] = useState(location);
   const [rating, setRating] = useState(minRating);
   const [sortValue, setSortValue] = useState(sort);
 
-  const toggleCategory = (slug: string) => {
-    setCats((prev) =>
-      prev.includes(slug) ? prev.filter((c) => c !== slug) : [...prev, slug]
-    );
-  };
-
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <Label>{ro.marketplace.filters.category}</Label>
-        <div className="space-y-2">
-          {categories.map((cat) => (
-            <label key={cat.slug} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={cats.includes(cat.slug)}
-                onChange={() => toggleCategory(cat.slug)}
-              />
-              {cat.label}
-            </label>
-          ))}
-        </div>
-      </div>
-
       <div className="space-y-2">
         <Label htmlFor="location-filter">{ro.marketplace.filters.location}</Label>
         <Input
@@ -124,7 +83,7 @@ function FilterForm({
         <Label htmlFor="rating-filter">{ro.marketplace.filters.minRating}</Label>
         <select
           id="rating-filter"
-          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          className="h-11 min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
           value={rating}
           onChange={(e) => setRating(Number(e.target.value))}
         >
@@ -141,7 +100,7 @@ function FilterForm({
         <Label htmlFor="sort-filter">{ro.marketplace.sort.label}</Label>
         <select
           id="sort-filter"
-          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          className="h-11 min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
           value={sortValue}
           onChange={(e) => setSortValue(e.target.value as MarketplaceSort)}
         >
@@ -155,7 +114,7 @@ function FilterForm({
         <Button
           type="button"
           className="flex-1"
-          onClick={() => onApply({ categories: cats, location: loc, minRating: rating, sort: sortValue })}
+          onClick={() => onApply({ location: loc, minRating: rating, sort: sortValue })}
         >
           {ro.marketplace.filters.apply}
         </Button>
@@ -163,11 +122,10 @@ function FilterForm({
           type="button"
           variant="outline"
           onClick={() => {
-            setCats([]);
             setLoc("");
             setRating(0);
             setSortValue("relevance");
-            onApply({ categories: [], location: "", minRating: 0, sort: "relevance" });
+            onApply({ location: "", minRating: 0, sort: "relevance" });
           }}
         >
           {ro.marketplace.filters.clear}
@@ -178,8 +136,6 @@ function FilterForm({
 }
 
 export function MarketplaceFilters({
-  categories,
-  initialCategorySlugs,
   initialLocation,
   initialMinRating,
   initialSort,
@@ -188,14 +144,8 @@ export function MarketplaceFilters({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const apply = (data: {
-    categories: string[];
-    location: string;
-    minRating: number;
-    sort: MarketplaceSort;
-  }) => {
+  const apply = (data: { location: string; minRating: number; sort: MarketplaceSort }) => {
     const params = buildParams(searchParams, {
-      categories: data.categories,
       location: data.location,
       minRating: data.minRating,
       sort: data.sort,
@@ -204,8 +154,6 @@ export function MarketplaceFilters({
   };
 
   const formProps = {
-    categories,
-    selectedCategories: initialCategorySlugs,
     location: initialLocation,
     minRating: initialMinRating,
     sort: initialSort,
@@ -215,7 +163,7 @@ export function MarketplaceFilters({
   return (
     <>
       <aside className="hidden w-64 shrink-0 lg:block">
-        <div className="sticky top-6 rounded-2xl border border-border/70 bg-white p-5">
+        <div className="sticky top-6 rounded-2xl border border-[var(--dash-hairline)] bg-[var(--dash-surface)] p-5 shadow-[var(--dash-shadow-card)]">
           <h2 className="mb-4 font-semibold">{ro.marketplace.filters.title}</h2>
           <FilterForm {...formProps} />
         </div>
@@ -224,7 +172,7 @@ export function MarketplaceFilters({
       <div className="lg:hidden">
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="min-h-11 gap-2">
               <Filter className="h-4 w-4" />
               {ro.marketplace.filters.open}
             </Button>
@@ -240,30 +188,5 @@ export function MarketplaceFilters({
         </Sheet>
       </div>
     </>
-  );
-}
-
-export function MarketplaceCategoryNav({
-  categories,
-  basePath = "/marketplace",
-}: {
-  categories: MarketplaceCategoryOption[];
-  basePath?: string;
-}) {
-  return (
-    <section id="categorii" className="scroll-mt-24">
-      <h2 className="mb-4 font-serif text-xl font-semibold">{ro.marketplace.nav.categories}</h2>
-      <div className="flex flex-wrap gap-2">
-        {categories.map((cat) => (
-          <Link
-            key={cat.slug}
-            href={`${basePath}?category=${cat.slug}&page=1`}
-            className="rounded-full border border-border bg-white px-3 py-1.5 text-sm hover:border-primary hover:text-primary"
-          >
-            {cat.label}
-          </Link>
-        ))}
-      </div>
-    </section>
   );
 }

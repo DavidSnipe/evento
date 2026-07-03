@@ -1,8 +1,10 @@
-/** Event types — expand when we add the Events module */
+/** Canonical event type slugs stored in events.event_type */
 export type EventType =
-  | "wedding"
-  | "baptism"
-  | "birthday"
-  | "anniversary"
-  | "major"
-  | "private";
+  | "nunta"
+  | "cununie_civila"
+  | "botez"
+  | "majorat"
+  | "zi_de_nastere"
+  | "aniversare"
+  | "corporate"
+  | "eveniment_public";

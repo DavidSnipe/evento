@@ -24,9 +24,9 @@ function StatCard({
   accent: string;
 }) {
   return (
-    <div className="rounded-2xl border border-[rgba(210,170,185,0.2)] bg-white/80 px-4 py-3.5 shadow-sm">
+    <div className="evento-card rounded-[16px] px-4 py-3.5">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-text-subtle">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--dash-text-muted)]">
           {label}
         </p>
         <div
@@ -38,7 +38,7 @@ function StatCard({
           <Icon className="h-3.5 w-3.5" />
         </div>
       </div>
-      <p className="mt-2 font-serif text-2xl font-bold text-[#1A0E14]">{value}</p>
+      <p className="mt-2 text-2xl font-bold text-[var(--dash-text)]">{value}</p>
     </div>
   );
 }
@@ -48,13 +48,13 @@ export function TimelineOverview({ stats, className }: TimelineOverviewProps) {
 
   return (
     <div className={cn("space-y-4", className)}>
-      <div className="rounded-2xl border border-[rgba(210,170,185,0.22)] bg-gradient-to-br from-[#FEF8F9] via-white to-[#FFFDFE] p-5 shadow-sm">
+      <div className="evento-card rounded-[16px] p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#B8516B]">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--dash-accent-text)]">
               {t.progressLabel}
             </p>
-            <p className="font-serif text-4xl font-bold text-[#1A0E14]">
+            <p className="text-4xl font-bold text-[var(--dash-text)]">
               {stats.progressPercent}%
               <span className="ml-2 text-base font-normal text-text-secondary">
                 {t.complete}
@@ -75,7 +75,7 @@ export function TimelineOverview({ stats, className }: TimelineOverviewProps) {
           label={t.total}
           value={stats.total}
           icon={ListTodo}
-          accent="bg-[#FEF0F3] text-[#B8516B]"
+          accent="bg-[var(--dash-accent-soft)] text-[var(--dash-accent-text)]"
         />
         <StatCard
           label={t.completed}

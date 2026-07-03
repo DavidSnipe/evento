@@ -31,7 +31,7 @@ export function TimelineModeNav({ eventId, className }: TimelineModeNavProps) {
   return (
     <div
       className={cn(
-        "inline-flex rounded-xl border border-[rgba(210,170,185,0.25)] bg-white/80 p-1",
+        "inline-flex rounded-xl border border-[var(--dash-hairline)] bg-[var(--dash-surface)] p-1",
         className
       )}
     >
@@ -42,8 +42,8 @@ export function TimelineModeNav({ eventId, className }: TimelineModeNavProps) {
           className={cn(
             "rounded-lg px-4 py-2 text-xs font-semibold transition-all",
             tab.active
-              ? "bg-gradient-to-r from-[#E8748A] to-[#B8516B] text-white shadow-sm"
-              : "text-text-secondary hover:text-[#B8516B]"
+              ? "bg-[var(--dash-accent-text)] text-white"
+              : "text-[var(--dash-text-secondary)] hover:text-[var(--dash-accent-text)]"
           )}
         >
           {tab.label}

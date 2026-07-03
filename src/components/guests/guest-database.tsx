@@ -12,7 +12,7 @@ import { GuestDetailPanel } from "@/components/guests/guest-detail-panel";
 import { EmojiIcon } from "@/components/ui/emoji-icon";
 import { getIconForGuestTag } from "@/lib/icons/registry";
 import { RsvpPill } from "@/components/guests/rsvp-pill";
-import { Card } from "@/components/ui/card";
+import { StatsCard } from "@/components/nuntiki/stats-card";
 import {
   bulkDeleteGuests,
 } from "@/app/(dashboard)/dashboard/events/[id]/guests/actions";
@@ -42,7 +42,7 @@ type GuestDatabaseProps = {
 };
 
 export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
-  const [view, setView] = useState<ViewMode>("table");
+  const [view, setView] = useState<ViewMode>("cards");
   const sortLabels = {
     lastName: "Nume de familie",
     firstName: "Prenume",
@@ -116,6 +116,14 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showSortDropdown]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const syncView = () => setView(mq.matches ? "table" : "cards");
+    syncView();
+    mq.addEventListener("change", syncView);
+    return () => mq.removeEventListener("change", syncView);
+  }, []);
 
   const handleUndoImport = useCallback(() => {
     if (!rollbackData) return;
@@ -309,22 +317,12 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
       {/* ── Stats Row ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Total", value: computedStats.total, accent: "text-[#1A0E14]" },
-          { label: "Confirmați", value: computedStats.accepted, accent: "text-confirmed-green" },
-          { label: "În așteptare", value: computedStats.pending, accent: "text-pending-orange" },
-          { label: "La masă", value: computedStats.seated, accent: "text-[#B8516B]" },
+          { label: "Total", value: computedStats.total, accent: "default" as const },
+          { label: "Confirmați", value: computedStats.accepted, accent: "success" as const },
+          { label: "În așteptare", value: computedStats.pending, accent: "warning" as const },
+          { label: "La masă", value: computedStats.seated, accent: "primary" as const },
         ].map((s) => (
-          <Card
-            key={s.label}
-            className="glass-panel border bg-white p-4 shadow-card rounded-[18px]"
-          >
-            <p className="text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
-              {s.label}
-            </p>
-            <p className={cn("mt-1.5 font-sans text-2xl font-bold", s.accent)}>
-              {s.value}
-            </p>
-          </Card>
+          <StatsCard key={s.label} label={s.label} value={s.value} accent={s.accent} />
         ))}
       </div>
 
@@ -337,8 +335,8 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
               className={cn(
                 "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold border",
                 insight.type === "warn"
-                  ? "bg-[#FF9F0A]/10 border-[#FF9F0A]/20 text-[#FF9F0A]"
-                  : "bg-[#FEF0F3] border-border-rose-18 text-[#B8516B]"
+                  ? "bg-[rgba(255,159,10,0.08)] border-[rgba(255,159,10,0.2)] text-pending-orange"
+                  : "border-[var(--dash-hairline)] bg-[var(--dash-accent-soft)] text-[var(--dash-accent-text)]"
               )}
             >
               <span className="h-1 w-1 rounded-full bg-current" />
@@ -349,17 +347,17 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
       )}
 
       {/* ── Toolbar ── */}
-      <div className="glass-panel border bg-white/95 p-3.5 shadow-card rounded-[18px]">
+      <div className="rounded-[16px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)] p-3.5 shadow-[var(--dash-shadow-card)]">
         <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-subtle" />
+          <div className="relative min-w-[200px] flex-1 md:max-w-[40%] md:flex-none">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--dash-text-muted)]" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Caută invitați..."
-              className="h-9 w-full rounded-[10px] bg-[#F3F3F5] border border-[rgba(210,170,185,0.22)] pl-9 pr-8 text-xs text-[#1A0E14] outline-hidden placeholder:text-text-subtle focus-visible:ring-3 focus-visible:ring-[#B8516B]/10 focus-visible:border-[#B8516B]/40 focus:outline-none"
+              className="h-11 w-full rounded-[10px] border border-[var(--dash-hairline)] bg-[var(--dash-ivory)] pl-9 pr-8 text-xs text-[var(--dash-text)] outline-hidden placeholder:text-[var(--dash-text-muted)] focus-visible:border-[var(--dash-accent)]/40 focus-visible:ring-3 focus-visible:ring-[var(--dash-accent)]/10 focus:outline-none"
             />
             {search && (
               <button
@@ -373,15 +371,15 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
           </div>
 
           {/* View Toggle */}
-          <div className="flex items-center rounded-[10px] bg-[#F3F3F5] p-0.5 h-9">
+          <div className="flex h-11 items-center rounded-[10px] bg-[var(--dash-ivory)] p-0.5">
             <button
               type="button"
               onClick={() => setView("table")}
               className={cn(
-                "rounded-lg p-1.5 transition-all cursor-pointer",
+                "min-h-10 rounded-lg p-1.5 transition-all cursor-pointer",
                 view === "table"
-                  ? "bg-white text-[#B8516B] shadow-sm"
-                  : "text-text-secondary hover:text-[#B8516B]"
+                  ? "bg-[var(--dash-surface)] text-[var(--dash-accent-text)] shadow-sm"
+                  : "text-[var(--dash-text-secondary)] hover:text-[var(--dash-accent-text)]"
               )}
               title="Tabel"
             >
@@ -391,10 +389,10 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
               type="button"
               onClick={() => setView("cards")}
               className={cn(
-                "rounded-lg p-1.5 transition-all cursor-pointer",
+                "min-h-10 rounded-lg p-1.5 transition-all cursor-pointer",
                 view === "cards"
-                  ? "bg-white text-[#B8516B] shadow-sm"
-                  : "text-text-secondary hover:text-[#B8516B]"
+                  ? "bg-[var(--dash-surface)] text-[var(--dash-accent-text)] shadow-sm"
+                  : "text-[var(--dash-text-secondary)] hover:text-[var(--dash-accent-text)]"
               )}
               title="Carduri"
             >
@@ -407,16 +405,16 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             type="button"
             onClick={() => setShowFilters(!showFilters)}
             className={cn(
-              "flex items-center gap-1.5 rounded-[10px] border px-3 py-1.5 text-xs font-semibold transition-all h-9 cursor-pointer",
+              "flex h-11 min-h-11 items-center gap-1.5 rounded-[10px] border px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer",
               activeFilters > 0
-                ? "bg-[#FEF0F3] border-[#B8516B]/30 text-[#B8516B] shadow-xs"
-                : "bg-[#F3F3F5] border-transparent text-text-secondary hover:text-[#B8516B]"
+                ? "border-[var(--dash-accent)]/30 bg-[var(--dash-accent-soft)] text-[var(--dash-accent-text)] shadow-xs"
+                : "border-transparent bg-[var(--dash-ivory)] text-[var(--dash-text-secondary)] hover:text-[var(--dash-accent-text)]"
             )}
           >
             <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", showFilters && "rotate-180")} />
             Filtre
             {activeFilters > 0 && (
-              <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#B8516B] text-[9px] font-bold text-white ml-0.5">
+              <span className="ml-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[var(--dash-accent)] text-[9px] font-bold text-white">
                 {activeFilters}
               </span>
             )}
@@ -427,14 +425,14 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             <button
               type="button"
               onClick={() => setShowSortDropdown(!showSortDropdown)}
-              className="flex items-center gap-1.5 rounded-[10px] border border-transparent bg-[#F3F3F5] px-3 py-1.5 text-xs font-semibold text-text-secondary transition-all hover:text-[#B8516B] h-9 cursor-pointer"
+              className="flex h-11 min-h-11 items-center gap-1.5 rounded-[10px] border border-transparent bg-[var(--dash-ivory)] px-3 py-1.5 text-xs font-semibold text-[var(--dash-text-secondary)] transition-all hover:text-[var(--dash-accent-text)] cursor-pointer"
             >
               <ArrowUpDown className="h-3.5 w-3.5" />
               <span>Sortat: {sortLabels[sortBy]}</span>
               <ChevronDown className={cn("h-3 w-3 transition-transform duration-200", showSortDropdown && "rotate-180")} />
             </button>
             {showSortDropdown && (
-              <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-xl border border-border-rose-18 bg-white p-1 shadow-lg animate-scale-in">
+              <div className="absolute right-0 top-full z-40 mt-1.5 w-44 animate-scale-in rounded-xl border border-[var(--dash-hairline)] bg-[var(--dash-surface)] p-1 shadow-lg">
                 {(Object.keys(sortLabels) as SortKey[]).map((key) => (
                   <button
                     key={key}
@@ -444,8 +442,10 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
                       setShowSortDropdown(false);
                     }}
                     className={cn(
-                      "flex w-full items-center rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
-                      sortBy === key ? "bg-[#FEF0F3] text-[#B8516B]" : "text-text-secondary hover:bg-slate-50"
+                      "flex w-full cursor-pointer items-center rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition-colors",
+                      sortBy === key
+                        ? "bg-[var(--dash-accent-soft)] text-[var(--dash-accent-text)]"
+                        : "text-[var(--dash-text-secondary)] hover:bg-[var(--dash-ivory)]"
                     )}
                   >
                     {sortLabels[key]}
@@ -460,7 +460,7 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             <button
               type="button"
               onClick={() => setShowImport(true)}
-              className="flex items-center gap-1.5 rounded-[10px] border border-transparent bg-[#F3F3F5] px-3.5 py-1.5 text-xs font-semibold text-text-secondary transition-all hover:bg-[#FEF0F3]/50 hover:text-[#B8516B] h-9 cursor-pointer"
+              className="flex h-11 min-h-11 items-center gap-1.5 rounded-[10px] border border-transparent bg-[var(--dash-ivory)] px-3.5 py-1.5 text-xs font-semibold text-[var(--dash-text-secondary)] transition-all hover:bg-[var(--dash-accent-soft)] hover:text-[var(--dash-accent-text)] cursor-pointer"
             >
               <Upload className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Importă</span>
@@ -468,7 +468,7 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             <button
               type="button"
               onClick={() => setShowQuickAdd(!showQuickAdd)}
-              className="flex items-center gap-1.5 rounded-[10px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] px-3.5 py-1.5 text-xs font-bold text-white shadow-primary-btn hover:opacity-95 transition-all h-9 cursor-pointer active:scale-95"
+              className="flex h-11 min-h-11 items-center gap-1.5 rounded-[10px] bg-[var(--dash-accent)] px-3.5 py-1.5 text-xs font-bold text-white shadow-[var(--dash-shadow-sm)] transition-all hover:opacity-95 cursor-pointer active:scale-95"
             >
               <Plus className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Adaugă</span>
@@ -478,84 +478,89 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
 
         {/* Filter Row */}
         {showFilters && (
-          <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border-rose-18 pt-3 animate-fade-in">
-            {/* RSVP Filter */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-text-subtle mr-1">RSVP:</span>
-              {(["all", "pending", "accepted", "declined", "maybe"] as const).map((s) => (
+          <div className="mt-3 animate-fade-in space-y-3 border-t border-[var(--dash-hairline)] pt-3">
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-none md:flex-wrap md:overflow-visible">
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span className="mr-1 shrink-0 text-[11px] font-bold uppercase tracking-wider text-[var(--dash-text-muted)]">
+                  RSVP:
+                </span>
+                {(["all", "pending", "accepted", "declined", "maybe"] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setRsvpFilter(s)}
+                    className={cn(
+                      "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer min-h-9",
+                      rsvpFilter === s
+                        ? "border-[var(--dash-accent)] bg-[var(--dash-accent-soft)] text-[var(--dash-accent-text)] shadow-xs"
+                        : "border-transparent bg-[var(--dash-ivory)] text-[var(--dash-text-secondary)] hover:text-[var(--dash-accent-text)]"
+                    )}
+                  >
+                    {s === "all" ? "Toți" : s === "pending" ? "Așteptare" : s === "accepted" ? "Confirmați" : s === "declined" ? "Refuzați" : "Poate"}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span className="mr-1 shrink-0 text-[11px] font-bold uppercase tracking-wider text-[var(--dash-text-muted)]">
+                  Masă:
+                </span>
                 <button
-                  key={s}
                   type="button"
-                  onClick={() => setRsvpFilter(s)}
+                  onClick={() => setTableFilter(tableFilter === "no-table" ? null : "no-table")}
                   className={cn(
-                    "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-all cursor-pointer",
-                    rsvpFilter === s
-                      ? "bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] border-[#B8516B] text-[#B8516B] shadow-xs"
-                      : "bg-[#F3F3F5] border-transparent text-text-secondary hover:text-[#B8516B]"
+                    "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer min-h-9",
+                    tableFilter === "no-table"
+                      ? "border-[var(--dash-accent)] bg-[var(--dash-accent-soft)] text-[var(--dash-accent-text)] shadow-xs"
+                      : "border-transparent bg-[var(--dash-ivory)] text-[var(--dash-text-secondary)] hover:text-[var(--dash-accent-text)]"
                   )}
                 >
-                  {s === "all" ? "Toți" : s === "pending" ? "Așteptare" : s === "accepted" ? "Confirmați" : s === "declined" ? "Refuzați" : "Poate"}
+                  Fără masă
                 </button>
-              ))}
+              </div>
             </div>
 
-            {/* Table Filter */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-text-subtle mr-1">Masă:</span>
-              <button
-                type="button"
-                onClick={() => setTableFilter(tableFilter === "no-table" ? null : "no-table")}
-                className={cn(
-                  "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-all cursor-pointer",
-                  tableFilter === "no-table"
-                    ? "bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] border-[#B8516B] text-[#B8516B] shadow-xs"
-                    : "bg-[#F3F3F5] border-transparent text-text-secondary hover:text-[#B8516B]"
-                )}
-              >
-                Fără masă
-              </button>
-            </div>
-
-            {/* Tag Filters */}
-            <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
-              <span className="shrink-0 text-[11px] font-bold uppercase tracking-wider text-text-subtle mr-1">Tag:</span>
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-none md:flex-wrap md:overflow-visible">
+              <span className="mr-1 shrink-0 self-center text-[11px] font-bold uppercase tracking-wider text-[var(--dash-text-muted)]">
+                Tag:
+              </span>
               {GUEST_TAGS.map((t) => (
                 <button
                   key={t.value}
                   type="button"
                   onClick={() => setTagFilter(tagFilter === t.value ? null : t.value)}
                   className={cn(
-                    "shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-all cursor-pointer",
+                    "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer min-h-9",
                     tagFilter === t.value
-                      ? "bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] border-[#B8516B] text-[#B8516B] shadow-xs"
-                      : "bg-[#F3F3F5] border-transparent text-text-secondary hover:text-[#B8516B]"
+                      ? "border-[var(--dash-accent)] bg-[var(--dash-accent-soft)] text-[var(--dash-accent-text)] shadow-xs"
+                      : "border-transparent bg-[var(--dash-ivory)] text-[var(--dash-text-secondary)] hover:text-[var(--dash-accent-text)]"
                   )}
                 >
                   <EmojiIcon icon={getIconForGuestTag(t.value)} size="sm" className="shrink-0" />
                   {t.label}
                 </button>
               ))}
-            </div>
 
-            {activeFilters > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setRsvpFilter("all");
-                  setTagFilter(null);
-                  setTableFilter(null);
-                }}
-                className="ml-auto rounded-full px-2.5 py-1 text-[11px] font-semibold text-destructive hover:bg-destructive/10 cursor-pointer"
-              >
-                Șterge filtrele
-              </button>
-            )}
+              {activeFilters > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRsvpFilter("all");
+                    setTagFilter(null);
+                    setTableFilter(null);
+                  }}
+                  className="ml-auto shrink-0 self-center rounded-full px-2.5 py-1 text-[11px] font-semibold text-destructive hover:bg-destructive/10 cursor-pointer min-h-9 md:ml-0"
+                >
+                  Șterge filtrele
+                </button>
+              ) : null}
+            </div>
           </div>
         )}
 
         {/* Quick Add Bar */}
         {showQuickAdd && (
-          <div className="mt-3 border-t border-border-rose-18 pt-3 animate-fade-in">
+          <div className="mt-3 animate-fade-in border-t border-[var(--dash-hairline)] pt-3">
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -571,14 +576,14 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
                   }
                 }}
                 placeholder="ex. Maria + Andrei, Familia Popescu..."
-                className="h-9 flex-1 rounded-[10px] bg-[#F3F3F5] border border-[rgba(210,170,185,0.22)] px-3.5 text-xs text-[#1A0E14] outline-hidden placeholder:text-text-subtle focus-visible:ring-3 focus-visible:ring-[#B8516B]/10 focus-visible:border-[#B8516B]/40 focus:outline-none"
+                className="h-11 min-h-11 flex-1 rounded-[10px] border border-[var(--dash-hairline)] bg-[var(--dash-ivory)] px-3.5 text-xs text-[var(--dash-text)] outline-hidden placeholder:text-[var(--dash-text-muted)] focus-visible:border-[var(--dash-accent)]/40 focus-visible:ring-3 focus-visible:ring-[var(--dash-accent)]/10 focus:outline-none"
                 autoFocus
               />
               <button
                 type="button"
                 onClick={handleQuickAdd}
                 disabled={!quickAddText.trim() || isQuickAdding}
-                className="rounded-[10px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] px-4.5 py-2 text-xs font-bold text-white shadow-primary-btn hover:opacity-95 transition-all disabled:opacity-50 h-9 cursor-pointer active:scale-95"
+                className="h-11 min-h-11 cursor-pointer rounded-[10px] bg-[var(--dash-accent)] px-4.5 py-2 text-xs font-bold text-white shadow-[var(--dash-shadow-sm)] transition-all hover:opacity-95 disabled:opacity-50 active:scale-95"
               >
                 {isQuickAdding ? "..." : "Adaugă"}
               </button>
@@ -593,7 +598,7 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
       {/* ── Bulk Actions Bar ── */}
       {selectedIds.size > 0 && (
         <div className="sticky bottom-20 md:bottom-4 z-30 mx-auto w-fit animate-in slide-in-from-bottom-4 fade-in duration-200">
-          <div className="flex items-center gap-2 rounded-2xl bg-[#1A0E14]/95 px-4 py-2.5 text-xs text-white shadow-xl backdrop-blur-md border border-border-rose-18">
+          <div className="flex items-center gap-2 rounded-2xl border border-[var(--dash-hairline)] bg-[var(--dash-text)] px-4 py-2.5 text-xs text-white shadow-xl">
             <span className="font-semibold">{selectedIds.size} selectați</span>
             <span className="h-4 w-px bg-white/20" />
 
@@ -667,21 +672,21 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
       {/* ── Content ── */}
       {localGuests.length === 0 ? (
         /* Empty State */
-        <div className="flex flex-col items-center justify-center rounded-[24px] bg-white border border-[rgba(210,170,185,0.22)] py-20 text-center shadow-card animate-fade-in">
-          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] border border-border-rose-18 text-[#B8516B] shadow-sm animate-gentle-float">
+        <div className="flex animate-fade-in flex-col items-center justify-center rounded-[16px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)] py-20 text-center shadow-[var(--dash-shadow-card)]">
+          <div className="mb-5 flex h-16 w-16 animate-gentle-float items-center justify-center rounded-2xl border border-[var(--dash-hairline)] bg-[var(--dash-accent-soft)] text-[var(--dash-accent-text)] shadow-sm">
             <Users className="h-7 w-7" />
           </div>
-          <h3 className="font-serif text-lg font-bold text-[#1A0E14] animate-fade-in-up" style={{ animationDelay: "50ms" }}>
+          <h3 className="animate-fade-in-up text-lg font-bold text-[var(--dash-text)]" style={{ animationDelay: "50ms" }}>
             Începe să construiești lista de invitați
           </h3>
-          <p className="mt-1.5 max-w-xs text-xs text-text-secondary leading-relaxed animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+          <p className="mt-1.5 max-w-xs animate-fade-in-up text-xs leading-relaxed text-[var(--dash-text-secondary)]" style={{ animationDelay: "100ms" }}>
             Adaugă invitați manual sau importă-i dintr-o listă. Poți lipi text, importa CSV sau adăuga pe rând.
           </p>
-          <div className="mt-6 flex gap-3 animate-fade-in-up" style={{ animationDelay: "150ms" }}>
+          <div className="mt-6 flex animate-fade-in-up gap-3" style={{ animationDelay: "150ms" }}>
             <button
               type="button"
               onClick={() => setShowImport(true)}
-              className="flex items-center gap-2 rounded-[10px] bg-[#F3F3F5] hover:bg-[#FEF0F3]/40 border border-transparent hover:border-border-rose-22 px-5 py-2.5 text-xs font-semibold text-text-secondary transition-all cursor-pointer active:scale-95"
+              className="flex min-h-11 items-center gap-2 rounded-[10px] border border-transparent bg-[var(--dash-ivory)] px-5 py-2.5 text-xs font-semibold text-[var(--dash-text-secondary)] transition-all hover:border-[var(--dash-hairline)] hover:bg-[var(--dash-accent-soft)] cursor-pointer active:scale-95"
             >
               <Upload className="h-3.5 w-3.5" />
               Importă invitați
@@ -689,7 +694,7 @@ export function GuestDatabase({ eventId, guests, tables }: GuestDatabaseProps) {
             <button
               type="button"
               onClick={() => setShowQuickAdd(true)}
-              className="flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] px-5 py-2.5 text-xs font-bold text-white shadow-primary-btn hover:opacity-95 transition-all cursor-pointer active:scale-95"
+              className="flex min-h-11 items-center gap-2 rounded-[10px] bg-[var(--dash-accent)] px-5 py-2.5 text-xs font-bold text-white shadow-[var(--dash-shadow-sm)] transition-all hover:opacity-95 cursor-pointer active:scale-95"
             >
               <Plus className="h-3.5 w-3.5" />
               Adaugă primul invitat

@@ -67,7 +67,7 @@ export function EventForm({
 
           <div className="space-y-2">
             <Label>{ro.events.form.type}</Label>
-            <EventTypePicker defaultValue={event?.event_type ?? "wedding"} />
+            <EventTypePicker defaultValue={event?.event_type ?? "nunta"} />
           </div>
 
           <div className="space-y-2 flex flex-col">

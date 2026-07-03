@@ -39,7 +39,7 @@ const STATUS_STYLES: Record<TimelineTaskStatus, string> = {
 
 const PRIORITY_STYLES: Record<TimelineTaskPriority, string> = {
   low: "text-slate-500",
-  medium: "text-[#B8516B]",
+  medium: "text-[var(--dash-accent-text)]",
   high: "text-orange-600",
   critical: "text-red-600 font-semibold",
 };
@@ -138,7 +138,7 @@ export function TimelineTaskCard({
             "mt-0.5 shrink-0 rounded-full transition-colors",
             isCompleted
               ? "text-emerald-600"
-              : "text-[rgba(210,170,185,0.8)] hover:text-[#B8516B]"
+              : "text-[rgba(210,170,185,0.8)] hover:text-[var(--dash-accent-text)]"
           )}
           aria-label={ro.timeline.actions.complete}
         >
@@ -192,8 +192,8 @@ export function TimelineTaskCard({
                           setStatusOpen(false);
                         }}
                         className={cn(
-                          "flex w-full items-center px-3 py-2 text-left text-xs hover:bg-[#FEF0F3]/60",
-                          task.status === status && "font-semibold text-[#B8516B]"
+                          "flex w-full items-center px-3 py-2 text-left text-xs hover:bg-[var(--dash-accent-soft)]/60",
+                          task.status === status && "font-semibold text-[var(--dash-accent-text)]"
                         )}
                       >
                         {ro.timeline.status[status]}
@@ -207,7 +207,7 @@ export function TimelineTaskCard({
                 <button
                   type="button"
                   onClick={() => setMenuOpen((v) => !v)}
-                  className="rounded-lg p-1.5 text-text-subtle opacity-0 transition-opacity hover:bg-[#FEF0F3] hover:text-[#B8516B] group-hover:opacity-100"
+                  className="rounded-lg p-1.5 text-text-subtle opacity-0 transition-opacity hover:bg-[var(--dash-accent-soft)] hover:text-[var(--dash-accent-text)] group-hover:opacity-100"
                   aria-label={ro.timeline.actions.more}
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -220,7 +220,7 @@ export function TimelineTaskCard({
                         setExpanded(true);
                         setMenuOpen(false);
                       }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-[#FEF0F3]/60"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--dash-accent-soft)]/60"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                       {ro.timeline.actions.edit}
@@ -259,7 +259,7 @@ export function TimelineTaskCard({
 
           <div className="flex flex-wrap items-center gap-2 text-[11px]">
             {task.category && (
-              <span className="rounded-md bg-[#FEF0F3] px-2 py-0.5 font-medium text-[#B8516B]">
+              <span className="rounded-md bg-[var(--dash-accent-soft)] px-2 py-0.5 font-medium text-[var(--dash-accent-text)]">
                 {task.category.name}
               </span>
             )}

@@ -1,0 +1,280 @@
+﻿F:/evento/src/components/dashboard/dashboard-focus.tsx:96:  segments.push(
+F:/evento/src/components/dashboard/dashboard-focus.tsx:119:  const progressPercent = Math.round(
+F:/evento/src/components/dashboard/dashboard-focus.tsx:125:  return (
+F:/evento/src/components/dashboard/dashboard-focus.tsx:132:          {daysLabel ? (
+F:/evento/src/components/dashboard/dashboard-focus.tsx:148:          {next.detail ? (
+F:/evento/src/components/dashboard/dashboard-focus.tsx:163:      {shortcuts.length > 0 ? (
+F:/evento/src/components/dashboard/dashboard-focus.tsx:165:          {shortcuts.map((link) => (
+F:/evento/src/components/dashboard/planning-progress.tsx:29:  return (
+F:/evento/src/components/dashboard/planning-progress.tsx:38:        {steps.map((step) => (
+F:/evento/src/components/dashboard/planning-progress.tsx:41:              className={cn(
+F:/evento/src/components/dashboard/planning-progress.tsx:51:              className={cn(
+F:/evento/src/components/dashboard/onboarding-checklist.tsx:27:      action: (
+F:/evento/src/components/dashboard/onboarding-checklist.tsx:39:  return (
+F:/evento/src/components/dashboard/onboarding-checklist.tsx:46:          {steps.map((step) => (
+F:/evento/src/components/dashboard/onboarding-checklist.tsx:54:                  className={cn(
+F:/evento/src/components/dashboard/onboarding-checklist.tsx:75:    return (
+F:/evento/src/components/dashboard/onboarding-checklist.tsx:83:    return (
+F:/evento/src/components/dashboard/onboarding-checklist.tsx:90:  return (
+F:/evento/src/components/dashboard/dashboard-quick-actions.tsx:46:  return (
+F:/evento/src/components/dashboard/dashboard-quick-actions.tsx:51:          return (
+F:/evento/src/components/dashboard/dashboard-quick-actions.tsx:55:              className={cn(
+F:/evento/src/components/dashboard/event-next-steps.tsx:33:  return (
+F:/evento/src/components/dashboard/event-next-steps.tsx:36:        {getActions(eventId).map((action) => (
+F:/evento/src/components/dashboard/event-next-steps.tsx:40:            className={cn(
+F:/evento/src/app/(dashboard)/dashboard/loading.tsx:7:  return (
+F:/evento/src/app/(dashboard)/dashboard/loading.tsx:17:        {[0, 1, 2].map((i) => (
+F:/evento/src/app/(dashboard)/dashboard/loading.tsx:43:          {[0, 1, 2].map((i) => (
+F:/evento/src/app/(dashboard)/dashboard/page.tsx:40:  return (
+F:/evento/src/app/(dashboard)/dashboard/page.tsx:43:        hasActiveEvent && statsEvent ? (
+F:/evento/src/app/(dashboard)/dashboard/page.tsx:53:        ) : (
+F:/evento/src/app/(dashboard)/dashboard/page.tsx:62:        !hasActiveEvent && events.length > 0 ? (
+F:/evento/src/app/(dashboard)/dashboard/page.tsx:76:      {events.length === 0 ? (
+F:/evento/src/app/(dashboard)/dashboard/page.tsx:78:      ) : (
+F:/evento/src/app/(dashboard)/dashboard/page.tsx:80:          {hasActiveEvent && summary && statsEvent ? (
+F:/evento/src/app/(dashboard)/dashboard/page.tsx:89:          {showEventList ? (
+F:/evento/src/app/(dashboard)/dashboard/page.tsx:105:                {events.slice(0, 3).map((event, index) => (
+F:/evento/src/app/(dashboard)/dashboard/profile\actions.ts:80:export async function changePassword(
+F:/evento/src/app/(dashboard)/dashboard/profile\page.tsx:22:  return (
+F:/evento/src/app/(dashboard)/dashboard/marketplace\page.tsx:63:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\page.tsx:17:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\page.tsx:31:      {events.length === 0 ? (
+F:/evento/src/app/(dashboard)/dashboard/events\page.tsx:42:      ) : (
+F:/evento/src/app/(dashboard)/dashboard/events\page.tsx:44:          {events.map((event) => (
+F:/evento/src/app/(dashboard)/dashboard/events\actions.ts:24:export async function createEvent(
+F:/evento/src/app/(dashboard)/dashboard/events\actions.ts:76:export async function updateEvent(
+F:/evento/src/app/(dashboard)/dashboard/events\actions.ts:90:  const auth = await assertEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\actions.ts:126:  const auth = await assertEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\actions.ts:159:async function syncGodparents(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\edit\page.tsx:38:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\budget\page.tsx:27:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\budget\page.tsx:34:      {!vendorSnapshot.migrationReady ? (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\budget\loading.tsx:7:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\budget\loading.tsx:20:        {[0, 1, 2].map((i) => (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\budget\loading.tsx:47:          {[0, 1, 2, 4].map((i) => (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\budget\actions.ts:15:export async function createBudgetItem(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\budget\actions.ts:56:export async function updateBudgetItem(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\budget\actions.ts:97:export async function deleteBudgetItem(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\budget\actions.ts:121:export async function updateBudgetTarget(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\photo-import-actions.ts:128:export async function extractGuestsFromPhoto(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\photo-import-actions.ts:133:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\not-found.tsx:7:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\gallery\page.tsx:31:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\page.tsx:24:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\service-actions.ts:19:export async function fetchServiceTemplates(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\service-actions.ts:25:export async function createVendorService(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\service-actions.ts:30:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\service-actions.ts:78:export async function deleteVendorService(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\service-actions.ts:82:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\gallery\actions.ts:13:async function removeMediaStorage(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\gallery\actions.ts:23:export async function approvePhoto(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\gallery\actions.ts:68:export async function rejectPhoto(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\gallery\actions.ts:106:export async function rejectAllPendingPhotos(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\loading.tsx:7:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\loading.tsx:17:        {[0, 1, 2, 3].map((i) => (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\loading.tsx:63:          {[0, 1, 2, 3, 4, 5, 6, 7].map((row) => (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\page.tsx:26:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\actions.ts:40:export async function createGuest(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\actions.ts:104:export async function updateGuest(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\actions.ts:197:export async function updateGuestRsvp(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\actions.ts:215:export async function assignGuestToTable(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\actions.ts:269:    const currentTableGuests = (allTableGuests ?? []).filter(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\actions.ts:280:        const hasCoupleRow = finalGuests.some(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\actions.ts:321:export async function bulkCreateGuests(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\actions.ts:360:export async function bulkDeleteGuests(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\actions.ts:380:export async function bulkUpdateRsvp(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\actions.ts:401:export async function bulkAssignTable(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\actions.ts:429:export async function updateGuestTags(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\actions.ts:450:export async function updateGuestField(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\guests\actions.ts:472:export async function createSubGuest(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\loading.tsx:7:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\loading.tsx:20:          {Array.from({ length: 8 }).map((_, i) => (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\loading.tsx:7:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\loading.tsx:62:        {[0, 1].map((i) => (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\page.tsx:56:  const headerActions = (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\page.tsx:58:      {!isActive ? (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\page.tsx:64:      ) : (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\page.tsx:69:      {showOwnerActions ? (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\page.tsx:93:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\page.tsx:124:      {error === "delete" ? (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:44:async function assertHouseholdBelongsToEvent(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:59:  const statuses = bundle.members.map(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:75:async function syncGuestRsvpFromMember(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:98:export async function createInvitationHousehold(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:159:export async function updateInvitationHousehold(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:205:export async function deleteInvitationHousehold(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:229:export async function regenerateHouseholdInviteToken(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:258:export async function addGuestToHousehold(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:332:export async function addPlaceholderMember(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:372:export async function updateInvitationMember(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:420:export async function removeInvitationMember(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:458:export async function createRsvpUnit(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:488:export async function createSeatingGroup(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:534:export async function upsertMemberRsvpResponse(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:580:export async function updateMemberRsvpFromForm(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:606:export async function generateEventRsvpSlug(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\actions.ts:628:export async function syncGuestsToRsvpGroups(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\category-actions.ts:18:async function activateCategoryForEvent(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\category-actions.ts:23:  const { error } = await supabase.from("event_vendor_categories").upsert(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\category-actions.ts:39:export async function activateVendorCategory(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\category-actions.ts:43:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\category-actions.ts:68:export async function createVendorCategory(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\category-actions.ts:72:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\category-actions.ts:127:export async function removeVendorCategoryFromEvent(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\category-actions.ts:131:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\actions.ts:51:async function queueTimelineHook(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\actions.ts:64:export async function createVendor(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\actions.ts:140:export async function updateVendor(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\actions.ts:180:export async function deleteVendor(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\actions.ts:205:export async function createVendorOffer(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\actions.ts:250:export async function updateVendorOffer(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\actions.ts:287:export async function deleteVendorOffer(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\actions.ts:320:async function clearOtherSelectionsInService(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\actions.ts:352:async function clearOtherSelectionsInCategory(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\actions.ts:384:export async function selectVendorOffer(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\actions.ts:476:export async function upsertVendorContract(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\actions.ts:538:export async function createVendorPayment(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\actions.ts:609:export async function updateVendorPayment(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\vendors\actions.ts:645:export async function deleteVendorPayment(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\actions.ts:72:export async function createTimelineCategory(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\actions.ts:103:export async function createTimelineMilestone(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\actions.ts:137:export async function updateTimelineMilestone(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\actions.ts:171:export async function deleteTimelineMilestone(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\actions.ts:194:export async function createTimelineTask(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\actions.ts:245:export async function updateTimelineTask(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\actions.ts:308:export async function updateTimelineTaskStatus(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\actions.ts:340:export async function deleteTimelineTask(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\actions.ts:369:export async function generateWeddingChecklist(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\actions.ts:386:  const existingTitles = new Set(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\actions.ts:390:  const toInsert = WEDDING_CHECKLIST_TEMPLATES.filter(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\actions.ts:419:    .select(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\actions.ts:445:export async function patchTimelineTaskTitle(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\page.tsx:46:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\page.tsx:55:      {!migrationReady && (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\page.tsx:61:      {migrationReady && (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\settings\collaborators\page.tsx:43:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\settings\collaborators\page.tsx:59:      {!migrationReady && (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\settings\collaborators\page.tsx:65:      {migrationReady && (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\settings\collaborators\page.tsx:74:      {!canManage && migrationReady && (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\loading.tsx:4:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\settings\collaborators\actions.ts:36:export async function inviteCollaborator(
+
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\settings\collaborators\actions.ts:92:export async function updateCollaboratorRole(
+
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\settings\collaborators\actions.ts:129:export async function removeCollaborator(
+
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\settings\collaborators\actions.ts:184:export async function acceptCollaboratorInvite(
+
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\settings\collaborators\actions.ts:261:export async function declineCollaboratorInvite(
+
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\settings\calendar\actions.ts:19:export async function regenerateCalendarSubscriptionToken(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\settings\calendar\actions.ts:22:  const auth = await assertEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\settings\calendar\page.tsx:36:    return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\settings\calendar\page.tsx:52:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\page.tsx:60:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\page.tsx:67:      {!migrationReady && (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\page.tsx:73:      {migrationReady && (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\invitation\page.tsx:37:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\invitation\page.tsx:52:      {!storageReady && (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\ai-seating-actions.ts:123:      const hasCouple = party.some(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\ai-seating-actions.ts:137:      const hasCoupleRow = tableGuests.some(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\ai-seating-actions.ts:146:function buildAlreadySeatedSummary(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\ai-seating-actions.ts:237:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\ai-seating-actions.ts:422:export async function commitAiSeatAssignments(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\ai-seating-actions.ts:426:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\ai-seating-actions.ts:457:  const validAssignments = assignments.filter(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\ai-seating-actions.ts:465:  const results = await Promise.all(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\invitation\actions.ts:76:async function persistCoverUrl(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\invitation\actions.ts:130:export async function uploadInvitationCover(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\invitation\actions.ts:147:  const storagePath = buildInvitationCoverStoragePath(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\invitation\actions.ts:185:export async function removeInvitationCover(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\invitation\actions.ts:200:export async function saveEventInvitation(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\invitation\actions.ts:248:export async function updateInvitationCoverUrl(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\invitation\actions.ts:260:export async function updateInvitationGalleryUrls(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\invitation\actions.ts:268:  const { error } = await supabase.from("event_invitations").upsert(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\rsvp\invitation\actions.ts:287:export async function patchEventInvitationContent(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\photo-plan-actions.ts:242:    if (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\photo-plan-actions.ts:303:export async function extractFloorPlanFromPhoto(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\photo-plan-actions.ts:308:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:37:export async function createTable(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:65:    const metadata = patchMeterDimensions(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:185:export async function updateTable(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:222:export async function updateTablePositions(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:226:  const denied = deniedAsSuccess(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:232:  await Promise.all(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:259:export async function assignGuestFromSeating(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:278:export async function autoSeatGuestsAction(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:282:  const denied = deniedAsSuccessWithCount(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:328:        const hasCoupleRow = tableGuests.some(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:527:    await Promise.all(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:539:export async function clearSeatingLayout(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:542:  const denied = deniedAsSuccess(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:584:    return serializeTableMetadata(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:585:      patchMeterDimensions(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:602:  return serializeTableMetadata(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:603:    patchMeterDimensions(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:619:export async function generateTemplateLayout(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:623:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:685:export async function applyRoomTemplate(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:690:  const denied = deniedAsSuccess(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:736:    notes: serializeTableMetadata(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:751:    notes: serializeTableMetadata(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:768:      ? serializeTableMetadata(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:778:      : serializeTableMetadata(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:907:          notes: serializeTableMetadata(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:949:export async function initializeConcentricOnboarding(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:953:  const denied = deniedAsSuccess(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:1010:    notes: serializeTableMetadata(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:1025:    notes: serializeTableMetadata(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:1040:    notes: serializeTableMetadata(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:1101:export async function fetchSeatingExportSnapshotAction(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:1104:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:1113:export async function updateSeatingRoomSize(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:1118:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:1125:  if (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\actions.ts:1151:    if (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\page.tsx:16:  const totalConfirmedGuests = allGuests.filter(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\page.tsx:21:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:22:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:36:function stripCurrentPlanColumn(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:44:async function insertSnapshotRow(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:54:  if (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:68:async function updateSnapshotRow(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:82:  if (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:98:async function findCurrentPlanSnapshot(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:113:  if (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:138:async function snapshotIsCurrentPlan(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:191:    is_current_plan: Boolean(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:218:async function gatherLiveSnapshotPayload(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:291:export async function saveSeatingSnapshot(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:297:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:317:  const { data: inserted, error: insertError } = await insertSnapshotRow(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:343:export async function upsertCurrentPlanSnapshot(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:347:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:373:    const { data: updated, error } = await updateSnapshotRow(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:398:  const { data: inserted, error: insertError } = await insertSnapshotRow(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:424:export async function updateSeatingSnapshot(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:429:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:476:export async function listSeatingSnapshots(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:504:export async function activateSeatingSnapshot(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:508:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:618:  for (const [guestId, tableName] of Object.entries(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:645:    console.error(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:655:export async function deleteSeatingSnapshot(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:659:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:709:export async function updateSnapshotName(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\layout-actions.ts:714:  const accessDenied = await denyUnlessEventPermission(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\day\loading.tsx:4:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\day\page.tsx:45:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\day\page.tsx:54:      {!migrationReady && (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\day\page.tsx:60:      {migrationReady && (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\day\actions.ts:39:export async function createDayScheduleItem(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\day\actions.ts:78:export async function updateDayScheduleItem(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\day\actions.ts:117:export async function deleteDayScheduleItem(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\day\actions.ts:140:export async function reorderDayScheduleItems(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\day\actions.ts:170:export async function generateDaySchedule(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\day\actions.ts:191:  const existingKeys = new Set(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\timeline\day\actions.ts:197:  const toInsert = templates.filter(
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\loading.tsx:7:  return (
+F:/evento/src/app/(dashboard)/dashboard/events\[id]\seating\loading.tsx:56:            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+F:/evento/src/app/(dashboard)/dashboard/events\new\page.tsx:8:  return (

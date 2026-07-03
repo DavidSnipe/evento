@@ -36,18 +36,18 @@ export function VendorCard({
   return (
     <article
       className={cn(
-        "group overflow-hidden rounded-2xl border border-border/70 bg-white shadow-sm transition hover:shadow-md",
+        "motion-vendor-card group overflow-hidden rounded-2xl border border-border/70 bg-white shadow-sm",
         featured && "min-w-[280px] max-w-[300px] shrink-0",
         className
       )}
     >
       <Link href={href} className="block">
-        <div className="relative aspect-[16/9] bg-gradient-to-br from-[hsl(350,35%,92%)] to-[hsl(30,40%,90%)]">
+        <div className="motion-vendor-card-media relative aspect-[16/9] bg-[var(--dash-ivory)]">
           {vendor.cover_image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={vendor.cover_image_url}
-              alt=""
+              alt={`${vendor.name} — cover photo`}
               className="h-full w-full object-cover"
             />
           ) : null}
@@ -58,7 +58,7 @@ export function VendorCard({
           <div className="absolute -top-8 left-4 h-14 w-14 overflow-hidden rounded-full border-2 border-white bg-white shadow">
             {vendor.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={vendor.logo_url} alt="" className="h-full w-full object-cover" />
+              <img src={vendor.logo_url} alt={`${vendor.name} logo`} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-primary/10 text-lg font-semibold text-primary">
                 {vendor.name.slice(0, 1)}

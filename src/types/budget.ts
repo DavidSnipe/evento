@@ -1,3 +1,5 @@
+export type BudgetPaymentStatus = "unpaid" | "deposit_paid" | "fully_paid";
+
 export type BudgetItem = {
   id: string;
   event_id: string;
@@ -7,13 +9,15 @@ export type BudgetItem = {
   estimated_cost: number;
   actual_cost: number;
   paid_amount: number;
+  avans?: number | null;
+  status?: BudgetPaymentStatus | null;
   due_date: string | null;
   created_at: string;
 };
 
 export type BudgetItemSource = "manual" | "vendor";
 
-export type BudgetLineStatus = "vendor_locked" | "unpaid" | "partial" | "paid";
+export type BudgetLineStatus = BudgetPaymentStatus;
 
 export type BudgetLineItem = {
   id: string;
@@ -24,6 +28,7 @@ export type BudgetLineItem = {
   estimated_cost: number;
   actual_cost: number;
   paid_amount: number;
+  avans: number | null;
   due_date: string | null;
   created_at: string;
   status: BudgetLineStatus;

@@ -10,6 +10,18 @@ export type GalleryModerationResult = {
   error?: string;
 };
 
+export type ToggleFavoriteResult = {
+  success?: boolean;
+  error?: string;
+  is_favorite?: boolean;
+};
+
+export type BulkDeleteMediaResult = {
+  success?: boolean;
+  error?: string;
+  deleted?: number;
+};
+
 async function removeMediaStorage(
   supabase: Awaited<ReturnType<typeof createClient>>,
   fileUrl: string
@@ -140,4 +152,85 @@ export async function rejectAllPendingPhotos(
   revalidatePath(`/dashboard/events/${eventId}/gallery`);
   revalidatePath("/", "layout");
   return { success: true };
+}
+
+export async function toggleFavorite(
+  eventId: string,
+  mediaId: string
+): Promise<ToggleFavoriteResult> {
+  const accessDenied = await denyUnlessEventAccess(eventId);
+  if (accessDenied) return accessDenied;
+
+  const supabase = await createClient();
+
+  const { data: current, error: fetchError } = await supabase
+    .from("media_uploads")
+    .select("is_favorite")
+    .eq("id", mediaId)
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  if (fetchError || !current) {
+    return { error: "Nu am putut găsi fotografia." };
+  }
+
+  const nextFavorite = !current.is_favorite;
+
+  const { error } = await supabase
+    .from("media_uploads")
+    .update({ is_favorite: nextFavorite })
+    .eq("id", mediaId)
+    .eq("event_id", eventId);
+
+  if (error) {
+    console.error("[toggleFavorite]", error);
+    return { error: "Nu am putut actualiza favoritul." };
+  }
+
+  revalidatePath(`/dashboard/events/${eventId}/gallery`);
+  return { success: true, is_favorite: nextFavorite };
+}
+
+export async function bulkDeleteMedia(
+  eventId: string,
+  mediaIds: string[]
+): Promise<BulkDeleteMediaResult> {
+  const accessDenied = await denyUnlessEventAccess(eventId);
+  if (accessDenied) return accessDenied;
+
+  if (mediaIds.length === 0) {
+    return { success: true, deleted: 0 };
+  }
+
+  const supabase = await createClient();
+
+  const { data: items, error: fetchError } = await supabase
+    .from("media_uploads")
+    .select("id, file_url")
+    .eq("event_id", eventId)
+    .in("id", mediaIds);
+
+  if (fetchError) {
+    console.error("[bulkDeleteMedia] fetch", fetchError);
+    return { error: "Nu am putut încărca fotografiile selectate." };
+  }
+
+  for (const item of items ?? []) {
+    await removeMediaStorage(supabase, item.file_url);
+  }
+
+  const { error, count } = await supabase
+    .from("media_uploads")
+    .delete({ count: "exact" })
+    .eq("event_id", eventId)
+    .in("id", mediaIds);
+
+  if (error) {
+    console.error("[bulkDeleteMedia] delete", error);
+    return { error: "Nu am putut șterge fotografiile selectate." };
+  }
+
+  revalidatePath(`/dashboard/events/${eventId}/gallery`);
+  revalidatePath("/", "layout");
+  return { success: true, deleted: count ?? items?.length ?? 0 };
 }

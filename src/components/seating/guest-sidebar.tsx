@@ -76,6 +76,29 @@ export function GuestSidebar({
 
   const totalGuests = guests.length;
   const unassigned = guests.filter((g) => !g.table_id).length;
+  const sidebar = ro.seating.guestSidebar;
+
+  const filterTabs = useMemo(
+    () => [
+      { key: "all", label: sidebar.tabs.all, count: guests.length },
+      {
+        key: "confirmed",
+        label: sidebar.tabs.confirmed,
+        count: guests.filter((g) => g.rsvp_status === "accepted").length,
+      },
+      {
+        key: "pending",
+        label: sidebar.tabs.pending,
+        count: guests.filter((g) => g.rsvp_status === "pending").length,
+      },
+      {
+        key: "unassigned",
+        label: sidebar.tabs.unassigned,
+        count: guests.filter((g) => !g.table_id).length,
+      },
+    ],
+    [guests, sidebar.tabs]
+  );
 
   const activeTab = useMemo(() => {
     if (filterMode === "unassigned") return "unassigned";
@@ -221,10 +244,12 @@ export function GuestSidebar({
       <div style={{ padding: '18px 18px 14px', borderBottom: '1px solid var(--ev-border-soft)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--ev-text-primary)', fontFamily: 'Inter, sans-serif', margin: 0, letterSpacing: '-0.3px', lineHeight: 1 }}>
-            Lista Invita?i
+            {sidebar.title}
           </h3>
           <p style={{ fontSize: 11, color: 'var(--ev-text-muted)', margin: '5px 0 0', fontFamily: 'Inter, sans-serif', letterSpacing: '0.01em' }}>
-            {totalGuests} persoane � {unassigned} nealocate
+            {sidebar.summary
+              .replace("{total}", String(totalGuests))
+              .replace("{unassigned}", String(unassigned))}
           </p>
         </div>
         {headerAction}
@@ -244,7 +269,7 @@ export function GuestSidebar({
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={ro.seating.search.placeholder || "Caut? invitat..."}
+          placeholder={ro.seating.search.placeholder}
           style={{
             border: 'none', background: 'transparent', outline: 'none',
             fontSize: 13, color: 'var(--ev-text-primary)', fontFamily: 'Inter, sans-serif', flex: 1,
@@ -253,13 +278,8 @@ export function GuestSidebar({
       </div>
 
       {/* Tab filters (To?i / Confirma?i / A?teptare / Nealoca?i) */}
-      <div style={{ display: 'flex', gap: 5, padding: '0 14px 10px', flexWrap: 'wrap' }}>
-        {[
-          { key: "all", label: "To?i", count: guests.length },
-          { key: "confirmed", label: "Confirma?i", count: guests.filter(g => g.rsvp_status === "accepted").length },
-          { key: "pending", label: "A?teptare", count: guests.filter(g => g.rsvp_status === "pending").length },
-          { key: "unassigned", label: "Nealoca?i", count: guests.filter(g => !g.table_id).length },
-        ].map(tab => (
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-3 pb-2.5 scrollbar-none md:flex-wrap md:overflow-visible">
+        {filterTabs.map(tab => (
           <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} style={{
             padding: '3px 9px', borderRadius: 20,
             fontSize: 12, fontWeight: activeTab === tab.key ? 600 : 500,
@@ -277,7 +297,7 @@ export function GuestSidebar({
 
       {/* Quick Sorting Dropdown */}
       <div style={{ padding: '0 14px 10px', display: 'flex', gap: 8, alignItems: 'center' }}>
-        <span style={{ fontSize: 11, color: 'var(--ev-text-muted)', fontFamily: 'Inter, sans-serif', fontWeight: 550 }}>Sortat:</span>
+        <span style={{ fontSize: 11, color: 'var(--ev-text-muted)', fontFamily: 'Inter, sans-serif', fontWeight: 550 }}>{sidebar.sortLabel}</span>
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as SortOption)}
@@ -287,11 +307,11 @@ export function GuestSidebar({
             cursor: 'pointer',
           }}
         >
-          <option value="family">Familie</option>
-          <option value="last_name">Nume familie</option>
-          <option value="first_name">Prenume</option>
-          <option value="rsvp">Status RSVP</option>
-          <option value="table">Dup? mas?</option>
+          <option value="family">{sidebar.sort.family}</option>
+          <option value="last_name">{sidebar.sort.lastName}</option>
+          <option value="first_name">{sidebar.sort.firstName}</option>
+          <option value="rsvp">{sidebar.sort.rsvp}</option>
+          <option value="table">{sidebar.sort.table}</option>
         </select>
       </div>
 
@@ -302,8 +322,8 @@ export function GuestSidebar({
             <Users className="h-10 w-10 text-slate-300" />
             <p className="text-sm font-medium text-slate-400">
               {search.trim()
-                ? `Niciun invitat pentru �${search.trim()}�`
-                : "Nu s-au g?sit invita?i."}
+                ? sidebar.emptySearch.replace("{query}", search.trim())
+                : sidebar.emptyList}
             </p>
           </div>
         ) : (
@@ -432,7 +452,7 @@ export function GuestSidebar({
                       fontFamily: 'Inter, sans-serif',
                       whiteSpace: 'nowrap',
                     }}>
-                      {isAssigned ? (guest.seating_tables?.name ? (guest.seating_tables.name.startsWith("Masa") ? guest.seating_tables.name.replace(/^Masa\s+/i, "") : guest.seating_tables.name) : "M") : 'Liber'}
+                      {isAssigned ? (guest.seating_tables?.name ? (guest.seating_tables.name.startsWith("Masa") ? guest.seating_tables.name.replace(/^Masa\s+/i, "") : guest.seating_tables.name) : "M") : sidebar.freeBadge}
                     </span>
                   </button>
                 </li>

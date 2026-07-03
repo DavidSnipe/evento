@@ -9,8 +9,7 @@ import { useVendorsOptimistic } from "@/hooks/vendors/use-vendors-optimistic";
 import { buildCategorySidebarItems, groupVendorsByCategory } from "@/lib/vendors/grouping";
 import { ro } from "@/lib/i18n/ro";
 import type { VendorCategoryRow, VendorFoundationSnapshot } from "@/types/vendors";
-import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { StatsCard } from "@/components/nuntiki/stats-card";
 import { VendorCategoryPicker } from "./vendor-category-picker";
 import { VendorCategorySidebar } from "./vendor-category-sidebar";
 import { VendorCategoryWorkspace } from "./vendor-category-workspace";
@@ -35,24 +34,22 @@ function VendorsStatsRow({
   selectedCount: number;
 }) {
   const items = [
-    { label: ro.vendors.workspace.statsCategories, value: categoryCount, accent: "text-[#1A0E14]" },
-    { label: ro.vendors.workspace.statsServices, value: serviceCount, accent: "text-[#1A0E14]" },
-    { label: ro.vendors.workspace.statsOffers, value: offerCount, accent: "text-[#B8516B]" },
-    { label: ro.vendors.workspace.statsSelected, value: selectedCount, accent: "text-[var(--dash-sage)]" },
+    { label: ro.vendors.workspace.statsCategories, value: categoryCount, accent: "default" as const },
+    { label: ro.vendors.workspace.statsServices, value: serviceCount, accent: "default" as const },
+    { label: ro.vendors.workspace.statsOffers, value: offerCount, accent: "primary" as const },
+    { label: ro.vendors.workspace.statsSelected, value: selectedCount, accent: "success" as const },
   ];
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:contents">
       {items.map((item) => (
-        <Card
+        <StatsCard
           key={item.label}
-          className="glass-panel rounded-[18px] border bg-white p-4 shadow-card lg:col-span-1"
-        >
-          <p className="text-[9.5px] font-bold uppercase tracking-wider text-text-subtle">
-            {item.label}
-          </p>
-          <p className={cn("mt-1.5 font-sans text-2xl font-bold", item.accent)}>{item.value}</p>
-        </Card>
+          label={item.label}
+          value={item.value}
+          accent={item.accent}
+          className="lg:col-span-1"
+        />
       ))}
     </div>
   );
@@ -184,18 +181,18 @@ export function VendorsWorkspace({
     return (
       <>
         {confirmDialog}
-        <div className="flex flex-col items-center justify-center rounded-[24px] border border-[rgba(210,170,185,0.22)] bg-white py-20 text-center shadow-card">
-          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-border-rose-18 bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] text-[#B8516B] shadow-sm">
+        <div className="flex flex-col items-center justify-center rounded-[16px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)] py-20 text-center shadow-[var(--dash-shadow-card)]">
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--dash-hairline)] bg-[var(--dash-accent-soft)] text-[var(--dash-accent-text)] shadow-sm">
             <Store className="h-7 w-7" />
           </div>
-          <h3 className="text-lg font-semibold tracking-[-0.012em] text-[#1A0E14]">
+          <h3 className="text-lg font-semibold tracking-[-0.012em] text-[var(--dash-text)]">
             {ro.vendors.workspace.noActiveCategories}
           </h3>
           {canManage ? (
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
-              className="mt-6 flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] px-5 py-2.5 text-xs font-bold text-white shadow-primary-btn transition-all hover:opacity-95"
+              className="mt-6 flex min-h-11 items-center gap-2 rounded-[10px] bg-[var(--dash-accent)] px-5 py-2.5 text-xs font-bold text-white shadow-[var(--dash-shadow-sm)] transition-all hover:opacity-95"
             >
               <Plus className="h-3.5 w-3.5" />
               {ro.vendors.workspace.addCategory}
@@ -226,7 +223,7 @@ export function VendorsWorkspace({
       {confirmDialog}
 
       {!canEdit && (
-        <p className="rounded-[14px] border border-border-rose-18/30 bg-[var(--dash-warm-gray)]/50 px-4 py-3 text-center text-[13px] text-[var(--dash-text-secondary)]">
+        <p className="rounded-[14px] border border-[var(--dash-hairline)] bg-[var(--dash-ivory)] px-4 py-3 text-center text-[13px] text-[var(--dash-text-secondary)]">
           {ro.vendors.foundation.readOnly}
         </p>
       )}

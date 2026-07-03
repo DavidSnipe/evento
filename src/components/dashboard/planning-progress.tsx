@@ -34,15 +34,15 @@ export function PlanningProgress({ planning }: PlanningProgressProps) {
         .replace("{total}", String(planning.totalSteps))}
     >
       <Progress value={overallPercent} className="mb-5 h-2" />
-      <ul className="space-y-3">
+      <ul className="grid grid-cols-2 gap-x-4 gap-y-3 lg:flex lg:flex-wrap lg:gap-x-6 lg:gap-y-3">
         {steps.map((step) => (
-          <li key={step.key} className="flex items-center gap-3">
+          <li key={step.key} className="flex min-w-0 items-center gap-3 lg:shrink-0">
             <span
               className={cn(
                 "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
                 step.done
                   ? "bg-[var(--dash-sage)] text-white"
-                  : "border border-[var(--dash-hairline)] bg-white"
+                  : "border border-[var(--dash-hairline)] bg-[var(--dash-surface)]"
               )}
             >
               {step.done ? <Check className="h-3 w-3" strokeWidth={3} /> : null}

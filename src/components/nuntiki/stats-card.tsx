@@ -36,23 +36,23 @@ export function StatsCard({
 }: StatsCardProps) {
   return (
     <Card className={cn(statsCardVariants({ accent }), className)} {...props}>
-      <CardContent className="p-4">
+      <CardContent className="flex h-full flex-col justify-between p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <p className={statsLabelVariants()}>{label}</p>
             <p className={statsValueVariants({ accent })}>{value}</p>
-            {trend ? (
-              <p className="mt-1 text-[11px] font-medium text-text-secondary">{trend}</p>
-            ) : null}
           </div>
           {Icon ? (
-            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+            <Icon className="h-[18px] w-[18px] shrink-0 text-[var(--dash-text-muted)]" aria-hidden />
           ) : null}
         </div>
-        {typeof progress === "number" ? (
-          <Progress value={progress} className="mt-3 h-2" />
-        ) : null}
-        {footer ? <div className="mt-2">{footer}</div> : null}
+        <div className="mt-auto space-y-2">
+          {trend ? (
+            <p className="truncate text-[11px] font-medium text-[var(--dash-text-secondary)]">{trend}</p>
+          ) : null}
+          {typeof progress === "number" ? <Progress value={progress} className="h-1.5" /> : null}
+          {footer ? <div>{footer}</div> : null}
+        </div>
       </CardContent>
     </Card>
   );

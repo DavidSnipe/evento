@@ -12,7 +12,7 @@ import { getProfileForUser } from "@/lib/auth/profile";
 import { getServerUser } from "@/lib/supabase/server-auth";
 import { cn } from "@/lib/utils";
 
-import "@/components/layout/dashboard-foundation.css";
+import "@/lib/motion/premium.css";
 
 export const dynamic = "force-dynamic";
 
@@ -47,10 +47,11 @@ export default async function DashboardLayout({
   return (
     <div
       className={cn(
-        "dashboard-shell flex bg-[var(--dash-ivory)]",
+        "dashboard-shell motion-dashboard-shell flex bg-[var(--dash-ivory)]",
         GeistSans.variable,
         GeistSans.className
       )}
+      data-motion="dashboard"
     >
       {/* Desktop Sidebar */}
       <div className="hidden md:flex print:hidden dashboard-sidebar-container">

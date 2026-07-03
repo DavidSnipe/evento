@@ -28,10 +28,13 @@ import { VendorServiceSection } from "./vendor-service-section";
 const ALL_ICON_KEYS = Object.keys(ICON_REGISTRY) as IconKey[];
 
 const SERVICE_CARD_CLASS =
-  "inline-flex items-center gap-2 rounded-[10px] border border-border-rose-18 bg-white px-3 py-2 text-xs font-medium text-[var(--dash-text)] shadow-sm disabled:opacity-50";
+  "inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--dash-hairline)] bg-[var(--dash-surface)] px-3 py-2 text-xs font-medium text-[var(--dash-text)] transition hover:border-[var(--dash-accent-text)]/30 disabled:opacity-50";
 
 const CUSTOM_SERVICE_CARD_CLASS =
-  "inline-flex items-center gap-2 rounded-[10px] border border-dashed border-border-rose-18 bg-[var(--dash-blush)]/15 px-3 py-2 text-xs font-medium text-[var(--dash-text-secondary)] shadow-sm disabled:opacity-50";
+  "inline-flex min-h-11 items-center gap-2 rounded-md border border-dashed border-[var(--dash-hairline)] bg-[var(--dash-ivory)] px-3 py-2 text-xs font-medium text-[var(--dash-text-secondary)] transition hover:border-[var(--dash-accent-text)]/30 disabled:opacity-50";
+
+const FIELD_CLASS =
+  "h-11 min-w-0 flex-1 rounded-md border border-[var(--dash-hairline)] bg-[var(--dash-surface)] px-3 text-sm text-[var(--dash-text)] outline-none focus-visible:border-[var(--dash-accent-text)]/40 focus-visible:ring-2 focus-visible:ring-[var(--dash-accent-text)]/10";
 
 function resolveTemplateIcon(iconKey: string | null): IconKey {
   if (iconKey && iconKey in ICON_REGISTRY) {
@@ -128,7 +131,7 @@ function SelectionPanel({
 
   return (
     <div
-      className="min-w-[min(100%,12rem)] flex-1 rounded-[18px] border border-border-rose-18 bg-gradient-to-br from-[#FEF0F3]/80 to-white p-3 shadow-card"
+      className="evento-card min-w-[min(100%,12rem)] flex-1 rounded-[16px] p-3"
       data-category-id={group.slug}
       data-service-id={selection.serviceId}
       data-vendor-id={selection.vendorId}
@@ -219,14 +222,14 @@ function CustomServiceInlineEdit({
   return (
     <div
       ref={rowRef}
-      className="inline-flex min-w-[min(100%,18rem)] flex-1 items-center gap-2 rounded-[10px] border border-border-rose-18 bg-white px-2 py-1.5 shadow-sm"
+      className="inline-flex min-w-[min(100%,18rem)] flex-1 items-center gap-2 rounded-md border border-[var(--dash-hairline)] bg-[var(--dash-surface)] px-2 py-1.5"
     >
       <Popover open={iconPickerOpen} onOpenChange={setIconPickerOpen}>
         <PopoverTrigger asChild>
           <button
             type="button"
             disabled={creating}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-border-rose-18 bg-[var(--dash-blush)]/10"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[var(--dash-hairline)] bg-[var(--dash-accent-soft)]"
             aria-label="Alege iconița"
           >
             <EmojiIcon icon={icon} size="sm" />
@@ -242,7 +245,7 @@ function CustomServiceInlineEdit({
                   onIconChange(key);
                   setIconPickerOpen(false);
                 }}
-                className="flex h-8 w-8 items-center justify-center rounded-[6px] border border-transparent transition-colors hover:border-border-rose-18 hover:bg-[var(--dash-blush)]/20"
+                className="flex h-11 w-11 items-center justify-center rounded-md border border-transparent transition-colors hover:border-[var(--dash-hairline)] hover:bg-[var(--dash-accent-soft)]"
                 aria-label={ICON_REGISTRY[key].labelRo}
               >
                 <EmojiIcon icon={key} size="sm" />
@@ -260,13 +263,13 @@ function CustomServiceInlineEdit({
         onKeyDown={(e) => {
           if (e.key === "Enter") onSave();
         }}
-        className="h-8 min-w-0 flex-1 rounded-[8px] border border-[rgba(210,170,185,0.22)] bg-[#F3F3F5] px-2.5 text-xs text-[#1A0E14] outline-none focus-visible:border-[#B8516B]/40 focus-visible:ring-3 focus-visible:ring-[#B8516B]/10"
+        className={FIELD_CLASS}
       />
       <button
         type="button"
         disabled={creating || name.trim().length < 2}
         onClick={onSave}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-gradient-to-br from-[#E8748A] to-[#B8516B] text-white shadow-primary-btn disabled:opacity-40"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[var(--dash-accent-text)] text-white transition disabled:opacity-40"
         aria-label={ro.vendors.workspace.saveService}
       >
         <Plus className="h-4 w-4" strokeWidth={2.5} />
@@ -291,7 +294,7 @@ function UnselectedSummary({ group }: { group: VendorCategoryGroup }) {
       : `${offerCount} ${ro.vendors.workspace.offerPlural}`;
 
   return (
-    <div className="rounded-[18px] border border-dashed border-border-rose-18/40 bg-white/60 p-3 shadow-card">
+    <div className="rounded-[16px] border border-dashed border-[var(--dash-hairline)] bg-[var(--dash-ivory)] p-3">
       <p className="text-[13px] text-[var(--dash-text-secondary)]">
         {ro.vendors.workspace.choiceStripNoSelectionSummary
           .replace("{services}", servicesLabel)
@@ -392,11 +395,11 @@ export function VendorCategoryWorkspace({
   }
 
   return (
-    <div className="glass-panel min-w-0 flex-1 space-y-6 rounded-[18px] border bg-white/70 p-5 shadow-card backdrop-blur-md">
+    <div className="evento-card min-w-0 flex-1 space-y-6 rounded-[16px] p-5 sm:p-6">
       <header className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border border-border-rose-18/30 bg-gradient-to-br from-[#FEF0F3] to-[#FCEAEF] shadow-sm">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--dash-accent-soft)]">
               <EmojiIcon icon={getIconForVendorCategory(group.slug)} size="lg" />
             </span>
             <div>
@@ -420,7 +423,7 @@ export function VendorCategoryWorkspace({
               type="button"
               disabled={removingCategory}
               onClick={onRemoveCategory}
-              className="inline-flex items-center gap-1.5 rounded-[10px] px-2 py-1.5 text-[12px] font-medium text-[var(--dash-text-muted)] transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-[var(--dash-text-muted)] transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" />
               {ro.vendors.workspace.removeCategoryFromEvent}
@@ -445,12 +448,12 @@ export function VendorCategoryWorkspace({
       </header>
 
       {canEdit && (
-        <div className="glass-panel rounded-[18px] border bg-white/95 p-3 shadow-card">
+        <div className="rounded-[16px] border border-[var(--dash-hairline)] bg-[var(--dash-surface)] p-3">
           {!showNewService ? (
             <button
               type="button"
               onClick={openNewServicePicker}
-              className="flex items-center gap-2 rounded-[10px] px-2 py-1.5 text-xs font-semibold text-[var(--dash-text-secondary)] transition-colors hover:bg-[var(--dash-blush)]/20 hover:text-[var(--dash-accent-text)]"
+              className="flex min-h-11 items-center gap-2 rounded-md px-2 py-1.5 text-xs font-semibold text-[var(--dash-text-secondary)] transition-colors hover:bg-[var(--dash-accent-soft)] hover:text-[var(--dash-accent-text)]"
             >
               <Plus className="h-3.5 w-3.5 text-[var(--dash-accent-text)]" />
               {ro.vendors.workspace.addService}
@@ -514,7 +517,7 @@ export function VendorCategoryWorkspace({
       )}
 
       {group.services.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-[24px] border border-dashed border-border-rose-18/40 bg-white/40 py-16 text-center shadow-card">
+        <div className="flex flex-col items-center justify-center rounded-[16px] border border-dashed border-[var(--dash-hairline)] bg-[var(--dash-ivory)] py-16 text-center">
           <p className="text-sm font-semibold text-[var(--dash-text)]">
             {ro.vendors.workspace.noServicesYet}
           </p>

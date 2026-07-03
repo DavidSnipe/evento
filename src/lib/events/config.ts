@@ -1,7 +1,18 @@
-import { Cake, Gem, Heart, Lock, PartyPopper, Sparkles, type LucideIcon } from "lucide-react";
+import {
+  Briefcase,
+  Cake,
+  FileText,
+  Globe,
+  Heart,
+  PartyPopper,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 
-import { ro } from "@/lib/i18n/ro";
+import { DIALOG_EVENT_TYPE_OPTIONS } from "@/lib/events/event-types";
+import { getEventTypeLabel as getLabel } from "@/lib/events/event-types";
 import type { EventType } from "@/types";
+import { EVENT_TYPES } from "@/types/events";
 
 export type EventTypeOption = {
   value: EventType;
@@ -9,15 +20,32 @@ export type EventTypeOption = {
   icon: LucideIcon;
 };
 
-export const eventTypeOptions: EventTypeOption[] = [
-  { value: "wedding", label: ro.events.types.wedding, icon: Heart },
-  { value: "baptism", label: ro.events.types.baptism, icon: Sparkles },
-  { value: "birthday", label: ro.events.types.birthday, icon: Cake },
-  { value: "anniversary", label: ro.events.types.anniversary, icon: Gem },
-  { value: "major", label: ro.events.types.major, icon: PartyPopper },
-  { value: "private", label: ro.events.types.private, icon: Lock },
-];
+export type CreateEventTypeOption = {
+  value: EventType;
+  label: string;
+  emoji: string;
+};
 
-export function getEventTypeLabel(type: EventType): string {
-  return ro.events.types[type];
+export const createEventTypeOptions: CreateEventTypeOption[] = DIALOG_EVENT_TYPE_OPTIONS;
+
+export const eventTypeOptions: EventTypeOption[] = EVENT_TYPES.map((value) => {
+  const icons: Record<EventType, LucideIcon> = {
+    nunta: Heart,
+    cununie_civila: FileText,
+    botez: Sparkles,
+    majorat: PartyPopper,
+    zi_de_nastere: Cake,
+    aniversare: Heart,
+    corporate: Briefcase,
+    eveniment_public: Globe,
+  };
+  return {
+    value,
+    label: getLabel(value),
+    icon: icons[value],
+  };
+});
+
+export function getEventTypeLabel(type: EventType | string): string {
+  return getLabel(type);
 }

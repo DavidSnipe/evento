@@ -2,14 +2,14 @@ import { Suspense } from "react";
 
 import { DashboardMarketplaceGrid } from "@/components/marketplace/dashboard-marketplace-grid";
 import { FeaturedVendorsRow } from "@/components/marketplace/featured-vendors-row";
+import { MarketplaceCategoryPills } from "@/components/marketplace/marketplace-category-pills";
 import { MarketplaceHeroSearch } from "@/components/marketplace/marketplace-hero-search";
-import {
-  MarketplaceCategoryNav,
-  MarketplaceFilters,
-} from "@/components/marketplace/marketplace-filters";
+import { MarketplaceFilters } from "@/components/marketplace/marketplace-filters";
 import { MarketplacePagination } from "@/components/marketplace/marketplace-pagination";
+import { MarketplaceResultsToolbar } from "@/components/marketplace/marketplace-results-toolbar";
 import { VendorCard } from "@/components/marketplace/vendor-card";
 import type { MarketplaceCategoryOption } from "@/lib/marketplace/categories";
+import { hasActiveMarketplaceFilters } from "@/lib/marketplace/search-params";
 import type {
   MarketplaceSort,
   MarketplaceVendorListItem,
@@ -50,37 +50,61 @@ export function MarketplaceListing({
   eventId = null,
   eventTitle = null,
 }: MarketplaceListingProps) {
+  const filtersActive = hasActiveMarketplaceFilters({
+    search,
+    categorySlugs,
+    location,
+    minRating,
+  });
   const showFeatured =
-    page === 1 && !search && categorySlugs.length === 0 && !location && !minRating;
+    mode === "public" &&
+    page === 1 &&
+    !filtersActive &&
+    featured.length > 0;
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <MarketplaceHeroSearch
         basePath={basePath}
-        categories={categories}
         initialSearch={search}
-        initialCategory={categorySlugs[0] ?? ""}
+        initialLocation={location}
+        compact={mode === "dashboard"}
       />
 
       {showFeatured ? <FeaturedVendorsRow vendors={featured} /> : null}
 
-      <MarketplaceCategoryNav categories={categories} basePath={basePath} />
+      <MarketplaceCategoryPills
+        basePath={basePath}
+        categories={categories}
+        categorySlugs={categorySlugs}
+        searchParams={searchParams}
+      />
 
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <Suspense fallback={null}>
           <MarketplaceFilters
             basePath={basePath}
-            categories={categories}
-            initialCategorySlugs={categorySlugs}
             initialLocation={location}
             initialMinRating={minRating}
             initialSort={sort}
           />
         </Suspense>
 
-        <div className="min-w-0 flex-1 space-y-6">
+        <div className="min-w-0 flex-1 space-y-5">
+          <MarketplaceResultsToolbar
+            basePath={basePath}
+            categories={categories}
+            categorySlugs={categorySlugs}
+            location={location}
+            minRating={minRating}
+            sort={sort}
+            search={search}
+            searchParams={searchParams}
+            total={listing.total}
+          />
+
           {listing.vendors.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border py-16 text-center text-muted-foreground">
+            <div className="rounded-2xl border border-dashed border-[var(--dash-hairline)] py-16 text-center text-[var(--dash-text-muted)]">
               {ro.marketplace.empty}
             </div>
           ) : mode === "dashboard" ? (

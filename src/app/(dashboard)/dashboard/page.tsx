@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarHeart, PiggyBank, Users, UtensilsCrossed } from "lucide-react";
 
 import { DashboardFocus } from "@/components/dashboard/dashboard-focus";
+import { DashboardEventsSection } from "@/components/dashboard/dashboard-events-section";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 import { EventCard } from "@/components/events/event-card";
 import { DashboardPage } from "@/components/layout/animated-page";
@@ -205,17 +206,11 @@ export default async function DashboardPageRoute() {
                 </Button>
               </div>
 
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {events.slice(0, 3).map((event, index) => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    stats={listStats[event.id]}
-                    isActive={activeEventId === event.id}
-                    index={index}
-                  />
-                ))}
-              </div>
+              <DashboardEventsSection
+                events={events.slice(0, 3)}
+                stats={listStats}
+                activeEventId={activeEventId}
+              />
             </section>
           ) : null}
         </>

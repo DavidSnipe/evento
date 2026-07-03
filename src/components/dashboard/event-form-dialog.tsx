@@ -43,14 +43,15 @@ type EventFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   event?: EventRow | null;
+  mode?: "create" | "edit";
 };
 
 const initialState: EventFormState = {};
 const TOTAL_STEPS = 3;
 
-export function EventFormDialog({ open, onOpenChange, event }: EventFormDialogProps) {
+export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDialogProps) {
   const router = useRouter();
-  const isEdit = Boolean(event);
+  const isEdit = mode === "edit" || (mode !== "create" && Boolean(event));
   const boundUpdate = event ? updateEvent.bind(null, event.id) : null;
   const action = isEdit && boundUpdate ? boundUpdate : createEvent;
   const [state, formAction, pending] = useActionState(action, initialState);

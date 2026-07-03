@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Calendar, MapPin, Pencil, Settings, Users, UtensilsCrossed } from "lucide-react";
+import { Calendar, MapPin, Settings, Users, UtensilsCrossed } from "lucide-react";
 
 import { setActiveEvent } from "@/app/(dashboard)/dashboard/events/actions";
+import { EditEventButton } from "@/components/dashboard/edit-event-button";
 import { DeleteEventButton } from "@/components/events/delete-event-button";
 import {
   EventNextSteps,
@@ -15,6 +16,7 @@ import { StatsGrid } from "@/components/nuntiki/stats-grid";
 import { Button } from "@/components/ui/button";
 import { getActiveEventId } from "@/lib/events/active-event";
 import { getEventTypeLabel } from "@/lib/events/config";
+import { getEventGodparentNames } from "@/lib/events/queries";
 import { getEventAccessContext } from "@/lib/events/verify-event";
 import { canDeleteEvent, canManageCollaborators } from "@/lib/collaboration/permissions";
 import { getGuestStats } from "@/lib/guests/queries";
@@ -36,12 +38,19 @@ type EventDetailPageProps = {
 export default async function EventDetailPage({ params, searchParams }: EventDetailPageProps) {
   const { id } = await params;
   const { error } = await searchParams;
-  const [{ event, access }, activeEventId, guestStats, seating] = await Promise.all([
+  const [{ event, access }, activeEventId, guestStats, seating, godparents] = await Promise.all([
     getEventAccessContext(id),
     getActiveEventId(),
     getGuestStats(id),
     getSeatingPlan(id),
+    getEventGodparentNames(id),
   ]);
+
+  const eventForEdit = {
+    ...event,
+    godparent1_name: event.godparent1_name ?? godparents.godparent1_name,
+    godparent2_name: event.godparent2_name ?? godparents.godparent2_name,
+  };
 
   const days = getDaysUntil(event.event_date);
   const isActive = activeEventId === event.id;
@@ -67,12 +76,7 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
         </span>
       )}
       {showOwnerActions ? (
-        <Button variant="outline" className="h-9 text-xs" asChild>
-          <Link href={`/dashboard/events/${event.id}/edit`}>
-            <Pencil className="mr-1.5 h-3.5 w-3.5" />
-            {ro.events.detail.edit}
-          </Link>
-        </Button>
+        <EditEventButton event={eventForEdit} className="h-9 text-xs" />
       ) : null}
       <Button variant="outline" className="h-9 text-xs" asChild>
         <Link href={`/dashboard/events/${event.id}/settings/calendar`}>

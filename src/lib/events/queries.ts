@@ -94,3 +94,26 @@ export async function getEventListStats(
 
   return stats;
 }
+
+export async function getEventGodparentNames(eventId: string): Promise<{
+  godparent1_name: string | null;
+  godparent2_name: string | null;
+}> {
+  const supabase = await createClient();
+  const { data: existingGuests } = await supabase
+    .from("guests")
+    .select("first_name, last_name, parent_id, tags")
+    .eq("event_id", eventId);
+
+  const godparents = existingGuests?.filter((g) => g.tags?.includes("godparents")) ?? [];
+  const existingGodfather = godparents.find((g) => !g.parent_id);
+  const existingGodmother = godparents.find((g) => g.parent_id);
+
+  const formatGuestName = (guest: { first_name: string; last_name: string | null }) =>
+    [guest.last_name, guest.first_name].filter(Boolean).join(" ") || null;
+
+  return {
+    godparent1_name: existingGodfather ? formatGuestName(existingGodfather) : null,
+    godparent2_name: existingGodmother ? formatGuestName(existingGodmother) : null,
+  };
+}

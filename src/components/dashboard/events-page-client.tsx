@@ -1,10 +1,9 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useState } from "react";
 
-import { EventCard } from "@/components/dashboard/event-card";
-import { EventFormDialog } from "@/components/dashboard/event-form-dialog";
+import { EventCardsGrid } from "@/components/dashboard/event-cards-grid";
+import { useEventFormDialog } from "@/components/dashboard/use-event-form-dialog";
 import { Button } from "@/components/ui/button";
 import type { EventListStats } from "@/lib/events/queries";
 import { ro } from "@/lib/i18n/ro";
@@ -17,25 +16,7 @@ type EventsPageClientProps = {
 };
 
 export function EventsPageClient({ events, stats, activeEventId }: EventsPageClientProps) {
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editEvent, setEditEvent] = useState<EventRow | null>(null);
-
-  function openCreateDialog() {
-    setEditEvent(null);
-    setDialogOpen(true);
-  }
-
-  function openEditDialog(event: EventRow) {
-    setEditEvent(event);
-    setDialogOpen(true);
-  }
-
-  function handleDialogOpenChange(open: boolean) {
-    setDialogOpen(open);
-    if (!open) {
-      setEditEvent(null);
-    }
-  }
+  const { openCreateDialog, openEditDialog, dialog } = useEventFormDialog();
 
   return (
     <>
@@ -57,25 +38,15 @@ export function EventsPageClient({ events, stats, activeEventId }: EventsPageCli
           </Button>
         </div>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {events.map((event, index) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              stats={stats[event.id]}
-              isActive={activeEventId === event.id}
-              index={index}
-              onEdit={openEditDialog}
-            />
-          ))}
-        </div>
+        <EventCardsGrid
+          events={events}
+          stats={stats}
+          activeEventId={activeEventId}
+          onEdit={openEditDialog}
+        />
       )}
 
-      <EventFormDialog
-        open={dialogOpen}
-        onOpenChange={handleDialogOpenChange}
-        event={editEvent}
-      />
+      {dialog}
     </>
   );
 }

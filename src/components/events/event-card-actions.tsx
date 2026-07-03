@@ -35,11 +35,7 @@ export function EventCardActions({ eventId, className, onEdit }: EventCardAction
 
   function handleEdit() {
     setMenuOpen(false);
-    if (onEdit) {
-      onEdit();
-      return;
-    }
-    router.push(`/dashboard/events/${eventId}/edit`);
+    onEdit?.();
   }
 
   function handleDeleteConfirm() {
@@ -66,7 +62,9 @@ export function EventCardActions({ eventId, className, onEdit }: EventCardAction
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[10rem]">
           <DropdownMenuItem onSelect={handleOpen}>{ro.events.list.open}</DropdownMenuItem>
-          <DropdownMenuItem onSelect={handleEdit}>{ro.events.list.edit}</DropdownMenuItem>
+          {onEdit ? (
+            <DropdownMenuItem onSelect={handleEdit}>{ro.events.list.edit}</DropdownMenuItem>
+          ) : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"

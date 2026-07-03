@@ -10,6 +10,11 @@ import {
 import { assertEventAccess, assertEventPermission } from "@/lib/events/assert-event-access";
 import { buildEventTitleFromForm, parseNameFieldsFromFormData } from "@/lib/events/event-title";
 import {
+  eventNameFieldsForDb,
+  insertEventWithCompatibility,
+  updateEventWithCompatibility,
+} from "@/lib/events/db-compat";
+import {
   isBaptismType,
   isMajoratType,
   isWeddingType,
@@ -112,22 +117,18 @@ export async function createEvent(
 
   if (!user) redirect("/login");
 
-  const { data, error } = await supabase
-    .from("events")
-    .insert({
-      user_id: user.id,
-      title,
-      event_type: eventType,
-      event_date: eventDate,
-      venue,
-      description,
-      ...nameFields,
-    })
-    .select("id")
-    .single();
+  const dbNameFields = eventNameFieldsForDb(nameFields);
+  const { data, error } = await insertEventWithCompatibility(supabase, eventType, {
+    user_id: user.id,
+    title,
+    event_date: eventDate,
+    venue,
+    description,
+    ...dbNameFields,
+  });
 
-  if (error) {
-    if (error.message.includes("relation") || error.code === "42P01") {
+  if (error || !data) {
+    if (error?.message?.includes("relation") || error?.code === "42P01") {
       return { error: ro.events.errors.tableMissing };
     }
     return { error: ro.events.errors.saveFailed };
@@ -185,17 +186,14 @@ export async function updateEvent(
   if (!auth.ok) return { error: auth.error };
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("events")
-    .update({
-      title,
-      event_type: eventType,
-      event_date: eventDate,
-      venue,
-      description,
-      ...nameFields,
-    })
-    .eq("id", eventId);
+  const dbNameFields = eventNameFieldsForDb(nameFields);
+  const { error } = await updateEventWithCompatibility(supabase, eventId, eventType, {
+    title,
+    event_date: eventDate,
+    venue,
+    description,
+    ...dbNameFields,
+  });
 
   if (error) {
     return { error: ro.events.errors.saveFailed };

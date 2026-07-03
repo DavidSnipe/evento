@@ -4,7 +4,6 @@ import { CalendarHeart, PiggyBank, Users, UtensilsCrossed } from "lucide-react";
 import { DashboardFocus } from "@/components/dashboard/dashboard-focus";
 import { DashboardEventsSection } from "@/components/dashboard/dashboard-events-section";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
-import { EventCard } from "@/components/events/event-card";
 import { DashboardPage } from "@/components/layout/animated-page";
 import { DashboardStatsMotion } from "@/components/motion/dashboard-stats-motion";
 import { PageHeader } from "@/components/nuntiki/page-header";

@@ -26,6 +26,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { buildEventTitleFromForm } from "@/lib/events/event-title";
 import {
   DIALOG_EVENT_TYPE_OPTIONS,
+  getEventTypeIconFile,
   isBaptismType,
   isMajoratType,
   isWeddingType,
@@ -216,9 +217,13 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
             {isEdit && eventType ? (
               <div className="space-y-2">
                 <div className="flex min-h-[80px] items-center justify-center gap-2 rounded-xl border-2 border-primary bg-primary/8 px-4">
-                  <span className="text-2xl" aria-hidden>
-                    {DIALOG_EVENT_TYPE_OPTIONS.find((o) => o.value === eventType)?.emoji}
-                  </span>
+                  <img
+                    src={`/icons/emoji/${getEventTypeIconFile(eventType)}`}
+                    alt={DIALOG_EVENT_TYPE_OPTIONS.find((o) => o.value === eventType)?.label ?? ""}
+                    width={40}
+                    height={40}
+                    className="mx-auto mb-2"
+                  />
                   <span className="text-sm font-semibold">
                     {DIALOG_EVENT_TYPE_OPTIONS.find((o) => o.value === eventType)?.label}
                   </span>
@@ -241,9 +246,13 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
                           : "border-border bg-white hover:border-primary/40"
                       )}
                     >
-                      <span className="text-xl" aria-hidden>
-                        {option.emoji}
-                      </span>
+                      <img
+                        src={`/icons/emoji/${option.iconFile}`}
+                        alt={option.label}
+                        width={40}
+                        height={40}
+                        className="mx-auto mb-2"
+                      />
                       <span className="text-xs font-medium leading-tight">{option.label}</span>
                       {isSelected ? (
                         <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">

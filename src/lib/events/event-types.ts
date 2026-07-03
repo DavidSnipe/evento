@@ -36,18 +36,64 @@ export type EventTypeCardOption = {
   value: EventType;
   label: string;
   emoji: string;
+  iconFile: string;
+};
+
+/** Fluent Emoji 3D SVG filenames in /public/icons/emoji/ */
+export const EVENT_TYPE_ICON_FILES: Record<EventType, string> = {
+  nunta: "ring.svg",
+  cununie_civila: "handshake.svg",
+  botez: "cherry-blossom.svg",
+  majorat: "sparkles.svg",
+  zi_de_nastere: "birthday-cake.svg",
+  aniversare: "family.svg",
+  corporate: "microphone.svg",
+  eveniment_public: "star.svg",
 };
 
 export const DIALOG_EVENT_TYPE_OPTIONS: EventTypeCardOption[] = [
-  { value: "nunta", label: ro.events.types.nunta, emoji: "💍" },
-  { value: "cununie_civila", label: ro.events.types.cununie_civila, emoji: "📋" },
-  { value: "botez", label: ro.events.types.botez, emoji: "🕊️" },
-  { value: "majorat", label: ro.events.types.majorat, emoji: "🎉" },
-  { value: "zi_de_nastere", label: ro.events.types.zi_de_nastere, emoji: "🎂" },
-  { value: "aniversare", label: ro.events.types.aniversare, emoji: "💑" },
-  { value: "corporate", label: ro.events.types.corporate, emoji: "💼" },
-  { value: "eveniment_public", label: ro.events.types.eveniment_public, emoji: "🌐" },
+  { value: "nunta", label: ro.events.types.nunta, emoji: "💍", iconFile: EVENT_TYPE_ICON_FILES.nunta },
+  {
+    value: "cununie_civila",
+    label: ro.events.types.cununie_civila,
+    emoji: "📋",
+    iconFile: EVENT_TYPE_ICON_FILES.cununie_civila,
+  },
+  { value: "botez", label: ro.events.types.botez, emoji: "🕊️", iconFile: EVENT_TYPE_ICON_FILES.botez },
+  { value: "majorat", label: ro.events.types.majorat, emoji: "🎉", iconFile: EVENT_TYPE_ICON_FILES.majorat },
+  {
+    value: "zi_de_nastere",
+    label: ro.events.types.zi_de_nastere,
+    emoji: "🎂",
+    iconFile: EVENT_TYPE_ICON_FILES.zi_de_nastere,
+  },
+  {
+    value: "aniversare",
+    label: ro.events.types.aniversare,
+    emoji: "💑",
+    iconFile: EVENT_TYPE_ICON_FILES.aniversare,
+  },
+  {
+    value: "corporate",
+    label: ro.events.types.corporate,
+    emoji: "💼",
+    iconFile: EVENT_TYPE_ICON_FILES.corporate,
+  },
+  {
+    value: "eveniment_public",
+    label: ro.events.types.eveniment_public,
+    emoji: "🌐",
+    iconFile: EVENT_TYPE_ICON_FILES.eveniment_public,
+  },
 ];
+
+export function getEventTypeIconFile(eventType: string): string {
+  const normalized = normalizeEventType(eventType);
+  if (normalized && EVENT_TYPE_ICON_FILES[normalized]) {
+    return EVENT_TYPE_ICON_FILES[normalized];
+  }
+  return "star.svg";
+}
 
 export function normalizeEventType(value: string | null | undefined): EventType | null {
   if (!value) return null;

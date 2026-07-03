@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { getDashboardSummary } from "@/lib/dashboard/queries";
 import type { DashboardSummary } from "@/lib/dashboard/queries";
 import { reconcileActiveEventAccess } from "@/lib/events/active-event-access";
-import { getPrimaryEvent, getUserEvents } from "@/lib/events/queries";
+import { getEventListStats, getPrimaryEvent, getUserEvents } from "@/lib/events/queries";
 import { formatDaysUntil, getDaysUntil } from "@/lib/events/utils";
 import { ro } from "@/lib/i18n/ro";
 import { getServerUser } from "@/lib/supabase/server-auth";
@@ -124,6 +124,7 @@ export default async function DashboardPageRoute() {
     : primaryEvent;
 
   const summary = statsEvent ? await getDashboardSummary(statsEvent.id) : null;
+  const listStats = await getEventListStats(events.map((event) => event.id));
 
   const focusDays = statsEvent ? getDaysUntil(statsEvent.event_date) : null;
   const primaryDays = primaryEvent ? getDaysUntil(primaryEvent.event_date) : null;
@@ -209,6 +210,7 @@ export default async function DashboardPageRoute() {
                   <EventCard
                     key={event.id}
                     event={event}
+                    stats={listStats[event.id]}
                     isActive={activeEventId === event.id}
                     index={index}
                   />

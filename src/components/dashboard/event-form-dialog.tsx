@@ -47,7 +47,9 @@ type EventFormDialogProps = {
 };
 
 const initialState: EventFormState = {};
-const TOTAL_STEPS = 3;
+
+const textareaClassName =
+  "flex min-h-[100px] w-full rounded-[10px] border border-[rgba(210,170,185,0.25)] bg-[#F3F3F5] px-3.5 py-2.5 text-[12.5px] transition-all duration-200 ease-out placeholder:text-text-subtle focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#B8516B]/10 focus-visible:border-[#B8516B]/40 disabled:cursor-not-allowed disabled:opacity-50 text-[#1A0E14]";
 
 export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDialogProps) {
   const router = useRouter();
@@ -56,7 +58,6 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
   const action = isEdit && boundUpdate ? boundUpdate : createEvent;
   const [state, formAction, pending] = useActionState(action, initialState);
 
-  const [step, setStep] = useState(1);
   const [eventType, setEventType] = useState<EventType | null>(
     event ? normalizeEventType(event.event_type) : null
   );
@@ -83,6 +84,7 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
   );
 
   const [venue, setVenue] = useState(event?.venue ?? "");
+  const [description, setDescription] = useState(event?.description ?? "");
   const [hasGodparents, setHasGodparents] = useState(
     Boolean(event?.godparent1_name || event?.godparent2_name)
   );
@@ -94,7 +96,6 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
     if (event) {
       const type = normalizeEventType(event.event_type);
       setEventType(type);
-      setStep(1);
       setDate(event.event_date ? new Date(`${event.event_date}T12:00:00`) : undefined);
       setGroomFirstName(event.groom_first_name ?? "");
       setGroomLastName(event.groom_last_name ?? "");
@@ -106,11 +107,11 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
       setChildFirstName(event.child_first_name ?? "");
       setManualTitle(type && usesManualTitle(type) ? event.title : "");
       setVenue(event.venue ?? "");
+      setDescription(event.description ?? "");
       setHasGodparents(Boolean(event.godparent1_name || event.godparent2_name));
       setGodfatherName(event.godparent1_name ?? "");
       setGodmotherName(event.godparent2_name ?? "");
     } else {
-      setStep(1);
       setEventType(null);
       setDate(undefined);
       setGroomFirstName("");
@@ -123,6 +124,7 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
       setChildFirstName("");
       setManualTitle("");
       setVenue("");
+      setDescription("");
       setHasGodparents(false);
       setGodfatherName("");
       setGodmotherName("");
@@ -181,42 +183,11 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
     setBrideLastName(value);
   };
 
-  const canContinueStep1 = Boolean(eventType);
-  const canContinueStep2 = useMemo(() => {
-    if (!eventType) return false;
-    if (isWeddingType(eventType)) {
-      return (
-        groomFirstName.trim() &&
-        groomLastName.trim() &&
-        brideFirstName.trim() &&
-        brideLastName.trim()
-      );
-    }
-    if (isBaptismType(eventType)) {
-      return motherFirstName.trim() && fatherFirstName.trim() && familyLastName.trim();
-    }
-    if (isMajoratType(eventType)) {
-      return groomFirstName.trim().length > 0;
-    }
-    if (usesManualTitle(eventType)) {
-      return manualTitle.trim().length > 0;
-    }
-    return true;
-  }, [
-    eventType,
-    groomFirstName,
-    groomLastName,
-    brideFirstName,
-    brideLastName,
-    motherFirstName,
-    fatherFirstName,
-    familyLastName,
-    manualTitle,
-  ]);
-
-  const stepIndicator = ro.events.form.stepIndicator
-    .replace("{current}", String(step))
-    .replace("{total}", String(TOTAL_STEPS));
+  const submitLabel = pending
+    ? ro.auth.pleaseWait
+    : isEdit
+      ? ro.events.form.saveChanges
+      : ro.events.form.save;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -226,13 +197,8 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
         className="max-h-[90vh] max-w-lg overflow-y-auto rounded-2xl border-0 bg-white p-6 shadow-xl sm:max-w-lg"
       >
         <DialogHeader className="gap-1">
-          <p className="text-xs font-medium text-muted-foreground">{stepIndicator}</p>
           <DialogTitle className="text-xl font-semibold">
-            {step === 1
-              ? ro.events.form.stepTypeTitle
-              : step === 2
-                ? ro.events.form.chooseType
-                : ro.events.form.date}
+            {isEdit ? ro.events.editTitle : ro.events.createTitle}
           </DialogTitle>
           <DialogDescription className="sr-only">
             {isEdit ? ro.events.editSubtitle : ro.events.createSubtitle}
@@ -243,76 +209,57 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
           <input type="hidden" name="skip_redirect" value="true" />
           <input type="hidden" name="event_type" value={eventType ?? ""} />
           <input type="hidden" name="event_date" value={date ? format(date, "yyyy-MM-dd") : ""} />
-          {step === 3 ? (
-            <>
-              <input type="hidden" name="groom_first_name" value={groomFirstName} />
-              <input type="hidden" name="groom_last_name" value={groomLastName} />
-              <input type="hidden" name="bride_first_name" value={brideFirstName} />
-              <input type="hidden" name="bride_last_name" value={brideLastName} />
-              <input type="hidden" name="parent1_first_name" value={motherFirstName} />
-              <input type="hidden" name="parent1_last_name" value={familyLastName} />
-              <input type="hidden" name="parent2_first_name" value={fatherFirstName} />
-              <input type="hidden" name="parent2_last_name" value={familyLastName} />
-              <input type="hidden" name="child_first_name" value={childFirstName} />
-              {usesManualTitle(eventType ?? "nunta") ? (
-                <input type="hidden" name="title" value={manualTitle} />
-              ) : null}
-              <input type="hidden" name="venue" value={venue} />
-              {hasGodparents ? <input type="hidden" name="has_godparents" value="on" /> : null}
-              <input type="hidden" name="godfather_name" value={godfatherName} />
-              <input type="hidden" name="godmother_name" value={godmotherName} />
-            </>
-          ) : null}
 
-          {step === 1 ? (
-            <section className="space-y-3">
-              {isEdit && eventType ? (
-                <div className="space-y-2">
-                  <div className="flex min-h-[80px] items-center justify-center gap-2 rounded-xl border-2 border-primary bg-primary/8 px-4">
-                    <span className="text-2xl" aria-hidden>
-                      {DIALOG_EVENT_TYPE_OPTIONS.find((o) => o.value === eventType)?.emoji}
-                    </span>
-                    <span className="text-sm font-semibold">
-                      {DIALOG_EVENT_TYPE_OPTIONS.find((o) => o.value === eventType)?.label}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{ro.events.form.typeReadOnlyNote}</p>
+          {/* 1. Event type */}
+          <section className="space-y-3">
+            <Label>{ro.events.form.type}</Label>
+            {isEdit && eventType ? (
+              <div className="space-y-2">
+                <div className="flex min-h-[80px] items-center justify-center gap-2 rounded-xl border-2 border-primary bg-primary/8 px-4">
+                  <span className="text-2xl" aria-hidden>
+                    {DIALOG_EVENT_TYPE_OPTIONS.find((o) => o.value === eventType)?.emoji}
+                  </span>
+                  <span className="text-sm font-semibold">
+                    {DIALOG_EVENT_TYPE_OPTIONS.find((o) => o.value === eventType)?.label}
+                  </span>
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {DIALOG_EVENT_TYPE_OPTIONS.map((option) => {
-                    const isSelected = eventType === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setEventType(option.value)}
-                        className={cn(
-                          "relative flex h-20 flex-col items-center justify-center gap-1 rounded-xl border px-2 text-center transition-all duration-200",
-                          isSelected
-                            ? "border-2 border-primary bg-primary/8"
-                            : "border-border bg-white hover:border-primary/40"
-                        )}
-                      >
-                        <span className="text-xl" aria-hidden>
-                          {option.emoji}
+                <p className="text-xs text-muted-foreground">{ro.events.form.typeReadOnlyNote}</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {DIALOG_EVENT_TYPE_OPTIONS.map((option) => {
+                  const isSelected = eventType === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setEventType(option.value)}
+                      className={cn(
+                        "relative flex h-20 flex-col items-center justify-center gap-1 rounded-xl border px-2 text-center transition-all duration-200",
+                        isSelected
+                          ? "border-2 border-primary bg-primary/8"
+                          : "border-border bg-white hover:border-primary/40"
+                      )}
+                    >
+                      <span className="text-xl" aria-hidden>
+                        {option.emoji}
+                      </span>
+                      <span className="text-xs font-medium leading-tight">{option.label}</span>
+                      {isSelected ? (
+                        <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
+                          <Check className="h-3 w-3" strokeWidth={3} />
                         </span>
-                        <span className="text-xs font-medium leading-tight">{option.label}</span>
-                        {isSelected ? (
-                          <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
-                            <Check className="h-3 w-3" strokeWidth={3} />
-                          </span>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-          ) : null}
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
-          {step === 2 && eventType ? (
-            <section className="space-y-5 animate-in fade-in duration-200">
+          {/* 2. Name fields */}
+          {eventType ? (
+            <section className="space-y-5">
               {isWeddingType(eventType) ? (
                 <>
                   <div className="space-y-3">
@@ -419,8 +366,8 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
                       </div>
                     </div>
                   </div>
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold">{ro.events.form.childFirstName}</h3>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="dlg_child_first_name">{ro.events.form.childFirstName}</Label>
                     <Input
                       id="dlg_child_first_name"
                       name="child_first_name"
@@ -474,6 +421,7 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
                   <Label htmlFor="dlg_manual_title">{ro.events.form.eventTitleLabel}</Label>
                   <Input
                     id="dlg_manual_title"
+                    name="title"
                     value={manualTitle}
                     onChange={(e) => setManualTitle(e.target.value)}
                     placeholder={ro.events.form.titlePlaceholder}
@@ -491,89 +439,102 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
             </section>
           ) : null}
 
-          {step === 3 && eventType ? (
-            <section className="space-y-5 animate-in fade-in duration-200">
-              <div className="space-y-2">
-                <Label>{ro.events.form.date}</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !date && "text-muted-foreground"
-                      )}
-                      disabled={pending}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? format(date, "PPP", { locale: roLocale }) : "Alege o dată"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={date} onSelect={setDate} locale={roLocale} />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="dlg_venue">{ro.events.form.venue}</Label>
-                <Input
-                  id="dlg_venue"
-                  name="venue"
-                  value={venue}
-                  onChange={(e) => setVenue(e.target.value)}
-                  placeholder={ro.events.form.venuePlaceholder}
+          {/* 3. Date */}
+          <section className="space-y-2">
+            <Label>{ro.events.form.date}</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !date && "text-muted-foreground"
+                  )}
                   disabled={pending}
-                />
-              </div>
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date ? format(date, "PPP", { locale: roLocale }) : "Alege o dată"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={date} onSelect={setDate} locale={roLocale} />
+              </PopoverContent>
+            </Popover>
+          </section>
 
-              {usesGodparentsSection(eventType) ? (
-                <div className="space-y-3 rounded-xl border p-4">
-                  <label className="flex items-center gap-2 text-sm font-medium">
-                    <input
-                      type="checkbox"
-                      name="has_godparents"
-                      checked={hasGodparents}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setHasGodparents(checked);
-                        if (!checked) {
-                          setGodfatherName("");
-                          setGodmotherName("");
-                        }
-                      }}
+          {/* 4. Venue */}
+          <section className="space-y-1.5">
+            <Label htmlFor="dlg_venue">{ro.events.form.venue}</Label>
+            <Input
+              id="dlg_venue"
+              name="venue"
+              value={venue}
+              onChange={(e) => setVenue(e.target.value)}
+              placeholder={ro.events.form.venuePlaceholder}
+              disabled={pending}
+            />
+          </section>
+
+          {/* 5. Godparents */}
+          {eventType && usesGodparentsSection(eventType) ? (
+            <section className="space-y-3 rounded-xl border p-4">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  name="has_godparents"
+                  checked={hasGodparents}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setHasGodparents(checked);
+                    if (!checked) {
+                      setGodfatherName("");
+                      setGodmotherName("");
+                    }
+                  }}
+                />
+                {ro.events.form.addGodparents}
+              </label>
+              {hasGodparents ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="dlg_godfather">{ro.events.form.godfatherFirstName}</Label>
+                    <Input
+                      id="dlg_godfather"
+                      name="godfather_name"
+                      value={godfatherName}
+                      onChange={(e) => setGodfatherName(e.target.value)}
+                      disabled={pending}
                     />
-                    {ro.events.form.addGodparents}
-                  </label>
-                  {hasGodparents ? (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="dlg_godfather">{ro.events.form.godfatherFirstName}</Label>
-                        <Input
-                          id="dlg_godfather"
-                          name="godfather_name"
-                          value={godfatherName}
-                          onChange={(e) => setGodfatherName(e.target.value)}
-                          disabled={pending}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="dlg_godmother">{ro.events.form.godmotherFirstName}</Label>
-                        <Input
-                          id="dlg_godmother"
-                          name="godmother_name"
-                          value={godmotherName}
-                          onChange={(e) => setGodmotherName(e.target.value)}
-                          disabled={pending}
-                        />
-                      </div>
-                    </div>
-                  ) : null}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="dlg_godmother">{ro.events.form.godmotherFirstName}</Label>
+                    <Input
+                      id="dlg_godmother"
+                      name="godmother_name"
+                      value={godmotherName}
+                      onChange={(e) => setGodmotherName(e.target.value)}
+                      disabled={pending}
+                    />
+                  </div>
                 </div>
               ) : null}
             </section>
           ) : null}
+
+          {/* 6. Description */}
+          <section className="space-y-1.5">
+            <Label htmlFor="dlg_description">{ro.events.form.description}</Label>
+            <textarea
+              id="dlg_description"
+              name="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={ro.events.form.descriptionPlaceholder}
+              disabled={pending}
+              className={textareaClassName}
+            />
+          </section>
 
           {state.error ? (
             <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -581,36 +542,19 @@ export function EventFormDialog({ open, onOpenChange, event, mode }: EventFormDi
             </p>
           ) : null}
 
-          <div className="flex items-center justify-between gap-3 pt-2">
-            {step > 1 ? (
-              <Button type="button" variant="ghost" onClick={() => setStep((s) => s - 1)} disabled={pending}>
-                {ro.events.form.back}
-              </Button>
-            ) : (
-              <div />
-            )}
-
-            {step < TOTAL_STEPS ? (
-              <Button
-                type="button"
-                onClick={() => setStep((s) => s + 1)}
-                disabled={
-                  pending ||
-                  (step === 1 && !canContinueStep1) ||
-                  (step === 2 && !canContinueStep2)
-                }
-              >
-                {ro.events.form.continue}
-              </Button>
-            ) : (
-              <Button type="submit" disabled={pending || !date}>
-                {pending
-                  ? ro.auth.pleaseWait
-                  : isEdit
-                    ? ro.events.form.saveChanges
-                    : ro.events.form.create}
-              </Button>
-            )}
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              disabled={pending}
+              onClick={() => onOpenChange(false)}
+            >
+              {ro.events.form.cancel}
+            </Button>
+            <Button type="submit" className="w-full" disabled={pending || !eventType || !date}>
+              {submitLabel}
+            </Button>
           </div>
         </form>
       </DialogContent>
